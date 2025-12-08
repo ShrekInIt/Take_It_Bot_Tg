@@ -3,6 +3,8 @@ package com.example.bot.Telegram_bot_take_it.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.List;
+
 @Entity
 @Table(name = "product")
 @Data
@@ -39,4 +41,13 @@ public class Product {
     @ManyToOne
     @JoinColumn(name = "category_id", insertable = false, updatable = false)
     private Category category;
+
+    // Связь с добавками (когда этот продукт является основным)
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ProductAddon> addons;
+
+    // Связь с добавками (когда этот продукт является добавкой)
+    @OneToMany(mappedBy = "addonProduct", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ProductAddon> usedAsAddon;
+
 }

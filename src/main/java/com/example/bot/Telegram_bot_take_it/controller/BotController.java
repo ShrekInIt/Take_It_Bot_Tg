@@ -26,6 +26,10 @@ public class BotController {
     private final TelegramBot bot;
     private final CallbackHandlerController callbackHandler;
 
+    /**
+     * Основной метод обработки входящих обновлений от Telegram
+     * Распределяет обработку между сообщениями и callback-запросами
+     */
     public void handleUpdate(Update update) {
         try {
             if (update.message() != null) {
@@ -38,6 +42,9 @@ public class BotController {
         }
     }
 
+    /**
+     * Обработка входящих текстовых сообщений
+     */
     private void handleMessage(Message message) {
         Long chatId = message.chat().id();
         String text = message.text();
@@ -47,10 +54,16 @@ public class BotController {
         }
     }
 
+    /**
+     * Обработка callback-запросов от inline-кнопок
+     */
     private void handleCallbackQuery(CallbackQuery callbackQuery) {
         callbackHandler.handleCallbackQuery(callbackQuery);
     }
 
+    /**
+     * Обработка текстовых команд от пользователя
+     */
     private void handleCommand(Long chatId, String text) {
         String command = text.trim().toLowerCase();
 
@@ -64,20 +77,30 @@ public class BotController {
         }
     }
 
+    /**
+     * Обработка команды /start - приветствие пользователя
+     */
     private void handleStartCommand(Long chatId) {
         String welcomeText = Messages.HELLO_TEXT;
         sendMessage(chatId, welcomeText);
     }
 
+    /**
+     * Обработка команды /help - вывод справки
+     */
     private void handleHelpCommand(Long chatId) {
         String helpText = Messages.HELP_TEXT;
 
         sendMessage(chatId, helpText);
     }
 
+    /**
+     * Обработка команды /menu - вывод справки
+     */
     private void handleMenuCommand(Long chatId) {
         ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
 
+        // Отправляем сообщение с клавиатурой
         SendMessage request = new SendMessage(chatId.toString(), "🍽️ *Главное меню*\n\nВыберите действие:")
                 .parseMode(ParseMode.Markdown)
                 .replyMarkup(keyboard);
@@ -85,8 +108,16 @@ public class BotController {
         executeRequest(request, chatId);
     }
 
+    /**
+     * Обработка команды /menu - вывод главного меню с Reply-клавиатурой
+     */
     private void handleMenuCommandCategory(Long chatId) {
         InlineKeyboardMarkup keyboard = keyboardService.getCategoryKeyboard(null);
+
+        if (keyboard == null) {
+            sendMessage(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:\n\n📭 В настоящее время нет доступных категорий.");
+            return;
+        }
 
         SendMessage request = new SendMessage(chatId.toString(), "🍽️ *Главное меню*\n\nВыберите категорию:")
                 .parseMode(ParseMode.Markdown)
@@ -95,19 +126,20 @@ public class BotController {
         executeRequest(request, chatId);
     }
 
-
+    /**
+     * Отправка текстового сообщения пользователю
+     */
     private void sendMessage(Long chatId, String text) {
         SendMessage request = new SendMessage(chatId.toString(), text)
                 .parseMode(ParseMode.HTML);
 
-        responser(request, chatId);
+        responser(chatId, request);
     }
 
-    private void executeRequest(SendMessage request, Long chatId) {
-        responser(request, chatId);
-    }
-
-    private void responser(SendMessage request, Long chatId) {
+    /**
+     * Выполнение запроса на отправку сообщения с обработкой ошибок
+     */
+    private void responser(Long chatId, SendMessage request) {
         try {
             SendResponse response = bot.execute(request);
 
@@ -120,5 +152,12 @@ public class BotController {
         } catch (Exception e) {
             logger.error("⚠️ Network error for chatId {}: {}", chatId, e.getMessage());
         }
+    }
+
+    /**
+     * Обертка для выполнения запроса отправки сообщения
+     */
+    private void executeRequest(SendMessage request, Long chatId) {
+        responser(chatId, request);
     }
 }

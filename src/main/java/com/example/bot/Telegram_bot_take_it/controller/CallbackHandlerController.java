@@ -2,8 +2,8 @@ package com.example.bot.Telegram_bot_take_it.controller;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
-import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
+import com.example.bot.Telegram_bot_take_it.service.CategoryService;
+import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller
 @Slf4j
@@ -26,9 +27,12 @@ import java.util.List;
 public class CallbackHandlerController {
     private final TelegramBot bot;
     private final KeyboardService keyboardService;
-    private final CategoryRepository categoryRepository;
-    private final ProductRepository productRepository;
+    private final CategoryService categoryService;
+    private final ProductService productService;
 
+    /**
+     * Основной обработчик callback-запросов от inline-кнопок
+     */
     @SuppressWarnings("deprecation")
     public void handleCallbackQuery(CallbackQuery callbackQuery) {
         Message message = callbackQuery.message();
@@ -51,10 +55,13 @@ public class CallbackHandlerController {
             }
         } catch (Exception e) {
             log.error("Error handling callback: {}", e.getMessage(), e);
-            answerCallback(callbackQuery.id(), "Ошибка обработки запроса");
+            answerCallback(callbackQuery.id(), "❌ Ошибка обработки запроса");
         }
     }
 
+    /**
+     * Обработка callback-запросов для категорий
+     */
     private void handleCategoryCallback(Long chatId, Integer messageId, String data) {
         String categoryIdStr = data.substring("category_".length());
 
@@ -71,18 +78,29 @@ public class CallbackHandlerController {
         }
     }
 
+    /**
+     * Обработка callback-запросов для товаров
+     */
     private void handleProductCallback(Long chatId, String data) {
         String productIdStr = data.substring("product_".length());
         try {
             Long productId = Long.parseLong(productIdStr);
-            // Здесь будет логика добавления товара в корзину
-            // Пока просто отправляем сообщение
-            sendMessage(chatId, "✅ Товар добавлен в корзину!");
+            handleProductSelection(chatId, productId);
         } catch (NumberFormatException e) {
             sendMessage(chatId, "❌ Ошибка в данных товара");
         }
     }
 
+    /**
+     * Обработка выбора товара пользователем
+     */
+    private void handleProductSelection(Long chatId, Long productId) {
+
+    }
+
+    /**
+     * Показать корневые категории (главное меню категорий)
+     */
     private void showRootCategories(Long chatId, Integer messageId) {
         InlineKeyboardMarkup keyboard = keyboardService.getCategoryKeyboard(null);
 
@@ -95,45 +113,53 @@ public class CallbackHandlerController {
                 .parseMode(ParseMode.Markdown)
                 .replyMarkup(keyboard);
 
-        try {
-            bot.execute(editMessage);
-        } catch (Exception e) {
-            log.error("Error editing message: {}", e.getMessage());
-        }
+        executeEditMessage(chatId, editMessage);
     }
 
+    /**
+     * Показать содержимое категории: подкатегории и/или товары
+     */
     private void showCategory(Long chatId, Integer messageId, Long categoryId) {
-        Category category = categoryRepository.findById(categoryId).orElse(null);
+        // Используем CategoryService для получения информации о категории
+        Category category = categoryService.getCategoryById(categoryId);
         if (category == null) {
             sendMessage(chatId, "❌ Категория не найдена");
             return;
         }
 
-        boolean hasSubcategories = !categoryRepository
-                .findByParentIdAndIsActiveTrueOrderBySortOrder(categoryId).isEmpty();
+        // Проверяем активность категории
+        if (!category.isActive()) {
+            sendMessage(chatId, "📭 Эта категория временно недоступна");
+            return;
+        }
 
-        boolean hasProducts = !productRepository
-                .findByCategoryIdAndAvailableTrue(categoryId).isEmpty();
+        // Используем сервисы для проверки наличия подкатегорий и продуктов
+        boolean hasSubcategories = categoryService.hasActiveSubcategories(categoryId);
+        boolean hasProducts = productService.hasAvailableProductsInCategory(categoryId);
+
+        // Получаем подкатегории и продукты
+        List<Category> subcategories = hasSubcategories ? categoryService.getActiveSubcategories(categoryId) : List.of();
+        List<Product> products = hasProducts ? productService.getAvailableProductsWithStock(categoryId) : List.of();
 
         InlineKeyboardMarkup keyboard;
         String messageText;
 
         if (hasSubcategories && hasProducts) {
-            keyboard = getCombinedKeyboard(categoryId);
-            messageText = "☕ *" + category.getName() + "*\n\nВыберите подкатегорию или товар:";
+            keyboard = categoryService.createCombinedKeyboard(categoryId, subcategories, products);
+            messageText = categoryService.getCategoryDescription(category, true, true);
         } else if (hasSubcategories) {
             keyboard = keyboardService.getCategoryKeyboard(categoryId);
-            messageText = "☕ *" + category.getName() + "*\n\nВыберите подкатегорию:";
+            messageText = categoryService.getCategoryDescription(category, true, false);
         } else if (hasProducts) {
-            keyboard = keyboardService.getProductsKeyboard(categoryId);
-            messageText = "🛒 *" + category.getName() + "*\n\nВыберите товар:";
+            keyboard = keyboardService.getProductsWithQuantityKeyboard(categoryId);
+            messageText = categoryService.getCategoryDescription(category, false, true);
         } else {
-            sendMessage(chatId, "📭 В этой категории пока нет товаров");
+            sendMessage(chatId, "📭 В этой категории пока нет доступных товаров");
             return;
         }
 
         if (keyboard == null) {
-            sendMessage(chatId, "📭 В этой категории пока нет товаров");
+            sendMessage(chatId, "📭 В этой категории пока нет доступных товаров");
             return;
         }
 
@@ -141,46 +167,24 @@ public class CallbackHandlerController {
                 .parseMode(ParseMode.Markdown)
                 .replyMarkup(keyboard);
 
-        bot.execute(editMessage);
+        executeEditMessage(chatId, editMessage);
     }
 
-    private InlineKeyboardMarkup getCombinedKeyboard(Long categoryId) {
-        List<Category> subcategories = categoryRepository
-                .findByParentIdAndIsActiveTrueOrderBySortOrder(categoryId);
-
-        List<Product> products = productRepository
-                .findByCategoryIdAndAvailableTrue(categoryId);
-
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        for (Category subcategory : subcategories) {
-            InlineKeyboardButton button = new InlineKeyboardButton("📁 " + subcategory.getName())
-                    .callbackData("category_" + subcategory.getId());
-            keyboard.addRow(button);
+    /**
+     * Выполнить редактирование сообщения с новой клавиатурой
+     */
+    private void executeEditMessage(Long chatId, EditMessageText editMessage) {
+        try {
+            bot.execute(editMessage);
+        } catch (Exception e) {
+            log.error("Error editing message for chat {}: {}", chatId, e.getMessage());
+            sendMessage(chatId, "❌ Ошибка при обновлении сообщения");
         }
-
-        for (Product product : products) {
-            String buttonText = String.format("🛒 %s - %d₽",
-                    product.getName(),
-                    product.getAmount());
-
-            InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
-                    .callbackData("product_" + product.getId());
-
-            keyboard.addRow(button);
-        }
-
-        Category category = categoryRepository.findById(categoryId).orElse(null);
-        if (category != null) {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("◀️ Назад")
-                    .callbackData("category_" + category.getParentId());
-            keyboard.addRow(backButton);
-
-        }
-
-        return keyboard;
     }
 
+    /**
+     * Отправить текстовое сообщение пользователю
+     */
     private void sendMessage(Long chatId, String text) {
         SendMessage message = new SendMessage(chatId.toString(), text)
                 .parseMode(ParseMode.Markdown);
@@ -192,6 +196,9 @@ public class CallbackHandlerController {
         }
     }
 
+    /**
+     * Ответить на callback-запрос (подтвердить получение)
+     */
     private void answerCallback(String callbackId, String text) {
         AnswerCallbackQuery answer = new AnswerCallbackQuery(callbackId);
 
