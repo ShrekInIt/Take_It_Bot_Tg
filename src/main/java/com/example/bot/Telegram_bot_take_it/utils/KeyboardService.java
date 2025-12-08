@@ -65,11 +65,11 @@ public class KeyboardService {
      */
     public static void method(InlineKeyboardMarkup keyboardMarkup, Category currentCategory) {
         if (currentCategory != null && currentCategory.getParentId() != null) {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("◀️ Назад")
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
                     .callbackData("category_" + currentCategory.getParentId());
             keyboardMarkup.addRow(backButton);
         } else if (currentCategory != null) {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("🏠 Главное меню")
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Главное меню")
                     .callbackData("category_null");
             keyboardMarkup.addRow(backButton);
         }
@@ -106,7 +106,7 @@ public class KeyboardService {
         // Добавляем кнопку "Назад"
         var category = categoryService.getCategoryById(categoryId);
         if (category != null && category.getParentId() != null) {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("◀️ Назад")
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
                     .callbackData("category_" + category.getParentId());
             keyboard.addRow(backButton);
         }

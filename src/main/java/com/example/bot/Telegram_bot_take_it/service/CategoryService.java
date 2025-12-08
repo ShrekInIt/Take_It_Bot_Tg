@@ -91,12 +91,4 @@ public class CategoryService {
     public List<Category> getActiveRootCategories() {
         return categoryRepository.findByParentIdIsNullAndIsActiveTrueOrderBySortOrder();
     }
-
-
-    /**
-     * Проверить, есть ли активные подкатегории
-     */
-    public boolean hasActiveSubcategories(Long categoryId) {
-        return categoryRepository.hasActiveSubcategories(categoryId);
-    }
 }

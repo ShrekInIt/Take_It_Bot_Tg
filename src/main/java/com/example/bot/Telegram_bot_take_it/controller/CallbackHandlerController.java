@@ -8,7 +8,6 @@ import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
@@ -19,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Controller
 @Slf4j
@@ -120,7 +118,6 @@ public class CallbackHandlerController {
      * Показать содержимое категории: подкатегории и/или товары
      */
     private void showCategory(Long chatId, Integer messageId, Long categoryId) {
-        // Используем CategoryService для получения информации о категории
         Category category = categoryService.getCategoryById(categoryId);
         if (category == null) {
             sendMessage(chatId, "❌ Категория не найдена");
@@ -134,40 +131,50 @@ public class CallbackHandlerController {
         }
 
         // Используем сервисы для проверки наличия подкатегорий и продуктов
-        boolean hasSubcategories = categoryService.hasActiveSubcategories(categoryId);
+        List<Category> subcategories = categoryService.getActiveSubcategories(categoryId);
+
+        boolean hasSubcategories = !subcategories.isEmpty();
+
+        // Получаем товары (уже проверенные на доступность и количество)
+        List<Product> products = productService.getAvailableProductsWithStock(categoryId);
+
         boolean hasProducts = productService.hasAvailableProductsInCategory(categoryId);
 
-        // Получаем подкатегории и продукты
-        List<Category> subcategories = hasSubcategories ? categoryService.getActiveSubcategories(categoryId) : List.of();
-        List<Product> products = hasProducts ? productService.getAvailableProductsWithStock(categoryId) : List.of();
-
-        InlineKeyboardMarkup keyboard;
-        String messageText;
-
+        // Теперь логика будет корректной
         if (hasSubcategories && hasProducts) {
-            keyboard = categoryService.createCombinedKeyboard(categoryId, subcategories, products);
-            messageText = categoryService.getCategoryDescription(category, true, true);
+            // Есть и подкатегории (после фильтрации) и товары
+            InlineKeyboardMarkup keyboard = categoryService.createCombinedKeyboard(categoryId, subcategories, products);
+            String messageText = categoryService.getCategoryDescription(category, true, true);
+
+            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+            executeEditMessage(chatId, editMessage);
+
         } else if (hasSubcategories) {
-            keyboard = keyboardService.getCategoryKeyboard(categoryId);
-            messageText = categoryService.getCategoryDescription(category, true, false);
+            // Только подкатегории
+            InlineKeyboardMarkup keyboard = keyboardService.getCategoryKeyboard(categoryId);
+            String messageText = categoryService.getCategoryDescription(category, true, false);
+
+            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+            executeEditMessage(chatId, editMessage);
+
         } else if (hasProducts) {
-            keyboard = keyboardService.getProductsWithQuantityKeyboard(categoryId);
-            messageText = categoryService.getCategoryDescription(category, false, true);
+            // Только товары
+            InlineKeyboardMarkup keyboard = keyboardService.getProductsWithQuantityKeyboard(categoryId);
+            String messageText = categoryService.getCategoryDescription(category, false, true);
+
+            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+            executeEditMessage(chatId, editMessage);
+
         } else {
+            // Ничего нет
             sendMessage(chatId, "📭 В этой категории пока нет доступных товаров");
-            return;
         }
-
-        if (keyboard == null) {
-            sendMessage(chatId, "📭 В этой категории пока нет доступных товаров");
-            return;
-        }
-
-        EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        executeEditMessage(chatId, editMessage);
     }
 
     /**
