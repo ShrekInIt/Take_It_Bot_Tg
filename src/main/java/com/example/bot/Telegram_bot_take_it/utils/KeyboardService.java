@@ -1,7 +1,11 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
+import com.example.bot.Telegram_bot_take_it.entity.CartItem;
+import com.example.bot.Telegram_bot_take_it.entity.CartItemAddon;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
+import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
+import com.example.bot.Telegram_bot_take_it.service.ProductAddonService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
@@ -12,6 +16,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -19,6 +30,133 @@ public class KeyboardService {
 
     private final CategoryService categoryService;
     private final ProductService productService;
+
+    // Кэш для фото: путь → байты
+    private final Map<String, byte[]> photoCache = new ConcurrentHashMap<>();
+
+    /**
+     * Список названий кофе, для которых НЕ нужны добавки
+     */
+    private static final Set<String> COFFEE_WITHOUT_ADDONS = Set.of(
+            "Эспрессо", "Американо"
+    );
+
+    /**
+     * Проверить, нужны ли добавки для продукта
+     */
+    public boolean needsAddons(Product product) {
+        if (product == null) {
+            return false;
+        }
+
+        boolean isCoffee = categoryService.isCoffeeCategoryById(product.getCategoryId());
+        if (!isCoffee) {
+            return false;
+        }
+
+        // Проверяем исключения по названию
+        String productName = product.getName().toLowerCase();
+
+        if (COFFEE_WITHOUT_ADDONS.stream()
+                .anyMatch(ex -> productName.contains(ex.toLowerCase()))) {
+            return false;
+        }
+
+        Set<Long> excludedIds = Set.of(4L, 9L);
+        return !excludedIds.contains(product.getId());
+    }
+
+    /**
+     * Создать клавиатуру для товара (только кнопки!)
+     */
+    public InlineKeyboardMarkup createProductKeyboard(Product product, int quantity) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        Long productId = product.getId();
+        Long categoryId = product.getCategoryId();
+
+        InlineKeyboardButton minusButton = new InlineKeyboardButton("➖")
+                .callbackData("quantity_minus_" + productId + "_" + quantity);
+
+        // ИЗМЕНЕНИЕ: добавляем количество в callback, чтобы знать текущее значение
+        InlineKeyboardButton quantityButton = new InlineKeyboardButton(quantity + " шт")
+                .callbackData("quantity_display_" + productId + "_" + quantity); // ← Добавляем количество
+
+        InlineKeyboardButton plusButton = new InlineKeyboardButton("➕")
+                .callbackData("quantity_plus_" + productId + "_" + quantity);
+
+        keyboard.addRow(minusButton, quantityButton, plusButton);
+
+        if (needsAddons(product)) {
+            InlineKeyboardButton addonsButton = new InlineKeyboardButton("🍯 Добавки")
+                    .callbackData("addons_" + productId + "_" + quantity);
+            keyboard.addRow(addonsButton);
+        }
+
+        // Кнопка добавления в корзину (обновляем данные)
+        InlineKeyboardButton addToCartButton = new InlineKeyboardButton("🛒 Добавить в корзину")
+                .callbackData("add_to_cart_" + productId + "_" + quantity);
+
+        keyboard.addRow(addToCartButton);
+
+        // Кнопка быстрого перехода в корзину
+        InlineKeyboardButton basketButton = new InlineKeyboardButton("🛒 В корзину")
+                .callbackData("back_to_cart");
+        keyboard.addRow(basketButton);
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                .callbackData("category_" + categoryId);
+
+        keyboard.addRow(backButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Прочитать файл из пути в поле photo
+     */
+    public byte[] readPhotoFile(String photoPath) {
+        if (photoPath == null || photoPath.isEmpty()) {
+            return null;
+        }
+
+        // Проверяем кэш
+        if (photoCache.containsKey(photoPath)) {
+            log.debug("Фото из кэша: {}", photoPath);
+            return photoCache.get(photoPath);
+        }
+
+        try {
+            byte[] photoBytes = null;
+
+            // 1. Попробовать из файловой системы
+            java.io.File file = new java.io.File(photoPath);
+            if (file.exists() && file.isFile()) {
+                photoBytes = Files.readAllBytes(file.toPath());
+                log.debug("Фото загружено с диска: {} ({} байт)", photoPath, photoBytes.length);
+            }
+            // 2. Попробовать из ресурсов
+            else {
+                String resourcePath = photoPath.replace("src/main/resources/", "");
+                try (InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+                    if (stream != null) {
+                        photoBytes = stream.readAllBytes();
+                        log.debug("Фото загружено из ресурсов: {} ({} байт)", resourcePath, photoBytes.length);
+                    }
+                }
+            }
+
+            // Кэшируем результат (даже если null)
+            photoCache.put(photoPath, photoBytes);
+            return photoBytes;
+
+        } catch (Exception e) {
+            log.error("Ошибка чтения фото: {}", e.getMessage());
+            // Кэшируем null, чтобы не пытаться снова
+            photoCache.put(photoPath, null);
+            return null;
+        }
+    }
 
     /**
      * Создать клавиатуру с категориями для указанного родителя

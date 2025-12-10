@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -83,6 +84,33 @@ public class CategoryService {
         subs.removeIf(cat -> "Добавки".equals(cat.getName()));
 
         return subs;
+    }
+
+    /**
+     * Проверить, является ли категорией кофе (по id категории)
+     */
+    public boolean isCoffeeCategoryById(Long categoryId) {
+        Category category = getCategoryById(categoryId);
+        if (category == null) {
+            return false;
+        }
+
+        // Список ID категорий кофе и всех его подкатегорий
+        Set<Long> coffeeCategoryIds = Set.of(
+                3L,    // Кофе
+                5L,    // Капучино
+                6L,    // Раф
+                7L,    // Раф авторский
+                8L,    // Капучино(200)
+                9L,    // Раф(200)
+                10L,   // Раф авторский(200)
+                11L,   // Капучино(300)
+                12L,   // Раф(400)
+                13L,   // Раф авторский(400)
+                19L    // Добавки
+        );
+
+        return coffeeCategoryIds.contains(categoryId);
     }
 
     /**
