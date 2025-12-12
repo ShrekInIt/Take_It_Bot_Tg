@@ -21,13 +21,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Controller
 @Slf4j
 @RequiredArgsConstructor
+@Transactional
 public class CallbackHandlerController {
 
     private final TelegramBot bot;
@@ -35,6 +39,21 @@ public class CallbackHandlerController {
     private final CategoryService categoryService;
     private final ProductService productService;
     private final CartService cartService;
+
+    // Кэш для отслеживания типа последнего сообщения
+    private final Map<Long, String> lastMessageType = new ConcurrentHashMap<>();
+
+    // Метод для установки типа сообщения
+    private void setLastMessageType(Long chatId, String type) {
+        lastMessageType.put(chatId, type);
+    }
+
+    // Метод для получения предыдущего типа
+    private String getAndUpdateLastMessageType(Long chatId, String newType) {
+        String previous = lastMessageType.put(chatId, newType);
+        log.info("Last message type for chat {}: previous={}, new={}", chatId, previous, newType);
+        return previous;
+    }
 
     /**
      * Основной обработчик callback-запросов от inline-кнопок
@@ -713,8 +732,9 @@ public class CallbackHandlerController {
      * Обработка callback-запросов для категорий
      */
     private void handleCategoryCallback(Long chatId, Integer messageId, String data) {
-        String categoryIdStr = data.substring("category_".length());
 
+        String categoryIdStr = data.substring("category_".length());
+        System.out.println(categoryIdStr);
         if ("null".equals(categoryIdStr)) {
             showRootCategories(chatId, messageId);
             return;
@@ -733,11 +753,20 @@ public class CallbackHandlerController {
      * Обработка callback-запросов для товаров
      */
     private void handleProductCallback(Long chatId, String data) {
-        String productIdStr = data.substring("product_".length());
+        String productPart = data.substring("product_".length());
+        String[] parts = productPart.split("_");
+
         try {
-            Long productId = Long.parseLong(productIdStr);
-            log.info("Пользователь выбрал товар ID: {}", productId);
-            showProductDetails(chatId, productId); // Всегда начинаем с 1
+            Long productId = Long.parseLong(parts[0]);
+            Long sourceCategoryId = null;
+
+            // Если есть второй параметр - это sourceCategoryId
+            if (parts.length > 1 && !parts[1].isEmpty()) {
+                sourceCategoryId = Long.parseLong(parts[1]);
+            }
+
+            log.info("Пользователь выбрал товар ID: {}, из категории: {}", productId, sourceCategoryId);
+            showProductDetails(chatId, productId, sourceCategoryId);
         } catch (NumberFormatException e) {
             log.error("Ошибка в данных товара: {}", data);
             sendMessage(chatId, "❌ Ошибка в данных товара");
@@ -747,9 +776,11 @@ public class CallbackHandlerController {
     /**
      * Показать детали товара с фото и кнопками
      */
-    private void showProductDetails(Long chatId, Long productId) {
+    private void showProductDetails(Long chatId, Long productId, Long sourceCategoryId) {
         productService.getProductById(productId).ifPresentOrElse(
                 product -> {
+
+                    setLastMessageType(chatId, "product");
                     String caption = getString(product.getAmount(), product, 1);
 
                     // 2. Проверяем, нужны ли добавки
@@ -758,7 +789,7 @@ public class CallbackHandlerController {
                     }
 
                     // 3. Создаем клавиатуру (только кнопки!)
-                    InlineKeyboardMarkup keyboard = keyboardService.createProductKeyboard(product, 1);
+                    InlineKeyboardMarkup keyboard = keyboardService.createProductKeyboard(product, 1, sourceCategoryId);
 
                     // 4. Пытаемся отправить ФОТО с подписью и клавиатурой
                     if (product.getPhoto() != null && !product.getPhoto().isEmpty()) {
@@ -802,17 +833,16 @@ public class CallbackHandlerController {
             log.info("Chat ID: {}, Message ID: {}", chatId, messageId);
 
             String[] parts = data.split("_");
-            log.info("Parts: {}", Arrays.toString(parts));
 
-            if (parts.length < 4) {
+            if (parts.length < 6) {
                 log.error("Некорректный формат данных: {}", data);
-                answerCallback(callbackId, "❌ Ошибка в данных");
                 return;
             }
 
             String action = parts[1]; // "plus" или "minus"
             Long productId = Long.parseLong(parts[2]);
             int currentQuantity = Integer.parseInt(parts[3]);
+            Long sourceCategoryId = "null".equals(parts[4]) ? null : Long.parseLong(parts[4]);
 
             log.info("Действие: {}, Товар ID: {}, Текущее кол-во: {}", action, productId, currentQuantity);
 
@@ -849,7 +879,7 @@ public class CallbackHandlerController {
             }
 
             // Обновляем сообщение с новым количеством
-            updateProductMessage(chatId, messageId, productId, newQuantity);
+            updateProductMessageWithSource(chatId, messageId, productId, newQuantity, sourceCategoryId);
 
             log.info("✅ Сообщение обновлено с новым количеством: {}", newQuantity);
 
@@ -860,43 +890,120 @@ public class CallbackHandlerController {
     }
 
     /**
-     * Обновить сообщение с товаром с новым количеством
+     * Обновить сообщение с товаром с новым количеством и sourceCategoryId
      */
-    private void updateProductMessage(Long chatId, Integer messageId, Long productId, int quantity) {
-        productService.getProductById(productId).ifPresent(
-                product -> {
-                    String caption = getString(product.getAmount() * quantity, product, quantity);
+    private void updateProductMessageWithSource(Long chatId, Integer messageId, Long productId,
+                                                int quantity, Long sourceCategoryId) {
+        try {
+            productService.getProductById(productId).ifPresent(product -> {
+                String caption = getString(product.getAmount() * quantity, product, quantity);
 
-                    if (keyboardService.needsAddons(product)) {
-                        caption += "\n\n<i>К этому напитку можно добавить сиропы или альтернативное молоко</i>";
-                    }
+                if (keyboardService.needsAddons(product)) {
+                    caption += "\n\n<i>К этому напитку можно добавить сиропы или альтернативное молоко</i>";
+                }
 
-                    // Создаем обновленную клавиатуру
-                    InlineKeyboardMarkup keyboard = keyboardService.createProductKeyboard(product, quantity);
+                InlineKeyboardMarkup keyboard = keyboardService.createProductKeyboard(product, quantity, sourceCategoryId);
 
-                    try {
-                        // Пробуем отредактировать подпись к фото
-                        com.pengrad.telegrambot.request.EditMessageCaption editCaption =
-                                new com.pengrad.telegrambot.request.EditMessageCaption(chatId, messageId)
-                                        .caption(caption)
-                                        .parseMode(ParseMode.HTML)
-                                        .replyMarkup(keyboard);
+                // Для обновления товара (фото->фото или текст->текст) используем прямое редактирование
+                boolean editSuccess = false;
 
-                        bot.execute(editCaption);
-                    } catch (Exception e1) {
-                        // Если не получилось (значит, это текстовое сообщение), пробуем отредактировать текст
-                        try {
-                            EditMessageText editText = new EditMessageText(chatId, messageId, caption)
+                try {
+                    com.pengrad.telegrambot.request.EditMessageCaption editCaption =
+                            new com.pengrad.telegrambot.request.EditMessageCaption(chatId, messageId)
+                                    .caption(caption)
                                     .parseMode(ParseMode.HTML)
                                     .replyMarkup(keyboard);
 
-                            bot.execute(editText);
-                        } catch (Exception e2) {
-                            log.error("Ошибка редактирования сообщения: {}", e2.getMessage());
-                        }
+                    bot.execute(editCaption);
+                    editSuccess = true;
+                    log.info("Успешно обновлен caption товара");
+                } catch (Exception e1) {
+                    log.debug("Не удалось отредактировать caption товара, пробуем текст: {}", e1.getMessage());
+                }
+
+                if (!editSuccess) {
+                    try {
+                        EditMessageText editText = new EditMessageText(chatId, messageId, caption)
+                                .parseMode(ParseMode.HTML)
+                                .replyMarkup(keyboard);
+
+                        bot.execute(editText);
+                        editSuccess = true;
+                        log.info("Успешно обновлен текст товара");
+                    } catch (Exception e2) {
+                        log.error("Не удалось отредактировать текст товара: {}", e2.getMessage());
                     }
                 }
-        );
+
+                // Если редактирование не удалось, ТОЛЬКО ТОГДА заменяем
+                if (!editSuccess) {
+                    log.warn("Не удалось отредактировать товар, заменяем сообщение");
+                    replaceMessage(chatId, messageId, caption, keyboard);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Ошибка обновления товара: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Обновить сообщение с товаром с новым количеством
+     */
+    private void updateProductMessage(Long chatId, Integer messageId, Long productId, int quantity) {
+        try {
+            productService.getProductById(productId).ifPresent(product -> {
+                String caption = getString(product.getAmount() * quantity, product, quantity);
+
+                if (keyboardService.needsAddons(product)) {
+                    caption += "\n\n<i>К этому напитку можно добавить сиропы или альтернативное молоко</i>";
+                }
+
+                // ВАЖНО: Нужно получить sourceCategoryId из текущего сообщения
+                // Проблема: мы не знаем sourceCategoryId в этом методе
+
+                // Временное решение: используем null, но это не исправит навигацию
+                Long sourceCategoryId = null; // ← ЭТО ВРЕМЕННО!
+
+                // Правильное решение: передавать sourceCategoryId через callback данных
+                InlineKeyboardMarkup keyboard = keyboardService.createProductKeyboard(product, quantity, sourceCategoryId);
+
+                // Пробуем отредактировать
+                boolean editSuccess = false;
+
+                try {
+                    com.pengrad.telegrambot.request.EditMessageCaption editCaption =
+                            new com.pengrad.telegrambot.request.EditMessageCaption(chatId, messageId)
+                                    .caption(caption)
+                                    .parseMode(ParseMode.HTML)
+                                    .replyMarkup(keyboard);
+
+                    bot.execute(editCaption);
+                    editSuccess = true;
+                } catch (Exception e1) {
+                    log.debug("Не удалось отредактировать caption, пробуем текст");
+                }
+
+                if (!editSuccess) {
+                    try {
+                        EditMessageText editText = new EditMessageText(chatId, messageId, caption)
+                                .parseMode(ParseMode.HTML)
+                                .replyMarkup(keyboard);
+
+                        bot.execute(editText);
+                        editSuccess = true;
+                    } catch (Exception e2) {
+                        log.error("Не удалось отредактировать текст");
+                    }
+                }
+
+                // Если редактирование не удалось, заменяем сообщение
+                if (!editSuccess) {
+                    replaceMessage(chatId, messageId, caption, keyboard);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Ошибка обновления товара: {}", e.getMessage());
+        }
     }
 
     /**
@@ -936,63 +1043,157 @@ public class CallbackHandlerController {
     /**
      * Показать содержимое категории: подкатегории и/или товары
      */
-    private void showCategory(Long chatId, Integer messageId, Long categoryId) {
-        Category category = categoryService.getCategoryById(categoryId);
+    @Transactional(readOnly = true) // Добавьте эту аннотацию
+    protected void showCategory(Long chatId, Integer messageId, Long categoryId) {
+        log.info("showCategory: chatId={}, messageId={}, categoryId={}", chatId, messageId, categoryId);
+
+        Category category = categoryService.getCategoryWithParent(categoryId);
         if (category == null) {
+            log.warn("Category not found for id: {}", categoryId);
             sendMessage(chatId, "❌ Категория не найдена");
             return;
         }
 
-        // Проверяем активность категории
+        log.info("Found category: name={}, active={}", category.getName(), category.isActive());
+
         if (!category.isActive()) {
             sendMessage(chatId, "📭 Эта категория временно недоступна");
             return;
         }
 
-        // Используем сервисы для проверки наличия подкатегорий и продуктов
         List<Category> subcategories = categoryService.getActiveSubcategories(categoryId);
-
         boolean hasSubcategories = !subcategories.isEmpty();
-
-        // Получаем товары (уже проверенные на доступность и количество)
-        List<Product> products = productService.getAvailableProductsWithStock(categoryId);
-
         boolean hasProducts = productService.hasAvailableProductsInCategory(categoryId);
 
-        // Теперь логика будет корректной
+        // Определяем, пришли ли мы из товара
+        String previousType = getAndUpdateLastMessageType(chatId, "category");
+        boolean fromProduct = "product".equals(previousType);
+
+        log.info("Subcategories found: {}, Products available: {}", hasSubcategories, hasProducts);
+
         if (hasSubcategories && hasProducts) {
+            log.info("Path: Has both subcategories and products");
             // Есть и подкатегории (после фильтрации) и товары
+            List<Product> products = productService.getAvailableProductsWithStock(categoryId);
             InlineKeyboardMarkup keyboard = categoryService.createCombinedKeyboard(categoryId, subcategories, products);
             String messageText = categoryService.getCategoryDescription(category, true, true);
 
-            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-            executeEditMessage(chatId, editMessage);
+            smartUpdateMessage(chatId, messageId, messageText, keyboard, fromProduct);
 
         } else if (hasSubcategories) {
+            log.info("Path: Has only subcategories");
             // Только подкатегории
             InlineKeyboardMarkup keyboard = keyboardService.getCategoryKeyboard(categoryId);
             String messageText = categoryService.getCategoryDescription(category, true, false);
 
-            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-            executeEditMessage(chatId, editMessage);
+            smartUpdateMessage(chatId, messageId, messageText, keyboard, fromProduct);
 
         } else if (hasProducts) {
+            log.info("Path: Has only products");
             // Только товары
             InlineKeyboardMarkup keyboard = keyboardService.getProductsWithQuantityKeyboard(categoryId);
             String messageText = categoryService.getCategoryDescription(category, false, true);
 
-            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-            executeEditMessage(chatId, editMessage);
+            smartUpdateMessage(chatId, messageId, messageText, keyboard, fromProduct);
 
         } else {
+            log.warn("Path: No subcategories or products found!");
             // Ничего нет
             sendMessage(chatId, "📭 В этой категории пока нет доступных товаров");
+        }
+    }
+
+    /**
+     * Умное обновление сообщения: пробуем редактировать, учитывая тип сообщения
+     * @param fromProduct true, если переходим из товара в категорию
+     */
+    private void smartUpdateMessage(Long chatId, Integer messageId, String newText,
+                                    InlineKeyboardMarkup keyboard, boolean fromProduct) {
+        try {
+            // Если переходим из товара (фото) в категорию (текст),
+            // редактирование может не работать
+            if (fromProduct) {
+                log.info("Переход из товара в категорию, используем осторожное обновление");
+                // Пробуем отредактировать, но если не получится - заменяем
+                try {
+                    EditMessageText editMessage = new EditMessageText(chatId, messageId, newText)
+                            .parseMode(ParseMode.Markdown)
+                            .replyMarkup(keyboard);
+
+                    var response = bot.execute(editMessage);
+
+                    if (response.isOk()) {
+                        log.info("Успешно отредактировали фото->текст");
+                        return;
+                    } else {
+                        log.warn("EditMessage не удалось при переходе из товара, заменяем");
+                        replaceMessage(chatId, messageId, newText, keyboard);
+                    }
+                } catch (Exception e) {
+                    log.error("Ошибка при редактировании фото->текст: {}", e.getMessage());
+                    replaceMessage(chatId, messageId, newText, keyboard);
+                }
+            } else {
+                // Переход между категориями (текст->текст) - пробуем редактировать
+                EditMessageText editMessage = new EditMessageText(chatId, messageId, newText)
+                        .parseMode(ParseMode.Markdown)
+                        .replyMarkup(keyboard);
+
+                var response = bot.execute(editMessage);
+
+                if (response.isOk()) {
+                    log.info("Сообщение успешно отредактировано (текст->текст)");
+                } else {
+                    log.warn("EditMessage не удалось (текст->текст), заменяем сообщение");
+                    replaceMessage(chatId, messageId, newText, keyboard);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("Ошибка при обновлении сообщения: {}", e.getMessage());
+            // Последняя попытка - заменить сообщение
+            replaceMessage(chatId, messageId, newText, keyboard);
+        }
+    }
+
+    /**
+     * Удалить сообщение и отправить новое вместо редактирования
+     */
+    private void replaceMessage(Long chatId, Integer messageIdToDelete, String newText,
+                                InlineKeyboardMarkup keyboard) {
+        try {
+            // 1. Отправляем новое сообщение
+            SendMessage newMessage = new SendMessage(chatId.toString(), newText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+
+            bot.execute(newMessage);
+            log.info("Новое сообщение отправлено");
+
+            // 2. Пытаемся удалить старое сообщение (в фоновом режиме, не блокируем)
+            if (messageIdToDelete != null) {
+                try {
+                    // Небольшая задержка для плавности
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(300); // 300ms задержка
+                            com.pengrad.telegrambot.request.DeleteMessage deleteMsg =
+                                    new com.pengrad.telegrambot.request.DeleteMessage(chatId, messageIdToDelete);
+                            bot.execute(deleteMsg);
+                            log.info("Старое сообщение {} удалено", messageIdToDelete);
+                        } catch (Exception e) {
+                            // Не критично, если не удалось удалить
+                            log.debug("Не удалось удалить старое сообщение: {}", e.getMessage());
+                        }
+                    }).start();
+                } catch (Exception e) {
+                    log.debug("Ошибка при планировании удаления: {}", e.getMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("Ошибка замены сообщения: {}", e.getMessage());
+            sendMessage(chatId, "❌ Ошибка обновления");
         }
     }
 
@@ -1001,8 +1202,11 @@ public class CallbackHandlerController {
      */
     private void executeEditMessage(Long chatId, EditMessageText editMessage) {
         try {
+            var response = bot.execute(editMessage);
+            log.info("EditMessage successful. Response: {}", response);
             bot.execute(editMessage);
         } catch (Exception e) {
+            log.error("Error editing message for chat {}: {}", chatId, e.getMessage(), e);
             log.error("Error editing message for chat {}: {}", chatId, e.getMessage());
             sendMessage(chatId, "❌ Ошибка при обновлении сообщения");
         }

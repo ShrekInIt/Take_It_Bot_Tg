@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
@@ -21,4 +22,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
      * Сортировка по полю sortOrder
      */
     List<Category> findByParentIdAndIsActiveTrueOrderBySortOrder(Long parentId);
+
+    // Добавьте этот метод
+    @Query("SELECT c FROM Category c LEFT JOIN FETCH c.parent WHERE c.id = :id")
+    Optional<Category> findByIdWithParent(@Param("id") Long id);
 }

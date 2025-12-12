@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -69,21 +70,25 @@ public class KeyboardService {
     /**
      * Создать клавиатуру для товара (только кнопки!)
      */
-    public InlineKeyboardMarkup createProductKeyboard(Product product, int quantity) {
+    public InlineKeyboardMarkup createProductKeyboard(Product product, int quantity, Long sourceCategoryId) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         Long productId = product.getId();
         Long categoryId = product.getCategoryId();
+        String callbackPrefix = (sourceCategoryId != null) ?
+                productId + "_" + quantity + "_" + sourceCategoryId :
+                productId + "_" + quantity + "_null";
+
 
         InlineKeyboardButton minusButton = new InlineKeyboardButton("➖")
-                .callbackData("quantity_minus_" + productId + "_" + quantity);
+                .callbackData("quantity_minus_" + callbackPrefix);
 
         // ИЗМЕНЕНИЕ: добавляем количество в callback, чтобы знать текущее значение
         InlineKeyboardButton quantityButton = new InlineKeyboardButton(quantity + " шт")
                 .callbackData("quantity_display_" + productId + "_" + quantity); // ← Добавляем количество
 
         InlineKeyboardButton plusButton = new InlineKeyboardButton("➕")
-                .callbackData("quantity_plus_" + productId + "_" + quantity);
+                .callbackData("quantity_plus_" + callbackPrefix);
 
         keyboard.addRow(minusButton, quantityButton, plusButton);
 
@@ -93,20 +98,25 @@ public class KeyboardService {
             keyboard.addRow(addonsButton);
         }
 
-        // Кнопка добавления в корзину (обновляем данные)
         InlineKeyboardButton addToCartButton = new InlineKeyboardButton("🛒 Добавить в корзину")
-                .callbackData("add_to_cart_" + productId + "_" + quantity);
-
+                .callbackData("add_to_cart_" + product.getId() + "_" + quantity);
         keyboard.addRow(addToCartButton);
 
-        // Кнопка быстрого перехода в корзину
         InlineKeyboardButton basketButton = new InlineKeyboardButton("🛒 В корзину")
                 .callbackData("back_to_cart");
         keyboard.addRow(basketButton);
 
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("category_" + categoryId);
+        // Кнопка "Назад" - ВАЖНО: используем sourceCategoryId вместо product.getCategoryId()
+        String backCallback;
+        if (sourceCategoryId != null) {
+            backCallback = "category_" + sourceCategoryId;
+        } else {
+            // Если не указана исходная категория, возвращаем в главное меню
+            backCallback = "category_null";
+        }
 
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                .callbackData(backCallback);
         keyboard.addRow(backButton);
 
         return keyboard;
@@ -163,6 +173,7 @@ public class KeyboardService {
      * Кэширует результат для оптимизации
      */
     @Cacheable(value = "categoryKeyboards", key = "#parentId")
+    @Transactional(readOnly = true) // Добавьте эту аннотацию
     public InlineKeyboardMarkup getCategoryKeyboard(Long parentId) {
         var categories = (parentId == null)
                 ? categoryService.getActiveRootCategories()
@@ -191,8 +202,9 @@ public class KeyboardService {
 
         // Добавляем кнопку "Назад" если не корневой уровень
         if (parentId != null) {
-            var currentCategory = categoryService.getCategoryById(parentId);
-            method(keyboardMarkup, currentCategory);
+            // Используем метод с загрузкой parent
+            var currentCategory = categoryService.getCategoryWithParent(parentId);
+            addBackButton(keyboardMarkup, currentCategory);
         }
 
         return keyboardMarkup;
@@ -200,13 +212,26 @@ public class KeyboardService {
 
     /**
      * Метод добавляет кнопку "Назад" в Inline-клавиатуру в зависимости от текущей позиции в иерархии категорий
+     * @param keyboardMarkup клавиатура для добавления кнопки
+     * @param currentCategory текущая категория (уже загруженная с parent)
      */
-    public static void method(InlineKeyboardMarkup keyboardMarkup, Category currentCategory) {
-        if (currentCategory != null && currentCategory.getParentId() != null) {
+    public static void addBackButton(InlineKeyboardMarkup keyboardMarkup, Category currentCategory) {
+        log.info("[BACK BUTTON] Current category: {}, Parent ID: {}",
+                currentCategory != null ? currentCategory.getName() : "null",
+                currentCategory != null ? currentCategory.getParentId() : "null");
+
+        if (currentCategory == null) {
+            return;
+        }
+
+        // Используем getParentId(), а не getParent().getId() для избежания LazyInitializationException
+        Long parentId = currentCategory.getParentId();
+
+        if (parentId != null) {
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                    .callbackData("category_" + currentCategory.getParentId());
+                    .callbackData("category_" + parentId);
             keyboardMarkup.addRow(backButton);
-        } else if (currentCategory != null) {
+        } else {
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Главное меню")
                     .callbackData("category_null");
             keyboardMarkup.addRow(backButton);
@@ -235,8 +260,9 @@ public class KeyboardService {
                     product.getName(),
                     product.getAmount());
 
+            // ИЗМЕНЕНИЕ: добавляем categoryId в callback
             InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
-                    .callbackData("product_" + product.getId());
+                    .callbackData("product_" + product.getId() + "_" + categoryId); // ← ЗДЕСЬ!
 
             keyboard.addRow(button);
         }

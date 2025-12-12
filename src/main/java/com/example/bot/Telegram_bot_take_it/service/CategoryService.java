@@ -8,6 +8,7 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Set;
@@ -18,12 +19,22 @@ import java.util.Set;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
-
     /**
-     * Получить категорию по ID
+     * Получить категорию по ID с загрузкой необходимых полей
+     * @Transactional гарантирует, что сессия будет открыта
      */
+    @Transactional(readOnly = true)
     public Category getCategoryById(Long categoryId) {
         return categoryRepository.findById(categoryId).orElse(null);
+    }
+
+    /**
+     * Получить категорию с загрузкой parent (для безопасного доступа)
+     */
+    @Transactional(readOnly = true)
+    public Category getCategoryWithParent(Long categoryId) {
+        // Используем кастомный запрос с явной загрузкой parent
+        return categoryRepository.findByIdWithParent(categoryId).orElse(null);
     }
 
     /**
@@ -45,8 +56,14 @@ public class CategoryService {
 
     /**
      * Создать комбинированную клавиатуру (подкатегории + товары)
+     * @Transactional для безопасного доступа к полям категории
      */
+    @Transactional(readOnly = true)
     public InlineKeyboardMarkup createCombinedKeyboard(Long categoryId, List<Category> subcategories, List<com.example.bot.Telegram_bot_take_it.entity.Product> products) {
+        log.info("=== CREATE COMBINED KEYBOARD ===");
+        log.info("Category ID: {}", categoryId);
+        log.info("Number of subcategories passed: {}", subcategories.size());
+        log.info("Number of products passed: {}", products.size());
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         // Добавляем подкатегории с иконкой папки
@@ -56,21 +73,24 @@ public class CategoryService {
             keyboard.addRow(button);
         }
 
-        // Добавляем товары с иконкой корзины
+        // Добавляем товары с иконкой корзины (ДОБАВЛЯЕМ categoryId в callback!)
         for (com.example.bot.Telegram_bot_take_it.entity.Product product : products) {
             String buttonText = String.format("%s - %d₽",
                     product.getName(),
                     product.getAmount());
 
+            // ИЗМЕНЕНИЕ: добавляем categoryId в callback
             InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
-                    .callbackData("product_" + product.getId());
+                    .callbackData("product_" + product.getId() + "_" + categoryId); // ← ЗДЕСЬ!
 
             keyboard.addRow(button);
         }
 
-        // Добавляем кнопку "Назад"
-        Category category = getCategoryById(categoryId);
-        KeyboardService.method(keyboard, category);
+        // Добавляем кнопку "Назад" - используем безопасный метод
+        Category category = getCategoryWithParent(categoryId);
+        if (category != null) {
+            KeyboardService.addBackButton(keyboard, category);
+        }
 
         return keyboard;
     }
@@ -78,17 +98,17 @@ public class CategoryService {
     /**
      * Получить активные подкатегории
      */
+    @Transactional(readOnly = true)
     public List<Category> getActiveSubcategories(Long parentId) {
         List<Category> subs = categoryRepository.findByParentIdAndIsActiveTrueOrderBySortOrder(parentId);
-
         subs.removeIf(cat -> "Добавки".equals(cat.getName()));
-
         return subs;
     }
 
     /**
      * Проверить, является ли категорией кофе (по id категории)
      */
+    @Transactional(readOnly = true)
     public boolean isCoffeeCategoryById(Long categoryId) {
         Category category = getCategoryById(categoryId);
         if (category == null) {
@@ -116,6 +136,7 @@ public class CategoryService {
     /**
      * Получить активные корневые категории
      */
+    @Transactional(readOnly = true)
     public List<Category> getActiveRootCategories() {
         return categoryRepository.findByParentIdIsNullAndIsActiveTrueOrderBySortOrder();
     }

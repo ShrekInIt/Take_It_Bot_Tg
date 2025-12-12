@@ -90,6 +90,7 @@ Thumbs.db
 logs/
 log/
 zookeeper/
+logback-spring
 
 # Database files
 *.db
