@@ -23,7 +23,6 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,14 +43,14 @@ public class CallbackHandlerController {
     private final Map<Long, String> lastMessageType = new ConcurrentHashMap<>();
 
     // Метод для установки типа сообщения
-    private void setLastMessageType(Long chatId, String type) {
-        lastMessageType.put(chatId, type);
+    private void setLastMessageType(Long chatId) {
+        lastMessageType.put(chatId, "product");
     }
 
     // Метод для получения предыдущего типа
-    private String getAndUpdateLastMessageType(Long chatId, String newType) {
-        String previous = lastMessageType.put(chatId, newType);
-        log.info("Last message type for chat {}: previous={}, new={}", chatId, previous, newType);
+    private String getAndUpdateLastMessageType(Long chatId) {
+        String previous = lastMessageType.put(chatId, "category");
+        log.info("Last message type for chat {}: previous={}, new={}", chatId, previous, "category");
         return previous;
     }
 
@@ -142,6 +141,11 @@ public class CallbackHandlerController {
 
             Long productId = Long.parseLong(parts[1]);
             int quantity = Integer.parseInt(parts[2]);
+
+            if(cartService.findProductInCart(chatId, productId)){
+                sendMessage(chatId, "Сначала добавьте товар в корзину");
+                return;
+            }
 
             log.info("Товар ID: {}, количество: {}", productId, quantity);
 
@@ -780,7 +784,7 @@ public class CallbackHandlerController {
         productService.getProductById(productId).ifPresentOrElse(
                 product -> {
 
-                    setLastMessageType(chatId, "product");
+                    setLastMessageType(chatId);
                     String caption = getString(product.getAmount(), product, 1);
 
                     // 2. Проверяем, нужны ли добавки
@@ -834,7 +838,7 @@ public class CallbackHandlerController {
 
             String[] parts = data.split("_");
 
-            if (parts.length < 6) {
+            if (parts.length < 5) {
                 log.error("Некорректный формат данных: {}", data);
                 return;
             }
@@ -1066,7 +1070,7 @@ public class CallbackHandlerController {
         boolean hasProducts = productService.hasAvailableProductsInCategory(categoryId);
 
         // Определяем, пришли ли мы из товара
-        String previousType = getAndUpdateLastMessageType(chatId, "category");
+        String previousType = getAndUpdateLastMessageType(chatId);
         boolean fromProduct = "product".equals(previousType);
 
         log.info("Subcategories found: {}, Products available: {}", hasSubcategories, hasProducts);
@@ -1124,7 +1128,6 @@ public class CallbackHandlerController {
 
                     if (response.isOk()) {
                         log.info("Успешно отредактировали фото->текст");
-                        return;
                     } else {
                         log.warn("EditMessage не удалось при переходе из товара, заменяем");
                         replaceMessage(chatId, messageId, newText, keyboard);

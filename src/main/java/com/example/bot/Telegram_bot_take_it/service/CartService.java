@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -285,5 +286,19 @@ public class CartService {
         description.append("💰 *Итого:* ").append(totalAmount).append("₽");
 
         return description.toString();
+    }
+
+    /**
+     * Проверить если данный товар в корзине
+     */
+    @Transactional(readOnly = true)
+    public boolean findProductInCart(Long chatId, Long productId) {
+        User user = userService.getUserByChatId(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        Cart cart = getCartByUser(user);
+
+        Optional<CartItem> product = cartItemRepository.findByCartIdAndProductId(cart.getId(), productId);
+        return product.isEmpty();
     }
 }
