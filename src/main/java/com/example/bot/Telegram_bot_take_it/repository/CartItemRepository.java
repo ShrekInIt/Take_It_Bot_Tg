@@ -24,13 +24,16 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
      * Найти товар в корзине по ID корзины и ID продукта
      */
     @Query("SELECT ci FROM CartItem ci WHERE ci.cart.id = :cartId AND ci.product.id = :productId")
-    Optional<CartItem> findByCartIdAndProductId(@Param("cartId") Long cartId,
+    List<CartItem> findByCartIdAndProductId(@Param("cartId") Long cartId,
                                                 @Param("productId") Long productId);
+
+    @Query("SELECT ci FROM CartItem ci WHERE ci.cart = :cart AND ci.product = :product")
+    List<CartItem> findByCartAndProduct(@Param("cart") Cart cart, @Param("product") Product product);
 
     /**
      * Найти товар в корзине по корзине и продукту
      */
-    Optional<CartItem> findByCartAndProduct(Cart cart, Product product);
+    //Optional<CartItem> findByCartAndProduct(Cart cart, Product product);
 
     /**
      * Посчитать количество товаров в корзине
@@ -49,6 +52,16 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
             "LEFT JOIN FETCH a.addonProduct " +
             "WHERE ci.cart = :cart")
     List<CartItem> findByCartWithProductAndAddons(@Param("cart") Cart cart);
+
+    /**
+     * Найти все товары в корзине с загруженными добавками
+     */
+    @Query("SELECT DISTINCT ci FROM CartItem ci " +
+            "LEFT JOIN FETCH ci.addons addons " +
+            "LEFT JOIN FETCH addons.addonProduct " +
+            "WHERE ci.cart.id = :cartId " +
+            "ORDER BY ci.addedAt DESC")
+    List<CartItem> findByCartIdWithAddons(@Param("cartId") Long cartId);
 
     /**
      * Удалить товар из корзины по ID корзины и ID продукта

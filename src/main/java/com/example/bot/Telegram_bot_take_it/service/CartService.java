@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,6 +32,62 @@ public class CartService {
     public Cart getCartByUser(User user) {
         return cartRepository.findByUser(user)
                 .orElseGet(() -> createCartForUser(user));
+    }
+
+    /**
+     * Получить товар в корзине по ID с проверкой принадлежности пользователю
+     * Безопасный метод - проверяет, что товар принадлежит пользователю
+     */
+    @Transactional(readOnly = true)
+    public CartItem getCartItemByIdWithUserCheck(Long chatId, Long cartItemId) {
+        try {
+            log.info("Получение товара из корзины: chatId={}, cartItemId={}", chatId, cartItemId);
+
+            // 1. Получаем пользователя по chatId
+            User user = userService.getUserByChatId(chatId)
+                    .orElseThrow(() -> {
+                        log.warn("Пользователь с chatId {} не найден", chatId);
+                        return new RuntimeException("Пользователь не найден");
+                    });
+
+            // 2. Получаем корзину пользователя
+            Cart cart = cartRepository.findByUserId(user.getId())
+                    .orElseThrow(() -> {
+                        log.warn("Корзина для пользователя {} не найдена", user.getId());
+                        return new RuntimeException("Корзина не найдена");
+                    });
+
+            // 3. Ищем товар в корзине по ID
+            Optional<CartItem> cartItemOpt = cartItemRepository.findById(cartItemId);
+
+            if (cartItemOpt.isEmpty()) {
+                log.warn("CartItem с ID {} не найден", cartItemId);
+                throw new RuntimeException("Товар в корзине не найден");
+            }
+
+            CartItem cartItem = cartItemOpt.get();
+
+            // 4. Проверяем, что товар принадлежит корзине пользователя
+            if (!cartItem.getCart().getId().equals(cart.getId())) {
+                log.warn("Товар {} не принадлежит пользователю {}", cartItemId, user.getId());
+                throw new RuntimeException("Товар не принадлежит пользователю");
+            }
+
+            // 5. Инициализируем lazy-поля (важно для избежания LazyInitializationException)
+            cartItem.getProduct().getName(); // Загружаем продукт
+            if (cartItem.getAddons() != null) {
+                cartItem.getAddons().size(); // Загружаем добавки если есть
+            }
+
+            log.info("Товар в корзине найден: id={}, product={}, quantity={}",
+                    cartItem.getId(), cartItem.getProduct().getName(), cartItem.getCountProduct());
+
+            return cartItem;
+
+        } catch (Exception e) {
+            log.error("Ошибка получения товара из корзины: {}", e.getMessage());
+            throw new RuntimeException("Не удалось получить товар из корзины: " + e.getMessage());
+        }
     }
 
     /**
@@ -61,7 +119,7 @@ public class CartService {
      * Добавить товар в корзину
      */
     @Transactional
-    public CartItem addProductToCart(Long chatId, Long productId, Integer quantity) {
+    public List<CartItem> addProductToCart(Long chatId, Long productId, Integer quantity) {
         User user = userService.getUserByChatId(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
@@ -69,29 +127,52 @@ public class CartService {
                 .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
 
         Cart cart = getCartByUser(user);
+        List<CartItem> createdItems = new ArrayList<>();
 
-        // Проверяем, есть ли уже такой товар в корзине
-        CartItem existingItem = cartItemRepository.findByCartAndProduct(cart, product).orElse(null);
+        // Проверяем, является ли товар кофе (категория 3)
+        boolean isCoffee = product.getCategoryId() == 3;
 
-        if (existingItem != null) {
-            // Увеличиваем количество существующего товара
-            existingItem.setCountProduct(existingItem.getCountProduct() + quantity);
-            return cartItemRepository.save(existingItem);
+        if (!isCoffee) {
+            // Для НЕ кофе: ищем существующий товар и увеличиваем количество
+            List<CartItem> existingItems = cartItemRepository.findByCartAndProduct(cart, product);
+            CartItem existingItem = existingItems.isEmpty() ? null : existingItems.get(0);
+
+            if (existingItem != null) {
+                // Увеличиваем количество существующего товара
+                existingItem.setCountProduct(existingItem.getCountProduct() + quantity);
+                cartItemRepository.save(existingItem);
+                createdItems.add(existingItem);
+            } else {
+                // Создаем новый товар в корзине для некофе
+                CartItem newItem = CartItem.builder()
+                        .cart(cart)
+                        .product(product)
+                        .countProduct(quantity)
+                        .build();
+
+                cart.addItem(newItem);
+                CartItem savedItem = cartItemRepository.save(newItem);
+                createdItems.add(savedItem);
+            }
         } else {
-            // Создаем новый товар в корзине
-            CartItem newItem = CartItem.builder()
-                    .cart(cart)
-                    .product(product)
-                    .countProduct(quantity)
-                    .build();
+            // Для кофе: создаем quantity отдельных позиций с countProduct = 1
+            for (int i = 0; i < quantity; i++) {
+                CartItem newItem = CartItem.builder()
+                        .cart(cart)
+                        .product(product)
+                        .countProduct(1) // Каждый кофе отдельно
+                        .build();
 
-            cart.addItem(newItem);
-            CartItem savedItem = cartItemRepository.save(newItem);
-            log.info("Добавлен товар в корзину: {} x{} (пользователь: {})",
-                    product.getName(), quantity, user.getName());
+                cart.addItem(newItem);
+                CartItem savedItem = cartItemRepository.save(newItem);
+                createdItems.add(savedItem);
 
-            return savedItem;
+                log.info("Добавлен товар в корзину: {} (пользователь: {})",
+                        product.getName(), user.getName());
+            }
         }
+
+        return createdItems;
     }
 
     /**
@@ -100,7 +181,14 @@ public class CartService {
     @Transactional
     public CartItem addProductWithAddonToCart(Long chatId, Long productId, Integer quantity,
                                               Long addonProductId, Integer addonPrice) {
-        CartItem cartItem = addProductToCart(chatId, productId, quantity);
+        List<CartItem> cartItems = addProductToCart(chatId, productId, quantity);
+
+        if (cartItems.isEmpty()) {
+            throw new IllegalArgumentException("Не удалось добавить товар в корзину");
+        }
+
+        // Берем первый добавленный товар для добавления добавки
+        CartItem cartItem = cartItems.get(0);
 
         if (addonProductId != null) {
             Product addonProduct = productService.getProductById(addonProductId)
@@ -137,24 +225,29 @@ public class CartService {
      * Обновить количество товара в корзине
      */
     @Transactional
-    public CartItem updateProductQuantity(Long chatId, Long productId, Integer newQuantity) {
+    public CartItem updateProductQuantity(Long chatId, Long cartItemId, Integer newQuantity) {
         if (newQuantity <= 0) {
-            removeProductFromCart(chatId, productId);
+            // Удаляем товар из корзины
+            CartItem item = cartItemRepository.findById(cartItemId)
+                    .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
+            cartItemRepository.delete(item);
             return null;
         }
 
-        User user = userService.getUserByChatId(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
-
-        Product product = productService.getProductById(productId)
+        CartItem cartItem = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
 
-        Cart cart = getCartByUser(user);
+        // Проверяем, является ли товар кофе
+        boolean isCoffee = cartItem.getProduct().getCategoryId() == 3;
 
-        CartItem cartItem = cartItemRepository.findByCartAndProduct(cart, product)
-                .orElseThrow(() -> new IllegalArgumentException("Товар не найден в корзине"));
+        if (isCoffee) {
+            // Для кофе: просто устанавливаем количество
+            cartItem.setCountProduct(newQuantity);
+        } else {
+            // Для других товаров - увеличиваем/уменьшаем количество
+            cartItem.setCountProduct(newQuantity);
+        }
 
-        cartItem.setCountProduct(newQuantity);
         return cartItemRepository.save(cartItem);
     }
 
@@ -171,10 +264,15 @@ public class CartService {
 
         Cart cart = getCartByUser(user);
 
-        CartItem cartItem = cartItemRepository.findByCartAndProduct(cart, product)
-                .orElseThrow(() -> new IllegalArgumentException("Товар не найден в корзине"));
+        // Получаем все позиции с этим товаром
+        List<CartItem> cartItems = cartItemRepository.findByCartAndProduct(cart, product);
 
-        cartItemRepository.delete(cartItem);
+        if (cartItems.isEmpty()) {
+            throw new IllegalArgumentException("Товар не найден в корзине");
+        }
+
+        // Удаляем все позиции с этим товаром
+        cartItemRepository.deleteAll(cartItems);
         log.info("Удален товар из корзины: {} (пользователь: {})",
                 product.getName(), user.getName());
     }
@@ -298,7 +396,11 @@ public class CartService {
 
         Cart cart = getCartByUser(user);
 
-        Optional<CartItem> product = cartItemRepository.findByCartIdAndProductId(cart.getId(), productId);
-        return product.isEmpty();
+        // Используем метод, возвращающий список
+        List<CartItem> products = cartItemRepository.findByCartIdAndProductId(cart.getId(), productId);
+
+        // Возвращаем true, если есть хотя бы один товар в корзине
+        return products.isEmpty();
     }
+
 }

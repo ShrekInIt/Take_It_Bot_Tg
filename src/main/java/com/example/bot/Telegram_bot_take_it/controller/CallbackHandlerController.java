@@ -1,11 +1,10 @@
 package com.example.bot.Telegram_bot_take_it.controller;
 
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
+import com.example.bot.Telegram_bot_take_it.entity.CartItemAddon;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.example.bot.Telegram_bot_take_it.service.CartService;
-import com.example.bot.Telegram_bot_take_it.service.CategoryService;
-import com.example.bot.Telegram_bot_take_it.service.ProductService;
+import com.example.bot.Telegram_bot_take_it.service.*;
 import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.CallbackQuery;
@@ -13,19 +12,18 @@ import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.AnswerCallbackQuery;
-import com.pengrad.telegrambot.request.EditMessageText;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
+import com.pengrad.telegrambot.request.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Controller
 @Slf4j
@@ -38,6 +36,9 @@ public class CallbackHandlerController {
     private final CategoryService categoryService;
     private final ProductService productService;
     private final CartService cartService;
+    private final CartItemService cartItemService;
+    private final CartItemAddonService cartItemAddonService;
+    private final ProductAddonService productAddonService;
 
     // Кэш для отслеживания типа последнего сообщения
     private final Map<Long, String> lastMessageType = new ConcurrentHashMap<>();
@@ -99,7 +100,12 @@ public class CallbackHandlerController {
                 answerCallback(callbackId, "✏️ Измените количество кнопками ➖ и ➕");
             } else if (data.startsWith("addon_syrup_")) {
                 log.info("Обработка выбора сиропа...");
-                handleSyrupSelection(chatId, data);
+                handleCartAddAddons(chatId, data);
+                //handleSyrupSelection(chatId, data);
+            }
+            else if (data.startsWith("addons_qty_")) {
+                log.info("Обработка выбора количества для добавок...");
+                handleAddonsQuantitySelection(chatId, data);
             } else if (data.startsWith("addon_milk_")) {
                 log.info("Обработка выбора альтернативного молока...");
                 handleMilkSelection(chatId, data);
@@ -124,6 +130,166 @@ public class CallbackHandlerController {
             answerCallback(callbackId, "❌ Ошибка обработки запроса");
         }
     }
+
+
+
+    /**
+     * Обработка добавления добавок к товарам в корзине
+     */
+    private void handleCartAddAddons(Long chatId, String data) {
+        try {
+            // Получаем список товаров в корзине
+            List<CartItem> cartItems = cartService.getCartItems(chatId);
+
+            if (cartItems.isEmpty()) {
+                sendMessage(chatId, "🛒 Ваша корзина пуста");
+                return;
+            }
+
+            String messageText = """
+                🍯 *Добавление добавок к товарам в корзине*
+                
+                Выберите товар, к которому хотите добавить добавки:
+                """;
+
+            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+            // Создаем кнопки для каждого товара в корзине, который поддерживает добавки
+            for (CartItem cartItem : cartItems) {
+                Product product = cartItem.getProduct();
+
+                if (keyboardService.needsAddons(product)) {
+                    String buttonText = String.format("%s (x%d) - %d₽",
+                            product.getName(),
+                            cartItem.getCountProduct(),
+                            product.getAmount() * cartItem.getCountProduct());
+
+                    InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
+                            .callbackData("addons_" + cartItem.getId());  // ← ЗДЕСЬ ПЕРЕДАЕТСЯ cartItemId
+                    keyboard.addRow(itemButton);
+                }
+            }
+
+            // Кнопка "Назад в корзину"
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад в корзину")
+                    .callbackData("back_to_cart");
+            keyboard.addRow(backButton);
+
+            SendMessage message = new SendMessage(chatId.toString(), messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+
+            bot.execute(message);
+
+        } catch (Exception e) {
+            log.error("Ошибка при показе товаров для добавления добавок: {}", e.getMessage(), e);
+            sendMessage(chatId, "❌ Ошибка при загрузке товаров из корзины");
+        }
+    }
+
+    private void showAddonsForCartItem(Long chatId, Long cartItemId) {
+        log.info("Logging");
+    }
+
+    /**
+     * Спросить, к скольким товарам из позиции добавить добавки
+     */
+    private void askQuantityForAddons(Long chatId, Long cartItemId, Product product, int totalQuantity) {
+        try {
+            String messageText = String.format(
+                    """
+                    🍯 *Выбор добавок для:* %s
+                    
+                    В позиции: %d шт.
+                    
+                    К скольким товарам добавить добавки?""",
+                    product.getName(),
+                    totalQuantity
+            );
+
+            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+            // Создаем кнопки для выбора количества (от 1 до totalQuantity)
+            for (int i = 1; i <= Math.min(totalQuantity, 5); i++) {
+                String buttonText = String.format("К %d из %d", i, totalQuantity);
+                InlineKeyboardButton quantityButton = new InlineKeyboardButton(buttonText)
+                        .callbackData("addons_qty_" + cartItemId + "_" + i);
+                keyboard.addRow(quantityButton);
+            }
+
+            // Кнопка "Ко всем"
+            InlineKeyboardButton allButton = new InlineKeyboardButton("✅ Ко всем " + totalQuantity)
+                    .callbackData("addons_qty_" + cartItemId + "_" + totalQuantity);
+            keyboard.addRow(allButton);
+
+            // Кнопка "Назад"
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад в корзину")
+                    .callbackData("back_to_cart");
+            keyboard.addRow(backButton);
+
+            SendMessage sendMessage = new SendMessage(chatId.toString(), messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+
+            bot.execute(sendMessage);
+
+        } catch (Exception e) {
+            log.error("Ошибка при запросе количества: {}", e.getMessage(), e);
+            sendMessage(chatId, "❌ Ошибка при выборе количества");
+        }
+    }
+
+    /**
+     * Обработка выбора количества товаров для добавления добавок
+     */
+    private void handleAddonsQuantitySelection(Long chatId, String data) {
+        try {
+            log.info("Обработка выбора количества для добавок: {}", data);
+            String[] parts = data.split("_");
+
+            Long cartItemId = Long.parseLong(parts[2]);
+            int quantityForAddons = Integer.parseInt(parts[3]);
+
+            // 1. Получаем позицию
+            CartItem cartItem = cartService.getCartItemByIdWithUserCheck(chatId, cartItemId);
+            if (cartItem == null) {
+                sendMessage(chatId, "❌ Позиция не найдена");
+                return;
+            }
+
+            int totalQuantity = cartItem.getCountProduct();
+
+            if (quantityForAddons > totalQuantity) {
+                sendMessage(chatId, "❌ Нельзя выбрать больше товаров, чем есть в позиции");
+                return;
+            }
+
+            // 2. Если выбраны все товары, используем исходную позицию
+            if (quantityForAddons == totalQuantity) {
+                log.info("Используем всю позицию для добавок: {} шт.", totalQuantity);
+                showAddonsForCartItem(chatId, cartItemId);
+                return;
+            }
+
+            // 3. Разделяем позицию
+            CartItem newCartItem = cartItemService.splitCartItemForAddons(chatId, cartItemId, quantityForAddons);
+
+            if (newCartItem != null) {
+                log.info("Создана новая позиция для добавок: id={}, количество={}",
+                        newCartItem.getId(), quantityForAddons);
+
+                // 4. Показываем добавки для НОВОЙ позиции
+                showAddonsForCartItem(chatId, newCartItem.getId());
+            } else {
+                throw new RuntimeException("Не удалось разделить позицию");
+            }
+
+        } catch (Exception e) {
+            log.error("Ошибка выбора количества для добавок: {}", e.getMessage(), e);
+            sendMessage(chatId, "❌ Ошибка при выборе количества: " + e.getMessage());
+        }
+    }
+
 
     /**
      * Обработка выбора добавок (только для кофе)
@@ -468,7 +634,7 @@ public class CallbackHandlerController {
             log.info("Добавление товара в корзину, данные: {}", data);
             String[] parts = data.split("_");
 
-            if (parts.length < 4) {
+            if (parts.length < 5) {
                 log.error("Недостаточно параметров: {}", data);
                 answerCallback(callbackId, "❌ Ошибка в данных");
                 return;
@@ -479,11 +645,17 @@ public class CallbackHandlerController {
 
             log.info("Товар ID: {}, количество: {}", productId, quantity);
 
-            // Добавляем товар в корзину
-            CartItem cartItem = cartService.addProductToCart(chatId, productId, quantity);
+            // Получаем информацию о товаре
+            Product product = productService.getProductById(productId)
+                    .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
 
-            if (cartItem != null) {
-                Product product = cartItem.getProduct();
+            // Добавляем товар в корзину
+            List<CartItem> addedItems = cartService.addProductToCart(chatId, productId, quantity);
+
+            if (!addedItems.isEmpty()) {
+                // Берем первый добавленный элемент для отображения информации
+                CartItem firstItem = addedItems.get(0);
+
                 String message = String.format(
                         """
                         ✅ *Товар добавлен в корзину!*
@@ -495,7 +667,7 @@ public class CallbackHandlerController {
                         """,
                         product.getName(),
                         quantity,
-                        cartItem.calculateProductTotal()
+                        firstItem.calculateProductTotal()
                 );
 
                 // Создаем клавиатуру с действиями
@@ -514,6 +686,7 @@ public class CallbackHandlerController {
                         .replyMarkup(keyboard);
 
                 bot.execute(sendMessage);
+
                 answerCallback(callbackId, "✅ Товар добавлен в корзину");
             } else {
                 throw new Exception("Не удалось добавить товар в корзину");
@@ -912,8 +1085,8 @@ public class CallbackHandlerController {
                 boolean editSuccess = false;
 
                 try {
-                    com.pengrad.telegrambot.request.EditMessageCaption editCaption =
-                            new com.pengrad.telegrambot.request.EditMessageCaption(chatId, messageId)
+                    EditMessageCaption editCaption =
+                            new EditMessageCaption(chatId, messageId)
                                     .caption(caption)
                                     .parseMode(ParseMode.HTML)
                                     .replyMarkup(keyboard);
@@ -975,8 +1148,8 @@ public class CallbackHandlerController {
                 boolean editSuccess = false;
 
                 try {
-                    com.pengrad.telegrambot.request.EditMessageCaption editCaption =
-                            new com.pengrad.telegrambot.request.EditMessageCaption(chatId, messageId)
+                    EditMessageCaption editCaption =
+                            new EditMessageCaption(chatId, messageId)
                                     .caption(caption)
                                     .parseMode(ParseMode.HTML)
                                     .replyMarkup(keyboard);
@@ -1180,8 +1353,8 @@ public class CallbackHandlerController {
                     new Thread(() -> {
                         try {
                             Thread.sleep(300); // 300ms задержка
-                            com.pengrad.telegrambot.request.DeleteMessage deleteMsg =
-                                    new com.pengrad.telegrambot.request.DeleteMessage(chatId, messageIdToDelete);
+                            DeleteMessage deleteMsg =
+                                    new DeleteMessage(chatId, messageIdToDelete);
                             bot.execute(deleteMsg);
                             log.info("Старое сообщение {} удалено", messageIdToDelete);
                         } catch (Exception e) {
