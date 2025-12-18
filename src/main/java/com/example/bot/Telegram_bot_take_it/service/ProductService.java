@@ -36,4 +36,10 @@ public class ProductService {
     public Optional<Product> getProductById(Long productId) {
         return productRepository.findById(productId);
     }
+
+    public List<Product> getAvailableSyrups() {
+        // Сиропы имеют category_id = 20 (согласно вашей структуре)
+        Long syrupCategoryId = 20L;
+        return getAvailableProductsWithStock(syrupCategoryId);
+    }
 }

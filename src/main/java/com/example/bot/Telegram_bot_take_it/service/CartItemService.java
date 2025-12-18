@@ -2,14 +2,13 @@ package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -72,5 +71,11 @@ public class CartItemService {
             log.error("Ошибка разделения позиции для добавок: {}", e.getMessage(), e);
             throw new RuntimeException("Не удалось разделить позицию для добавок");
         }
+    }
+
+    public CartItem getCartItemById(Long cartItemId) {
+
+        return cartItemRepository.findById(cartItemId)
+                .orElseThrow(() -> new EntityNotFoundException("CartItem not found with id: " + cartItemId));
     }
 }

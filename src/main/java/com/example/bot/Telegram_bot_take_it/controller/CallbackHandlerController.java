@@ -89,7 +89,26 @@ public class CallbackHandlerController {
             } else if (data.startsWith("addons_")) {
                 log.info("Обработка выбора добавок...");
                 handleAddonsSelection(chatId, data);
-            } else if (data.startsWith("add_to_cart_")) {
+            }
+
+            else if (data.startsWith("syrup_addons_")) {
+                log.info("Обработка выбора добавок...");
+                handleAddonsSelectionSyrup(chatId, data);
+            }
+
+            else if (data.startsWith("add_syrup_")) {
+                // Пример данных: "add_syrup_22"
+                Long cartItemId = Long.valueOf(data.substring("add_syrup_".length()));
+                showSyrupsSelection(chatId, cartItemId);
+            }
+
+            else if (data.startsWith("select_syrup_")) {
+                // Выбор конкретного сиропа
+                handleSelectSyrup(chatId, data);
+            }
+
+
+            else if (data.startsWith("add_to_cart_")) {
                 log.info("Обработка добавления в корзину...");
                 handleAddToCart(chatId, callbackId, data);
             } else if (data.startsWith("add_to_cart_with_addon_")) {
@@ -131,6 +150,162 @@ public class CallbackHandlerController {
         }
     }
 
+    private void handleSelectSyrup(Long chatId, String data) {
+        try {
+            // Пример данных: "select_syrup_22_45" (cartItemId=22, syrupId=45)
+            String[] parts = data.split("_");
+            Long cartItemId = Long.valueOf(parts[2]);
+            Long syrupId = Long.valueOf(parts[3]);
+
+            // 1. Получаем сироп
+            Product syrup = productService.getProductById(syrupId)
+                    .orElseThrow(() -> new RuntimeException("Сироп не найден"));
+
+            // 2. Получаем cartItem
+            CartItem cartItem = cartItemService.getCartItemById(cartItemId);
+
+            // 3. Добавляем сироп к cartItem
+            // Сначала удаляем старый сироп, если есть
+            Product oldSyrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
+            if (oldSyrup != null) {
+                cartItemAddonService.deleteAddonByCartItemIdAndProductId(cartItemId, oldSyrup.getId());
+            }
+
+            // Добавляем новый сироп
+            cartItemAddonService.addAddonToCartItem(cartItem, syrup, 1, syrup.getAmount());
+
+            // 4. Показываем результат
+            String messageText = String.format("""
+                ✅ *Сироп добавлен!*
+                
+                🍯 Вы выбрали: *%s*
+                💰 Доплата: *+%d₽*
+                
+                Добавка успешно добавлена к вашему напитку.
+                """,
+                    syrup.getName(),
+                    syrup.getAmount());
+
+            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
+                    .callbackData("addons_syrup_" + cartItemId);
+            keyboard.addRow(backButton);
+
+            SendMessage message = new SendMessage(chatId.toString(), messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+            bot.execute(message);
+
+        } catch (Exception e) {
+            log.error("Ошибка выбора сиропа", e);
+            sendMessage(chatId, "❌ Ошибка при добавлении сиропа");
+        }
+    }
+
+    private void showSyrupsSelection(Long chatId, Long cartItemId) {
+        Product currentSyrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
+
+        String currentSyrupText = currentSyrup != null
+                ? String.format("\n\nТекущий сироп: *%s* (+%d₽)",
+                currentSyrup.getName(), currentSyrup.getAmount())
+                : "";
+
+        String messageText = String.format("""
+            🍯 *Выбор сиропа*
+            
+            Выберите сироп для вашего напитка:%s
+            """, currentSyrupText);
+
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+        List<Product> syrups = productService.getAvailableSyrups();
+
+        if (syrups.isEmpty()) {
+            // Нет доступных сиропов
+            InlineKeyboardButton unavailableButton = new InlineKeyboardButton("⚠️ Сиропы временно недоступны")
+                    .callbackData("noop");
+            keyboard.addRow(unavailableButton);
+        } else {
+            // Показываем сиропы с эмодзи
+            for (Product syrup : syrups) {
+                // Добавляем эмодзи к названию
+
+                String buttonText = String.format("%s +%d₽",
+                        syrup.getName(), syrup.getAmount());
+
+                InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
+                        .callbackData("select_syrup_" + cartItemId + "_" + syrup.getId());
+                keyboard.addRow(syrupButton);
+            }
+        }
+
+        // Кнопка "Назад"
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
+                .callbackData("addons_syrup_" + cartItemId);
+        keyboard.addRow(backButton);
+
+        try {
+            SendMessage message = new SendMessage(chatId.toString(), messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+            bot.execute(message);
+        } catch (Exception e) {
+            log.error("Ошибка при отправке выбора сиропов", e);
+            sendMessage(chatId, "❌ Ошибка при загрузке сиропов");
+        }
+    }
+
+    private void handleAddonsSelectionSyrup(Long chatId, String data) {
+        String[] parts = data.split("_");
+        Long cartItemId = Long.valueOf(parts[2]);
+        CartItem cartItem = cartItemService.getCartItemById(cartItemId);
+
+        Product syrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
+        Product milk = cartItemAddonService.getMilkByCartItemId(cartItemId);
+
+        String text = String.format("""
+                       Добавки:
+                       Сироп: %s
+                       Альтернативное молоко: %s
+                       Выберите действие:
+                       """,
+                (syrup == null) ? "Не добавлен": syrup.getName(),
+                (milk == null) ? "Не добавлено": milk.getName()
+                );
+        // Создаем клавиатуру ТОЛЬКО с двумя кнопками для сиропа
+        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
+        addSyrupButton.setText("➕ Добавить сироп");
+        addSyrupButton.setCallbackData("add_syrup_" + cartItemId);
+
+        keyboardMarkup.addRow(addSyrupButton);
+
+
+        if (syrup == null) {
+            InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
+            removeSyrupButton.setText("➖ Убрать сироп");
+            // Активируем кнопку только если есть сироп
+            removeSyrupButton.setCallbackData("noop");
+
+            keyboardMarkup.addRow(removeSyrupButton);
+        }
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                .callbackData("back_to_products");
+        keyboardMarkup.addRow(backButton);
+
+
+        try {
+            SendMessage message = new SendMessage(chatId.toString(), text)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboardMarkup);
+            bot.execute(message);
+        } catch (Exception e) {
+            log.error("Ошибка при отправке сообщения с добавками", e);
+            sendMessage(chatId, "❌ Ошибка при загрузке добавок");
+        }
+    }
 
 
     /**
@@ -159,13 +334,12 @@ public class CallbackHandlerController {
                 Product product = cartItem.getProduct();
 
                 if (keyboardService.needsAddons(product)) {
-                    String buttonText = String.format("%s (x%d) - %d₽",
+                    String buttonText = String.format("%s - Добавки %s",
                             product.getName(),
-                            cartItem.getCountProduct(),
-                            product.getAmount() * cartItem.getCountProduct());
+                            (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
 
                     InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("addons_" + cartItem.getId());  // ← ЗДЕСЬ ПЕРЕДАЕТСЯ cartItemId
+                            .callbackData("syrup_addons_" + cartItem.getId());  // ← ЗДЕСЬ ПЕРЕДАЕТСЯ cartItemId
                     keyboard.addRow(itemButton);
                 }
             }

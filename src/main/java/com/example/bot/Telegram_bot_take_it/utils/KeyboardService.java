@@ -1,11 +1,8 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
-import com.example.bot.Telegram_bot_take_it.entity.CartItem;
-import com.example.bot.Telegram_bot_take_it.entity.CartItemAddon;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
-import com.example.bot.Telegram_bot_take_it.service.ProductAddonService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
@@ -74,7 +71,6 @@ public class KeyboardService {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         Long productId = product.getId();
-        Long categoryId = product.getCategoryId();
         String callbackPrefix = (sourceCategoryId != null) ?
                 productId + "_" + quantity + "_" + sourceCategoryId :
                 productId + "_" + quantity + "_null";
@@ -295,6 +291,50 @@ public class KeyboardService {
                 .resizeKeyboard(true)
                 .oneTimeKeyboard(false)
                 .selective(true);
+    }
+
+    private InlineKeyboardMarkup createSyrupsKeyboard(Long cartItemId) {
+        // Получаем список доступных сиропов
+        List<Product> syrups = productService.getAvailableSyrups();
+
+        if (syrups.isEmpty()) {
+            // Если сиропов нет - возвращаем пустую клавиатуру с сообщением
+            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+            InlineKeyboardButton noSyrupsButton = new InlineKeyboardButton("❌ Сиропы временно недоступны")
+                    .callbackData("noop");
+            keyboard.addRow(noSyrupsButton);
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                    .callbackData("addons_syrup_" + cartItemId);
+            keyboard.addRow(backButton);
+
+            return keyboard;
+        }
+
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        // Создаем кнопки для каждого сиропа
+        for (Product syrup : syrups) {
+            String buttonText = String.format("%s (+%d₽)",
+                    syrup.getName(),
+                    syrup.getAmount());
+
+            InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
+                    .callbackData("select_syrup_" + cartItemId + "_" + syrup.getId());
+            keyboard.addRow(syrupButton);
+        }
+
+        // Добавляем кнопку "Без сиропа"
+        InlineKeyboardButton noSyrupButton = new InlineKeyboardButton("❌ Без сиропа")
+                .callbackData("remove_syrup_" + cartItemId);
+        keyboard.addRow(noSyrupButton);
+
+        // Кнопка "Назад"
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                .callbackData("addons_syrup_" + cartItemId);
+        keyboard.addRow(backButton);
+
+        return keyboard;
     }
 }
 
