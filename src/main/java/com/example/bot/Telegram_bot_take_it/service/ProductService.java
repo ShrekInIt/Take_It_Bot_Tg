@@ -42,4 +42,10 @@ public class ProductService {
         Long syrupCategoryId = 20L;
         return getAvailableProductsWithStock(syrupCategoryId);
     }
+
+    public List<Product> getAvailableMilks() {
+        // Сиропы имеют milk_id = 21 (согласно вашей структуре)
+        Long milkCategoryId = 21L;
+        return getAvailableProductsWithStock(milkCategoryId);
+    }
 }

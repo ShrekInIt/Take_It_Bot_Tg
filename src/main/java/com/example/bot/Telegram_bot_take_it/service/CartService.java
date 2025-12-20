@@ -35,6 +35,32 @@ public class CartService {
     }
 
     /**
+     * Найти конкретный товар в корзине пользователя
+     */
+    @Transactional(readOnly = true)
+    public List<CartItem> findCartItemByProduct(Long chatId, String name) {
+        try {
+            User user = userService.getUserByChatId(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+            Cart cart = getCartByUser(user);
+
+            // Ищем товар по productId в корзине
+            List<CartItem> cartItems = cartItemRepository.findByCartIdAndProductName(cart.getId(), name);
+
+            if (cartItems.isEmpty()) {
+                return null;
+            }
+
+            return cartItems;
+
+        } catch (Exception e) {
+            log.error("Ошибка поиска товара в корзине: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Получить товар в корзине по ID с проверкой принадлежности пользователю
      * Безопасный метод - проверяет, что товар принадлежит пользователю
      */
