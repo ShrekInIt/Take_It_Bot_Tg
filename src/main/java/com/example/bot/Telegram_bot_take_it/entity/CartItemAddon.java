@@ -47,18 +47,4 @@ public class CartItemAddon {
     public Integer calculateAddonTotal() {
         return priceAtSelection * (quantity != null ? quantity : 1);
     }
-
-    /**
-     * Получить название добавки
-     */
-    public String getAddonName() {
-        return addonProduct != null ? addonProduct.getName() : "Добавка";
-    }
-
-    /**
-     * Проверить, связана ли добавка с указанным товаром
-     */
-    public boolean isForProduct(Product product) {
-        return addonProduct != null && addonProduct.getId().equals(product.getId());
-    }
 }

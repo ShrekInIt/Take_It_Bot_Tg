@@ -37,14 +37,18 @@ public class ProductService {
         return productRepository.findById(productId);
     }
 
+    /**
+     * Получить доступные сиропы
+     */
     public List<Product> getAvailableSyrups() {
-        // Сиропы имеют category_id = 20 (согласно вашей структуре)
         Long syrupCategoryId = 20L;
         return getAvailableProductsWithStock(syrupCategoryId);
     }
 
+    /**
+     * Получить доступное альтернативное молоко
+     */
     public List<Product> getAvailableMilks() {
-        // Сиропы имеют milk_id = 21 (согласно вашей структуре)
         Long milkCategoryId = 21L;
         return getAvailableProductsWithStock(milkCategoryId);
     }

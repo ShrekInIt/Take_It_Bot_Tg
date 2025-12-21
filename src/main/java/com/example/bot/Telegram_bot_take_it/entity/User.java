@@ -77,11 +77,4 @@ public class User {
     public void makeAdmin() {
         this.isAdmin = true;
     }
-
-    /**
-     * Снять права администратора
-     */
-    public void removeAdmin() {
-        this.isAdmin = false;
-    }
 }

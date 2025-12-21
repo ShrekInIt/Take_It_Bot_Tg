@@ -64,40 +64,15 @@ public class Cart {
         return cartItems.isEmpty();
     }
 
-    /**
-     * Очистить корзину
-     */
-    public void clear() {
-        cartItems.clear();
-    }
 
     /**
      * Добавить товар в корзину
      */
     public void addItem(CartItem cartItem) {
-        // Убедимся, что список инициализирован
         if (this.cartItems == null) {
             this.cartItems = new ArrayList<>();
         }
         cartItem.setCart(this);
         this.cartItems.add(cartItem);
-    }
-
-    /**
-     * Удалить товар из корзины
-     */
-    public void removeItem(CartItem cartItem) {
-        cartItems.remove(cartItem);
-        cartItem.setCart(null);
-    }
-
-    /**
-     * Найти товар в корзине по ID продукта
-     */
-    public CartItem findItemByProductId(Long productId) {
-        return cartItems.stream()
-                .filter(item -> item.getProduct().getId().equals(productId))
-                .findFirst()
-                .orElse(null);
     }
 }

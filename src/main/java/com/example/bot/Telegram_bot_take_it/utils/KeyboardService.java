@@ -2,6 +2,7 @@ package com.example.bot.Telegram_bot_take_it.utils;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
+import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
@@ -16,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +28,7 @@ public class KeyboardService {
 
     private final CategoryService categoryService;
     private final ProductService productService;
+    private final CartService cartService;
 
     // Кэш для фото: путь → байты
     private final Map<String, byte[]> photoCache = new ConcurrentHashMap<>();
@@ -52,7 +53,6 @@ public class KeyboardService {
             return false;
         }
 
-        // Проверяем исключения по названию
         String productName = product.getName().toLowerCase();
 
         if (COFFEE_WITHOUT_ADDONS.stream()
@@ -79,9 +79,8 @@ public class KeyboardService {
         InlineKeyboardButton minusButton = new InlineKeyboardButton("➖")
                 .callbackData("quantity_minus_" + callbackPrefix);
 
-        // ИЗМЕНЕНИЕ: добавляем количество в callback, чтобы знать текущее значение
         InlineKeyboardButton quantityButton = new InlineKeyboardButton(quantity + " шт")
-                .callbackData("quantity_display_" + productId + "_" + quantity); // ← Добавляем количество
+                .callbackData("quantity_display_" + productId + "_" + quantity);
 
         InlineKeyboardButton plusButton = new InlineKeyboardButton("➕")
                 .callbackData("quantity_plus_" + callbackPrefix);
@@ -102,12 +101,10 @@ public class KeyboardService {
                 .callbackData("back_to_cart");
         keyboard.addRow(basketButton);
 
-        // Кнопка "Назад" - ВАЖНО: используем sourceCategoryId вместо product.getCategoryId()
         String backCallback;
         if (sourceCategoryId != null) {
             backCallback = "category_" + sourceCategoryId;
         } else {
-            // Если не указана исходная категория, возвращаем в главное меню
             backCallback = "category_null";
         }
 
@@ -126,7 +123,6 @@ public class KeyboardService {
             return null;
         }
 
-        // Проверяем кэш
         if (photoCache.containsKey(photoPath)) {
             log.debug("Фото из кэша: {}", photoPath);
             return photoCache.get(photoPath);
@@ -135,13 +131,11 @@ public class KeyboardService {
         try {
             byte[] photoBytes = null;
 
-            // 1. Попробовать из файловой системы
             java.io.File file = new java.io.File(photoPath);
             if (file.exists() && file.isFile()) {
                 photoBytes = Files.readAllBytes(file.toPath());
                 log.debug("Фото загружено с диска: {} ({} байт)", photoPath, photoBytes.length);
             }
-            // 2. Попробовать из ресурсов
             else {
                 String resourcePath = photoPath.replace("src/main/resources/", "");
                 try (InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
@@ -152,13 +146,11 @@ public class KeyboardService {
                 }
             }
 
-            // Кэшируем результат (даже если null)
             photoCache.put(photoPath, photoBytes);
             return photoBytes;
 
         } catch (Exception e) {
             log.error("Ошибка чтения фото: {}", e.getMessage());
-            // Кэшируем null, чтобы не пытаться снова
             photoCache.put(photoPath, null);
             return null;
         }
@@ -169,7 +161,7 @@ public class KeyboardService {
      * Кэширует результат для оптимизации
      */
     @Cacheable(value = "categoryKeyboards", key = "#parentId")
-    @Transactional(readOnly = true) // Добавьте эту аннотацию
+    @Transactional(readOnly = true)
     public InlineKeyboardMarkup getCategoryKeyboard(Long parentId) {
         var categories = (parentId == null)
                 ? categoryService.getActiveRootCategories()
@@ -196,9 +188,7 @@ public class KeyboardService {
             }
         }
 
-        // Добавляем кнопку "Назад" если не корневой уровень
         if (parentId != null) {
-            // Используем метод с загрузкой parent
             var currentCategory = categoryService.getCategoryWithParent(parentId);
             addBackButton(keyboardMarkup, currentCategory);
         }
@@ -220,18 +210,17 @@ public class KeyboardService {
             return;
         }
 
-        // Используем getParentId(), а не getParent().getId() для избежания LazyInitializationException
         Long parentId = currentCategory.getParentId();
 
+        InlineKeyboardButton backButton;
         if (parentId != null) {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+            backButton = new InlineKeyboardButton("↩️ Назад")
                     .callbackData("category_" + parentId);
-            keyboardMarkup.addRow(backButton);
         } else {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Главное меню")
+            backButton = new InlineKeyboardButton("↩️ Главное меню")
                     .callbackData("category_null");
-            keyboardMarkup.addRow(backButton);
         }
+        keyboardMarkup.addRow(backButton);
     }
 
     /**
@@ -247,23 +236,20 @@ public class KeyboardService {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         for (var product : products) {
-            // Проверяем количество
             if (product.getCount() == null || product.getCount() <= 0) {
-                continue; // Пропускаем товары без остатка
+                continue;
             }
 
             String buttonText = String.format("%s - %d₽",
                     product.getName(),
                     product.getAmount());
 
-            // ИЗМЕНЕНИЕ: добавляем categoryId в callback
             InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
                     .callbackData("product_" + product.getId() + "_" + categoryId); // ← ЗДЕСЬ!
 
             keyboard.addRow(button);
         }
 
-        // Добавляем кнопку "Назад"
         var category = categoryService.getCategoryById(categoryId);
         if (category != null && category.getParentId() != null) {
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
@@ -293,46 +279,24 @@ public class KeyboardService {
                 .selective(true);
     }
 
-    private InlineKeyboardMarkup createSyrupsKeyboard(Long cartItemId) {
-        // Получаем список доступных сиропов
-        List<Product> syrups = productService.getAvailableSyrups();
-
-        if (syrups.isEmpty()) {
-            // Если сиропов нет - возвращаем пустую клавиатуру с сообщением
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-            InlineKeyboardButton noSyrupsButton = new InlineKeyboardButton("❌ Сиропы временно недоступны")
-                    .callbackData("noop");
-            keyboard.addRow(noSyrupsButton);
-
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                    .callbackData("addons_syrup_" + cartItemId);
-            keyboard.addRow(backButton);
-
-            return keyboard;
-        }
-
+    public InlineKeyboardMarkup createBasketKeyboard(Long chatId) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        // Создаем кнопки для каждого сиропа
-        for (Product syrup : syrups) {
-            String buttonText = String.format("%s (+%d₽)",
-                    syrup.getName(),
-                    syrup.getAmount());
+        if (cartService.isCartEmpty(chatId)) {
+            InlineKeyboardButton menuButton = new InlineKeyboardButton("🍽️ Перейти в меню")
+                    .callbackData("category_null");
+            keyboard.addRow(menuButton);
+        } else {
+            InlineKeyboardButton clearButton = new InlineKeyboardButton("🗑️ Очистить корзину")
+                    .callbackData("clear_cart");
+            InlineKeyboardButton orderButton = new InlineKeyboardButton("📝 Оформить заказ")
+                    .callbackData("create_order");
+            keyboard.addRow(clearButton, orderButton);
 
-            InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
-                    .callbackData("select_syrup_" + cartItemId + "_" + syrup.getId());
-            keyboard.addRow(syrupButton);
+            InlineKeyboardButton continueShoppingButton = new InlineKeyboardButton("🛒 Продолжить покупки")
+                    .callbackData("category_null");
+            keyboard.addRow(continueShoppingButton);
         }
-
-        // Добавляем кнопку "Без сиропа"
-        InlineKeyboardButton noSyrupButton = new InlineKeyboardButton("❌ Без сиропа")
-                .callbackData("remove_syrup_" + cartItemId);
-        keyboard.addRow(noSyrupButton);
-
-        // Кнопка "Назад"
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("addons_syrup_" + cartItemId);
-        keyboard.addRow(backButton);
 
         return keyboard;
     }

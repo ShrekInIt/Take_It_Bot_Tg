@@ -1,7 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
 import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
@@ -34,7 +33,6 @@ public class CategoryService {
      */
     @Transactional(readOnly = true)
     public Category getCategoryWithParent(Long categoryId) {
-        // Используем кастомный запрос с явной загрузкой parent
         return categoryRepository.findByIdWithParent(categoryId).orElse(null);
     }
 
@@ -67,27 +65,23 @@ public class CategoryService {
         log.info("Number of products passed: {}", products.size());
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        // Добавляем подкатегории с иконкой папки
         for (Category subcategory : subcategories) {
             InlineKeyboardButton button = new InlineKeyboardButton("📁 " + subcategory.getName())
                     .callbackData("category_" + subcategory.getId());
             keyboard.addRow(button);
         }
 
-        // Добавляем товары с иконкой корзины (ДОБАВЛЯЕМ categoryId в callback!)
         for (com.example.bot.Telegram_bot_take_it.entity.Product product : products) {
             String buttonText = String.format("%s - %d₽",
                     product.getName(),
                     product.getAmount());
 
-            // ИЗМЕНЕНИЕ: добавляем categoryId в callback
             InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
-                    .callbackData("product_" + product.getId() + "_" + categoryId); // ← ЗДЕСЬ!
+                    .callbackData("product_" + product.getId() + "_" + categoryId);
 
             keyboard.addRow(button);
         }
 
-        // Добавляем кнопку "Назад" - используем безопасный метод
         Category category = getCategoryWithParent(categoryId);
         if (category != null) {
             KeyboardService.addBackButton(keyboard, category);
@@ -101,7 +95,7 @@ public class CategoryService {
      */
     @Transactional(readOnly = true)
     public List<Category> getActiveSubcategories(Long parentId) {
-        List<Category> subs = categoryRepository.findByParentIdAndIsActiveTrueOrderBySortOrder(parentId);
+        List<Category> subs = categoryRepository.findByParentIdAndActiveTrueOrderBySortOrder(parentId);
         subs.removeIf(cat -> "Добавки".equals(cat.getName()));
         return subs;
     }
@@ -139,6 +133,6 @@ public class CategoryService {
      */
     @Transactional(readOnly = true)
     public List<Category> getActiveRootCategories() {
-        return categoryRepository.findByParentIdIsNullAndIsActiveTrueOrderBySortOrder();
+        return categoryRepository.findByParentIdIsNullAndActiveTrueOrderBySortOrder();
     }
 }

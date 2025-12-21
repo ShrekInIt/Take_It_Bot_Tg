@@ -32,7 +32,7 @@ public class Category {
     private Long parentId;
 
     @Column(name = "is_active")
-    private boolean isActive = true;
+    private boolean active = true;
 
     @Column(name = "sort_order")
     private Integer sortOrder = 0;

@@ -22,27 +22,4 @@ public interface CartRepository extends JpaRepository<Cart, Long> {
      */
     @Query("SELECT c FROM Cart c WHERE c.user.id = :userId")
     Optional<Cart> findByUserId(@Param("userId") Long userId);
-
-    /**
-     * Найти корзину по Telegram ID пользователя
-     */
-    @Query("SELECT c FROM Cart c WHERE c.user.telegramId = :telegramId")
-    Optional<Cart> findByUserTelegramId(@Param("telegramId") String telegramId);
-
-    /**
-     * Найти корзину по chatId пользователя
-     */
-    @Query("SELECT c FROM Cart c WHERE c.user.chatId = :chatId")
-    Optional<Cart> findByUserChatId(@Param("chatId") Long chatId);
-
-    /**
-     * Проверить существование корзины у пользователя
-     */
-    boolean existsByUser(User user);
-
-    /**
-     * Удалить корзину по ID пользователя
-     */
-    @Query("DELETE FROM Cart c WHERE c.user.id = :userId")
-    void deleteByUserId(@Param("userId") Long userId);
 }

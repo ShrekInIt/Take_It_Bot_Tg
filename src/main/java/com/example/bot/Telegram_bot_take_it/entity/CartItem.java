@@ -49,10 +49,8 @@ public class CartItem {
      * Рассчитать общую стоимость товара с учетом добавок
      */
     public Integer calculateItemTotal() {
-        // Стоимость основного товара
         int productTotal = (product.getAmount() != null ? product.getAmount() : 0) * countProduct;
 
-        // Стоимость добавок
         int addonsTotal = addons.stream()
                 .mapToInt(addon -> (addon.getPriceAtSelection() != null ? addon.getPriceAtSelection() : 0) *
                         (addon.getQuantity() != null ? addon.getQuantity() : 0))
@@ -69,25 +67,6 @@ public class CartItem {
     }
 
     /**
-     * Рассчитать стоимость только добавок
-     */
-    public Integer calculateAddonsTotal() {
-        return addons.stream()
-                .mapToInt(addon -> (addon.getPriceAtSelection() != null ? addon.getPriceAtSelection() : 0) *
-                        (addon.getQuantity() != null ? addon.getQuantity() : 0))
-                .sum();
-    }
-
-    /**
-     * Получить общее количество добавок
-     */
-    public Integer getTotalAddonsCount() {
-        return addons.stream()
-                .mapToInt(CartItemAddon::getQuantity)
-                .sum();
-    }
-
-    /**
      * Добавить добавку к товару
      */
     public void addAddon(CartItemAddon addon) {
@@ -96,52 +75,9 @@ public class CartItem {
     }
 
     /**
-     * Удалить добавку из товара
-     */
-    public void removeAddon(CartItemAddon addon) {
-        addons.remove(addon);
-        addon.setCartItem(null);
-    }
-
-    /**
-     * Найти добавку по ID продукта
-     */
-    public CartItemAddon findAddonByProductId(Long addonProductId) {
-        return addons.stream()
-                .filter(addon -> addon.getAddonProduct().getId().equals(addonProductId))
-                .findFirst()
-                .orElse(null);
-    }
-
-    /**
      * Проверить, есть ли у товара добавки
      */
     public boolean hasAddons() {
         return !addons.isEmpty();
-    }
-
-    /**
-     * Получить описание товара с добавками
-     */
-    public String getDescriptionWithAddons() {
-        StringBuilder description = new StringBuilder();
-        description.append(product.getName())
-                .append(" x").append(countProduct);
-
-        if (hasAddons()) {
-            description.append("\nДобавки:");
-            for (CartItemAddon addon : addons) {
-                description.append("\n  - ")
-                        .append(addon.getAddonProduct().getName())
-                        .append(" x").append(addon.getQuantity())
-                        .append(" (+").append(addon.getPriceAtSelection()).append("₽ каждый)");
-            }
-        }
-
-        if (specialInstructions != null && !specialInstructions.isEmpty()) {
-            description.append("\nКомментарий: ").append(specialInstructions);
-        }
-
-        return description.toString();
     }
 }

@@ -39,7 +39,9 @@ public class CallbackHandlerController {
     // Кэш для отслеживания типа последнего сообщения
     private final Map<Long, String> lastMessageType = new ConcurrentHashMap<>();
 
-    // Метод для установки типа сообщения
+    /**
+     * Метод для установки типа сообщения
+     */
     private void setLastMessageType(Long chatId) {
         lastMessageType.put(chatId, "product");
     }
@@ -97,34 +99,24 @@ public class CallbackHandlerController {
                 log.info("Обработка выбора добавок...");
                 handleAddonsSelectionSyrup(chatId, data);
             }
-
             else if (data.startsWith("add_syrup_")) {
-                // Пример данных: "add_syrup_22"
                 showSyrupsSelection(chatId, data);
             }
-
             else if (data.startsWith("add_milk_")) {
-                // Пример данных: "add_syrup_22"
                 showMilksSelection(chatId, data);
             }
-
             else if (data.startsWith("remove_syrup_")) {
                 removeSelectedSyrup(chatId, messageId, data);
             }
             else if (data.startsWith("remove_milk_")) {
                 removeSelectedMilk(chatId, messageId, data);
             }
-
             else if (data.startsWith("select_milk_")) {
-                // Выбор конкретного молока
                 handleSelectMilk(chatId, data);
             }
             else if (data.startsWith("select_syrup_")) {
-                // Выбор конкретного сиропа
                 handleSelectSyrup(chatId, data);
             }
-
-
             else if (data.startsWith("add_to_cart_")) {
                 log.info("Обработка добавления в корзину...");
                 handleAddToCart(chatId, callbackId, data);
@@ -137,20 +129,14 @@ public class CallbackHandlerController {
                 log.info("Нажата кнопка отображения количества (игнорируем)...");
                 answerCallback(callbackId, "✏️ Измените количество кнопками ➖ и ➕");
             }
-
             else if (data.startsWith("addon_syrup_")) {
                 log.info("Обработка выбора сиропа...");
                 handleCartAddSyrup(chatId, data);
             }
-
             else if (data.startsWith("addon_milk_")) {
                 log.info("Обработка выбора альтернативного молока...");
                 handleCartAddMilk(chatId, data);
-                //handleMilkSelection(chatId, data);
             }
-
-
-
             else if (data.startsWith("choose_addon_")) {
                 log.info("Обработка выбора конкретной добавки...");
                 handleAddonSelection(chatId, data);
@@ -723,7 +709,7 @@ public class CallbackHandlerController {
                             (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
 
                     InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("milk_addons_" + cartItem.getId() + "_" + productId + "_" + quantity);  // ← ЗДЕСЬ ПЕРЕДАЕТСЯ cartItemId
+                            .callbackData("milk_addons_" + cartItem.getId() + "_" + productId + "_" + quantity);
                     keyboard.addRow(itemButton);
                 }
             }
@@ -1171,27 +1157,9 @@ public class CallbackHandlerController {
      */
     private void handleBackToCart(Long chatId) {
         try {
-            // Получаем содержимое корзины
             String cartDescription = cartService.getCartDescription(chatId);
 
-            // Создаем клавиатуру для корзины
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-            if (cartService.isCartEmpty(chatId)) {
-                InlineKeyboardButton menuButton = new InlineKeyboardButton("🍽️ Перейти в меню")
-                        .callbackData("category_null");
-                keyboard.addRow(menuButton);
-            } else {
-                InlineKeyboardButton clearButton = new InlineKeyboardButton("🗑️ Очистить корзину")
-                        .callbackData("clear_cart");
-                InlineKeyboardButton orderButton = new InlineKeyboardButton("📝 Оформить заказ")
-                        .callbackData("create_order");
-                keyboard.addRow(clearButton, orderButton);
-
-                InlineKeyboardButton continueShoppingButton = new InlineKeyboardButton("🛒 Продолжить покупки")
-                        .callbackData("category_null");
-                keyboard.addRow(continueShoppingButton);
-            }
+            InlineKeyboardMarkup keyboard = keyboardService.createBasketKeyboard(chatId);
 
             SendMessage message = new SendMessage(chatId.toString(), cartDescription)
                     .parseMode(ParseMode.Markdown)

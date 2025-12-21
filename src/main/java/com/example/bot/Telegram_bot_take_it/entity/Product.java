@@ -42,12 +42,9 @@ public class Product {
     @JoinColumn(name = "category_id", insertable = false, updatable = false)
     private Category category;
 
-    // Связь с добавками (когда этот продукт является основным)
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ProductAddon> addons;
 
-    // Связь с добавками (когда этот продукт является добавкой)
     @OneToMany(mappedBy = "addonProduct", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ProductAddon> usedAsAddon;
-
 }

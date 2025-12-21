@@ -15,13 +15,13 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
      * Получить все активные корневые категории (без родителя)
      * Сортировка по полю sortOrder
      */
-    List<Category> findByParentIdIsNullAndIsActiveTrueOrderBySortOrder();
+    List<Category> findByParentIdIsNullAndActiveTrueOrderBySortOrder();
 
     /**
      * Получить активные подкатегории для указанной родительской категории
      * Сортировка по полю sortOrder
      */
-    List<Category> findByParentIdAndIsActiveTrueOrderBySortOrder(Long parentId);
+    List<Category> findByParentIdAndActiveTrueOrderBySortOrder(Long parentId);
 
     // Добавьте этот метод
     @Query("SELECT c FROM Category c LEFT JOIN FETCH c.parent WHERE c.id = :id")

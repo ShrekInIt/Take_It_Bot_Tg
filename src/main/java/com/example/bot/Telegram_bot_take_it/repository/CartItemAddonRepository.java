@@ -16,11 +16,6 @@ import java.util.Optional;
 public interface CartItemAddonRepository extends JpaRepository<CartItemAddon, Long> {
 
     /**
-     * Найти все добавки для товара в корзине по объекту CartItem
-     */
-    List<CartItemAddon> findByCartItem(CartItem cartItem);
-
-    /**
      * Найти все добавки для товара в корзине по ID cart_item
      */
     @Query("SELECT cia FROM CartItemAddon cia WHERE cia.cartItem.id = :cartItemId")
@@ -69,11 +64,6 @@ public interface CartItemAddonRepository extends JpaRepository<CartItemAddon, Lo
     Integer calculateTotalAddonsPriceForCartItem(@Param("cartItemId") Long cartItemId);
 
     /**
-     * Удалить все добавки для товара в корзине
-     */
-    void deleteByCartItem(CartItem cartItem);
-
-    /**
      * Удалить все добавки по ID товара в корзине
      */
     @Modifying
@@ -93,27 +83,6 @@ public interface CartItemAddonRepository extends JpaRepository<CartItemAddon, Lo
      */
     @Query("SELECT CASE WHEN COUNT(cia) > 0 THEN true ELSE false END FROM CartItemAddon cia WHERE cia.cartItem.id = :cartItemId")
     Boolean existsByCartItemId(@Param("cartItemId") Long cartItemId);
-
-    /**
-     * Найти добавку определенной категории для cart_item
-     */
-    @Query("SELECT cia FROM CartItemAddon cia " +
-            "JOIN cia.addonProduct p " +
-            "JOIN p.category c " +
-            "WHERE cia.cartItem.id = :cartItemId AND c.id = :categoryId")
-    List<CartItemAddon> findByCartItemIdAndCategoryId(@Param("cartItemId") Long cartItemId,
-                                                      @Param("categoryId") Long categoryId);
-
-    /**
-     * Найти первую добавку определенной категории для cart_item
-     */
-    @Query("SELECT cia FROM CartItemAddon cia " +
-            "JOIN cia.addonProduct p " +
-            "JOIN p.category c " +
-            "WHERE cia.cartItem.id = :cartItemId AND c.id = :categoryId " +
-            "ORDER BY cia.id ASC")
-    Optional<CartItemAddon> findFirstByCartItemIdAndCategoryId(@Param("cartItemId") Long cartItemId,
-                                                               @Param("categoryId") Long categoryId);
 
     /**
      * Найти все продукты-добавки определенной категории для cart_item

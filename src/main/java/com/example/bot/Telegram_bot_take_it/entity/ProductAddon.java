@@ -1,6 +1,5 @@
 package com.example.bot.Telegram_bot_take_it.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
