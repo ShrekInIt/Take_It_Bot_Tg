@@ -3,7 +3,7 @@ package com.example.bot.Telegram_bot_take_it.utils;
 import com.example.bot.Telegram_bot_take_it.dto.TelegramUserDto;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
-import com.example.bot.Telegram_bot_take_it.service.UserService;
+import com.example.bot.Telegram_bot_take_it.service.UserTransactionService;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.InputMediaPhoto;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 public class HandlerCommandService {
 
     private final TelegramBot bot;
-    private final UserService userService;
+    private final UserTransactionService userTransactionService;
     private final KeyboardService keyboardService;
     private final TelegramMessageSender messageSender;
     private final CartService cartService;
@@ -33,7 +33,7 @@ public class HandlerCommandService {
             TelegramUserDto telegramUserDto = convertToTelegramUserDto(telegramUser);
             log.info("DTO создан: id={}, username={}", telegramUserDto.getId(), telegramUserDto.getUsername());
 
-            User user = userService.registerOrUpdateUser(telegramUserDto, chatId);
+            User user = userTransactionService.registerOrUpdateUser(telegramUserDto, chatId);
 
             if (user != null) {
                 log.info("Пользователь создан/обновлен: id={}, name={}", user.getId(), user.getName());
@@ -92,7 +92,7 @@ public class HandlerCommandService {
         try {
             TelegramUserDto telegramUserDto = convertToTelegramUserDto(telegramUser);
 
-            User user = userService.registerOrUpdateUser(telegramUserDto, chatId);
+            User user = userTransactionService.registerOrUpdateUser(telegramUserDto, chatId);
 
             if (user == null) {
                 messageSender.sendMessage(chatId, "❌ Не удалось загрузить данные пользователя");

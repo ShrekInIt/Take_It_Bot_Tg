@@ -49,15 +49,6 @@ public class Cart {
     }
 
     /**
-     * Получить количество товаров в корзине
-     */
-    public Integer getTotalItemsCount() {
-        return cartItems.stream()
-                .mapToInt(CartItem::getCountProduct)
-                .sum();
-    }
-
-    /**
      * Проверить, пуста ли корзина
      */
     public boolean isEmpty() {

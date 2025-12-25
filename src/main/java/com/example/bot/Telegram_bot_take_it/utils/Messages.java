@@ -9,13 +9,6 @@ public class Messages {
             /photoMenu - фотография меню.
             /basket - команда для просмотра корзины.""";
 
-    public static final String HELLO_TEXT = """
-            Добро пожаловать в бота!
-            Для продолжении использовании бота необходима регистрация.
-            Если вам необходимо просто просмотр меню,
-            используйте команду /menu или команду /photomenu
-            """;
-
     public static final String MENU = "🍽️ Меню";
     public static final String MENU_LOWERCASE = "🍽️ меню";
 }

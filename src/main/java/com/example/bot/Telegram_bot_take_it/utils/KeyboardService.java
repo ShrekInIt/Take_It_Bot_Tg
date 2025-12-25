@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,6 +66,46 @@ public class KeyboardService {
     }
 
     /**
+     * Создать клавиатуру для выбора добавок
+     */
+    public InlineKeyboardMarkup createAddonsKeyboard(Long productId, int quantity) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        Long syrupCategoryId = 20L; // Сиропы
+        Long milkCategoryId = 21L;  // Альтернативное молоко
+
+        List<Product> syrups = productService.getAvailableProductsWithStock(syrupCategoryId);
+        log.info("Найдено сиропов: {}", syrups.size());
+
+        if (!syrups.isEmpty()) {
+            InlineKeyboardButton syrupButton = new InlineKeyboardButton("🍯 Сиропы")
+                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity);
+            keyboard.addRow(syrupButton);
+        }
+
+        List<Product> milks = productService.getAvailableProductsWithStock(milkCategoryId);
+        log.info("Найдено видов молока: {}", milks.size());
+
+        if (!milks.isEmpty()) {
+            InlineKeyboardButton milkButton = new InlineKeyboardButton("🥛 Альтернативное молоко")
+                    .callbackData("cart_addon_milk_" + productId + "_" + quantity);
+            keyboard.addRow(milkButton);
+        }
+
+        if (keyboard.inlineKeyboard() == null || keyboard.inlineKeyboard().length == 0) {
+            InlineKeyboardButton noAddonsButton = new InlineKeyboardButton("⚠️ Добавки временно недоступны")
+                    .callbackData("no_action");
+            keyboard.addRow(noAddonsButton);
+        }
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к товару")
+                .callbackData("product_" + productId);
+        keyboard.addRow(backButton);
+
+        return keyboard;
+    }
+
+    /**
      * Создать клавиатуру для товара (только кнопки!)
      */
     public InlineKeyboardMarkup createProductKeyboard(Product product, int quantity, Long sourceCategoryId) {
@@ -89,16 +130,16 @@ public class KeyboardService {
 
         if (needsAddons(product)) {
             InlineKeyboardButton addonsButton = new InlineKeyboardButton("🍯 Добавки")
-                    .callbackData("addons_" + productId + "_" + quantity);
+                    .callbackData("addons_show_" + productId + "_" + quantity);
             keyboard.addRow(addonsButton);
         }
 
         InlineKeyboardButton addToCartButton = new InlineKeyboardButton("🛒 Добавить в корзину")
-                .callbackData("add_to_cart_" + product.getId() + "_" + quantity);
+                .callbackData("cart_add_" + product.getId() + "_" + quantity);
         keyboard.addRow(addToCartButton);
 
         InlineKeyboardButton basketButton = new InlineKeyboardButton("🛒 В корзину")
-                .callbackData("back_to_cart");
+                .callbackData("cart_back");
         keyboard.addRow(basketButton);
 
         String backCallback;
@@ -288,9 +329,9 @@ public class KeyboardService {
             keyboard.addRow(menuButton);
         } else {
             InlineKeyboardButton clearButton = new InlineKeyboardButton("🗑️ Очистить корзину")
-                    .callbackData("clear_cart");
+                    .callbackData("cart_clear");
             InlineKeyboardButton orderButton = new InlineKeyboardButton("📝 Оформить заказ")
-                    .callbackData("create_order");
+                    .callbackData("order_create");
             keyboard.addRow(clearButton, orderButton);
 
             InlineKeyboardButton continueShoppingButton = new InlineKeyboardButton("🛒 Продолжить покупки")

@@ -110,7 +110,7 @@ public class CategoryService {
             return false;
         }
 
-        // Список ID категорий кофе и всех его подкатегорий
+        // Список ID категорий кофе
         Set<Long> coffeeCategoryIds = Set.of(
                 3L,    // Кофе
                 5L,    // Капучино
