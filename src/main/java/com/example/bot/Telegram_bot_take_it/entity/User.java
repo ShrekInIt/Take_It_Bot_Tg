@@ -41,40 +41,10 @@ public class User {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Дополнительные методы для удобства
-
-    /**
-     * Проверить, является ли пользователь администратором
-     */
-    public boolean isAdmin() {
-        return Boolean.TRUE.equals(isAdmin);
-    }
-
     /**
      * Проверить, активен ли пользователь
      */
     public boolean isActive() {
         return Boolean.TRUE.equals(isActive);
-    }
-
-    /**
-     * Активировать пользователя
-     */
-    public void activate() {
-        this.isActive = true;
-    }
-
-    /**
-     * Деактивировать пользователя
-     */
-    public void deactivate() {
-        this.isActive = false;
-    }
-
-    /**
-     * Назначить администратором
-     */
-    public void makeAdmin() {
-        this.isAdmin = true;
     }
 }
