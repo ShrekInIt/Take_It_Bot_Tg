@@ -1,5 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
+import com.example.bot.Telegram_bot_take_it.dto.CartItemGroup;
 import com.example.bot.Telegram_bot_take_it.entity.*;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
@@ -9,8 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -22,6 +22,7 @@ public class CartService {
     private final CartItemAddonRepository cartItemAddonRepository;
     private final ProductService productService;
     private final UserService userService;
+    private final SyrupPriceService syrupPriceService;
 
     /**
      * Получить корзину пользователя
@@ -221,7 +222,7 @@ public class CartService {
     }
 
     /**
-     * Получить описание корзины в виде текста
+     * Получить описание корзины в виде текста с группировкой одинаковых позиций
      */
     @Transactional(readOnly = true)
     public String getCartDescription(Long chatId) {
@@ -231,39 +232,123 @@ public class CartService {
             return "🛒 Корзина пуста";
         }
 
+        // Группируем элементы по ключу, который включает продукт, добавки и инструкции
+        Map<String, CartItemGroup> groupedItems = new LinkedHashMap<>();
+
+        for (CartItem item : items) {
+            // Создаем уникальный ключ для группировки
+            String groupKey = createGroupKey(item);
+
+            CartItemGroup group = groupedItems.get(groupKey);
+            if (group == null) {
+                group = new CartItemGroup(item);
+                groupedItems.put(groupKey, group);
+            } else {
+                group.addItem(item);
+            }
+        }
+
         StringBuilder description = new StringBuilder();
         description.append("🛒 *Ваша корзина:*\n\n");
 
         int totalAmount = 0;
+        int itemNumber = 1;
 
-        for (int i = 0; i < items.size(); i++) {
-            CartItem item = items.get(i);
-            int itemTotal = item.calculateItemTotal();
-            totalAmount += itemTotal;
+        // Выводим сгруппированные элементы
+        for (CartItemGroup group : groupedItems.values()) {
+            CartItem firstItem = group.getFirstItem();
+            int groupQuantity = group.getTotalQuantity();
 
-            description.append(i + 1).append(". *").append(item.getProduct().getName())
-                    .append("* x").append(item.getCountProduct())
-                    .append(" - ").append(itemTotal).append("₽\n");
+            // Пересчитываем стоимость группы с учетом динамической цены сиропов
+            int itemTotal = firstItem.getProduct().getAmount() * groupQuantity;
+            int addonsTotal = 0;
 
-            if (item.hasAddons()) {
-                for (CartItemAddon addon : item.getAddons()) {
-                    description.append("   🍯 ").append(addon.getAddonProduct().getName())
-                            .append(" x").append(addon.getQuantity())
-                            .append(" (+").append(addon.calculateAddonTotal()).append("₽)\n");
+            List<String> addonDescriptions = new ArrayList<>();
+
+            if (firstItem.hasAddons()) {
+                for (CartItemAddon addon : firstItem.getAddons()) {
+                    int syrupPricePerUnit;
+
+                    // Проверяем, является ли добавка сиропом
+                    if (syrupPriceService.isSyrup(addon.getAddonProduct())) {
+                        // Используем динамическую цену для сиропа
+                        syrupPricePerUnit = syrupPriceService.calculateSyrupPriceForSize(
+                                addon.getAddonProduct(),
+                                firstItem.getProduct()
+                        );
+                    } else {
+                        // Для не-сиропов используем обычную цену
+                        syrupPricePerUnit = addon.getPriceAtSelection();
+                    }
+
+                    int addonQuantity = addon.getQuantity() * groupQuantity;
+                    int addonTotalPrice = syrupPricePerUnit * addonQuantity;
+                    addonsTotal += addonTotalPrice;
+
+                    addonDescriptions.add(String.format(
+                            "   🍯 %s x%d (+%d₽)\n",
+                            addon.getAddonProduct().getName(),
+                            addonQuantity,
+                            addonTotalPrice
+                    ));
                 }
             }
 
-            if (item.getSpecialInstructions() != null && !item.getSpecialInstructions().isEmpty()) {
-                description.append("   💬 ").append(item.getSpecialInstructions()).append("\n");
+            int groupTotalPrice = itemTotal + addonsTotal;
+            totalAmount += groupTotalPrice;
+
+            description.append(itemNumber).append(". *").append(firstItem.getProduct().getName())
+                    .append("* x").append(groupQuantity)
+                    .append(" - ").append(groupTotalPrice).append("₽\n");
+
+            // Добавляем описания добавок
+            for (String addonDesc : addonDescriptions) {
+                description.append(addonDesc);
+            }
+
+            if (firstItem.getSpecialInstructions() != null && !firstItem.getSpecialInstructions().isEmpty()) {
+                description.append("   💬 ").append(firstItem.getSpecialInstructions()).append("\n");
             }
 
             description.append("\n");
+            itemNumber++;
         }
 
         description.append("-------------------\n");
         description.append("💰 *Итого:* ").append(totalAmount).append("₽");
 
         return description.toString();
+    }
+
+    /**
+     * Создает ключ для группировки элементов корзины
+     * Ключ учитывает: product_id, special_instructions и все добавки
+     */
+    private String createGroupKey(CartItem item) {
+        StringBuilder key = new StringBuilder();
+
+        key.append("product:").append(item.getProduct().getId()).append("|");
+
+        String instructions = item.getSpecialInstructions();
+        key.append("instructions:").append(instructions != null ? instructions.hashCode() : "null").append("|");
+
+        if (item.hasAddons()) {
+            List<CartItemAddon> sortedAddons = item.getAddons().stream()
+                    .sorted(Comparator.comparing(a -> a.getAddonProduct().getId()))
+                    .toList();
+
+            key.append("addons:");
+            for (CartItemAddon addon : sortedAddons) {
+                key.append(addon.getAddonProduct().getId())
+                        .append(":")
+                        .append(addon.getQuantity())
+                        .append(",");
+            }
+        } else {
+            key.append("addons:none");
+        }
+
+        return key.toString();
     }
 
     /**

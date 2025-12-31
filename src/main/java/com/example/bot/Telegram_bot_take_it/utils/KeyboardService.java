@@ -286,7 +286,7 @@ public class KeyboardService {
                     product.getAmount());
 
             InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
-                    .callbackData("product_" + product.getId() + "_" + categoryId); // ← ЗДЕСЬ!
+                    .callbackData("product_" + product.getId() + "_" + categoryId);
 
             keyboard.addRow(button);
         }

@@ -2,10 +2,7 @@ package com.example.bot.Telegram_bot_take_it.handlers;
 
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.example.bot.Telegram_bot_take_it.service.CartItemAddonService;
-import com.example.bot.Telegram_bot_take_it.service.CartItemService;
-import com.example.bot.Telegram_bot_take_it.service.CartService;
-import com.example.bot.Telegram_bot_take_it.service.ProductService;
+import com.example.bot.Telegram_bot_take_it.service.*;
 import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.pengrad.telegrambot.TelegramBot;
@@ -32,6 +29,7 @@ public class AddonHandler {
     private final CartItemService cartItemService;
     private final CartItemAddonService cartItemAddonService;
     private final MessageSender messageSender;
+    private final SyrupPriceService syrupPriceService;
 
     /**
      * Обработка callback запросов для добавок
@@ -460,12 +458,16 @@ public class AddonHandler {
         long productId = Long.parseLong(parts[4]);
         int quantity = Integer.parseInt(parts[5]);
 
+        Product mainProduct = productService.getProductById(productId).orElseThrow(() -> new RuntimeException("Напиток не найден"));
+
         Product currentSyrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
 
-        String currentSyrupText = currentSyrup != null
-                ? String.format("\n\nТекущий сироп: *%s* (+%d₽)",
-                currentSyrup.getName(), currentSyrup.getAmount())
-                : "";
+        String currentSyrupText = "";
+        if (currentSyrup != null) {
+            int currentSyrupPrice = syrupPriceService.calculateSyrupPriceForSize(currentSyrup, mainProduct);
+            currentSyrupText = String.format("\n\nТекущий сироп: *%s* (+%d₽)",
+                    currentSyrup.getName(), currentSyrupPrice);
+        }
 
         String messageText = String.format("""
             🍯 *Выбор сиропа*
@@ -482,8 +484,9 @@ public class AddonHandler {
             keyboard.addRow(unavailableButton);
         } else {
             for (Product syrup : syrups) {
+                int syrupPrice = syrupPriceService.calculateSyrupPriceForSize(syrup, mainProduct);
                 String buttonText = String.format("%s +%d₽",
-                        syrup.getName(), syrup.getAmount());
+                        syrup.getName(), syrupPrice);
 
                 InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
                         .callbackData("addons_select_syrup_" + cartItemId + "_" + syrup.getId() + "_" + productId + "_" + quantity);
