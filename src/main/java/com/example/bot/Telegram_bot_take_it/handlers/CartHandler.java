@@ -58,6 +58,9 @@ public class CartHandler {
         else if (data.startsWith("cart_addon_milk_")) {
             log.info("Обработка выбора альтернативного молока...");
             handleCartAddMilk(chatId, data);
+        } else if (data.startsWith("cart_delete_one")) {
+            log.info("Обработка удаления конкретного товара");
+            handleDeleteSomeProduct(chatId);
         }
     }
 
@@ -375,5 +378,15 @@ public class CartHandler {
             log.error("Ошибка при показе товаров для добавления добавок: {}", e.getMessage(), e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке товаров из корзины");
         }
+    }
+
+    private void handleDeleteSomeProduct(Long chatId) {
+        InlineKeyboardMarkup keyboard = keyboardService.createCartProductsKeyboard(chatId);
+        String caption = "Выберите товар для удаления";
+        SendMessage message = new SendMessage(chatId.toString(), caption)
+                .parseMode(ParseMode.HTML)
+                .replyMarkup(keyboard);
+
+        bot.execute(message);
     }
 }

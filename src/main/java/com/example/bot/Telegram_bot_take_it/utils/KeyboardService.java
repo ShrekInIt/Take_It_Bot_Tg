@@ -1,5 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
+import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
+import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
@@ -17,9 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -154,6 +154,133 @@ public class KeyboardService {
         keyboard.addRow(backButton);
 
         return keyboard;
+    }
+
+    /**
+     * Создание клавиатуры для пустой корзины
+     */
+    private InlineKeyboardMarkup createEmptyCartKeyboard() {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton menuButton = new InlineKeyboardButton("📋 Перейти в меню")
+                .callbackData("cart_back_to_menu");
+
+        InlineKeyboardButton mainButton = new InlineKeyboardButton("🏠 На главную")
+                .callbackData("main_menu");
+
+        keyboard.addRow(menuButton);
+        keyboard.addRow(mainButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создание клавиатуры с товарами из корзины
+     * @param chatId ID чата пользователя
+     * @return InlineKeyboardMarkup с товарами из корзины
+     */
+    public InlineKeyboardMarkup createCartProductsKeyboard(Long chatId) {
+        try {
+            List<CartItem> cartItems = cartService.getCartItems(chatId);
+
+            if (cartItems.isEmpty()) {
+                log.info("Корзина пуста для пользователя с chatId {}", chatId);
+                return createEmptyCartKeyboard();
+            }
+
+            Map<String, CartItemGroupDTO> groupedItems = new LinkedHashMap<>();
+
+            for (CartItem cartItem : cartItems) {
+                Product product = cartItem.getProduct();
+
+                if (product == null) {
+                    log.error("Продукт не найден для CartItem ID: {}", cartItem.getId());
+                    continue;
+                }
+
+                String groupKey = createGroupKey(cartItem);
+
+                groupedItems.computeIfAbsent(groupKey, k ->
+                                new CartItemGroupDTO(product, new ArrayList<>(), cartItem.getAddons()))
+                        .getItems().add(cartItem);
+            }
+
+            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+            for (Map.Entry<String, CartItemGroupDTO> entry : groupedItems.entrySet()) {
+                CartItemGroupDTO group = entry.getValue();
+                Product product = group.getProduct();
+
+                int totalQuantity = 0;
+                int totalPrice = 0;
+
+                for (CartItem cartItem : group.getItems()) {
+                    totalQuantity += cartItem.getCountProduct();
+                    totalPrice += cartItem.calculateItemTotal();
+                }
+
+                String buttonText = formatGroupedItemText(product, group, totalQuantity, totalPrice);
+
+                CartItem firstItem = group.getItems().getFirst();
+
+                InlineKeyboardButton productButton = new InlineKeyboardButton(buttonText)
+                        .callbackData("cart_product_" + firstItem.getId());
+
+                keyboard.addRow(productButton);
+            }
+
+            InlineKeyboardButton clearCartButton = new InlineKeyboardButton("🗑️ Очистить корзину")
+                    .callbackData("cart_clear");
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Назад в корзину")
+                    .callbackData("cart_back");
+
+            keyboard.addRow(clearCartButton);
+            keyboard.addRow(backButton);
+
+            return keyboard;
+
+        } catch (Exception e) {
+            log.error("Ошибка при создании клавиатуры корзины для chatId {}: {}", chatId, e.getMessage(), e);
+            return createEmptyCartKeyboard();
+        }
+    }
+
+    /**
+     * Создает ключ для группировки товаров
+     */
+    private String createGroupKey(CartItem cartItem) {
+        StringBuilder key = new StringBuilder(cartItem.getProduct().getName());
+
+        if (!cartItem.getAddons().isEmpty()) {
+            key.append("_addons:");
+            cartItem.getAddons().stream()
+                    .sorted(Comparator.comparing(a -> a.getAddonProduct().getName()))
+                    .forEach(addon -> key.append(addon.getAddonProduct().getId()).append("_"));
+        }
+
+        return key.toString();
+    }
+
+    /**
+     * Форматирует текст для сгруппированного товара как в примере
+     */
+    private String formatGroupedItemText(Product product, CartItemGroupDTO group, int totalQuantity, int totalPrice) {
+        StringBuilder text = new StringBuilder();
+
+        text.append(product.getName());
+
+        if (!group.getAddons().isEmpty()) {
+            List<String> addonNames = group.getAddons().stream()
+                    .map(addon -> addon.getAddonProduct().getName())
+                    .toList();
+
+            text.append(" (").append(String.join(", ", addonNames)).append(")");
+        }
+
+        text.append(" (").append(totalQuantity).append(" шт.) - ").append(totalPrice).append("₽");
+
+        return text.toString();
     }
 
     /**
@@ -328,6 +455,10 @@ public class KeyboardService {
                     .callbackData("category_null");
             keyboard.addRow(menuButton);
         } else {
+            InlineKeyboardButton deleteOneMoreButton = new InlineKeyboardButton("🗑️ Удалить товар")
+                    .callbackData("cart_delete_one");
+            keyboard.addRow(deleteOneMoreButton);
+
             InlineKeyboardButton clearButton = new InlineKeyboardButton("🗑️ Очистить корзину")
                     .callbackData("cart_clear");
             InlineKeyboardButton orderButton = new InlineKeyboardButton("📝 Оформить заказ")
