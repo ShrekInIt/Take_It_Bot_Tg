@@ -269,6 +269,7 @@ public class CartHandler {
             String[] parts = data.split("_");
             long productId = Long.parseLong(parts[3]);
             int quantity = Integer.parseInt(parts[4]);
+            long categoryId = Long.parseLong(parts[5]);
 
             Product product = productService.getProductById(productId)
                     .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
@@ -297,13 +298,13 @@ public class CartHandler {
                             (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
 
                     InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("addons_syrup_" + cartItem.getId() + "_" + productId + "_" + quantity);
+                            .callbackData("addons_syrup_" + cartItem.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
                     keyboard.addRow(itemButton);
                 }
             }
 
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к выбору добавок")
-                    .callbackData("addons_show_" + productId + "_" + quantity);
+                    .callbackData("addons_show_" + productId + "_" + quantity + "_" + categoryId);
             keyboard.addRow(backButton);
 
             SendMessage message = new SendMessage(chatId.toString(), messageText)
@@ -326,6 +327,7 @@ public class CartHandler {
             String[] parts = data.split("_");
             long productId = Long.parseLong(parts[3]);
             int quantity = Integer.parseInt(parts[4]);
+            long categoryId = Long.parseLong(parts[5]);
 
             Product product = productService.getProductById(productId)
                     .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
@@ -354,13 +356,13 @@ public class CartHandler {
                             (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
 
                     InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("addons_milk_" + cartItem.getId() + "_" + productId + "_" + quantity);
+                            .callbackData("addons_milk_" + cartItem.getId() + "_" + productId + "_" + quantity + "_"  + categoryId);
                     keyboard.addRow(itemButton);
                 }
             }
 
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к выбору добавок")
-                    .callbackData("addons_show_" + productId + "_" + quantity);
+                    .callbackData("addons_show_" + productId + "_" + quantity + "_" + categoryId);
             keyboard.addRow(backButton);
 
             SendMessage message = new SendMessage(chatId.toString(), messageText)

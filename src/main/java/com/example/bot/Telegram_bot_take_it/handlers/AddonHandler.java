@@ -81,6 +81,7 @@ public class AddonHandler {
 
             Long productId = Long.parseLong(parts[2]);
             int quantity = Integer.parseInt(parts[3]);
+            Long categoryId = Long.parseLong(parts[4]);
 
             if(cartService.findProductInCart(chatId, productId)){
                 messageSender.sendMessage(chatId, "Сначала добавьте товар в корзину");
@@ -102,7 +103,7 @@ public class AddonHandler {
                                 quantity
                         );
 
-                        InlineKeyboardMarkup keyboard = keyboardService.createAddonsKeyboard(productId, quantity);
+                        InlineKeyboardMarkup keyboard = keyboardService.createAddonsKeyboard(productId, quantity, categoryId);
 
                         SendMessage sendMessage = new SendMessage(chatId.toString(), messageText)
                                 .parseMode(ParseMode.Markdown)
@@ -126,6 +127,7 @@ public class AddonHandler {
         Long cartItemId = Long.valueOf(parts[3]);
         long productId = Long.parseLong(parts[4]);
         int quantity = Integer.parseInt(parts[5]);
+        long categoryId = Long.parseLong(parts[6]);
 
         Product syrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
         Product milk = cartItemAddonService.getMilkByCartItemId(cartItemId);
@@ -145,7 +147,7 @@ public class AddonHandler {
 
             InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
             addSyrupButton.setText("➕ Добавить сироп");
-            addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity);
+            addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
             keyboardMarkup.addRow(addSyrupButton);
 
@@ -153,20 +155,20 @@ public class AddonHandler {
             if (syrup != null) {
                 InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
                 removeSyrupButton.setText("➖ Убрать сироп");
-                removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity);
+                removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
                 keyboardMarkup.addRow(removeSyrupButton);
             }
 
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity);
+                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
             keyboardMarkup.addRow(backButton);
         }else {
             keyboardMarkup = new InlineKeyboardMarkup();
 
             InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
             addSyrupButton.setText("➕ Добавить альт. молоко");
-            addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity);
+            addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
 
             keyboardMarkup.addRow(addSyrupButton);
 
@@ -174,13 +176,13 @@ public class AddonHandler {
             if (milk != null) {
                 InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
                 removeSyrupButton.setText("➖ Убрать альт. молоко");
-                removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity);
+                removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
                 keyboardMarkup.addRow(removeSyrupButton);
             }
 
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                    .callbackData("cart_addon_milk_" + productId + "_" + quantity);
+                    .callbackData("cart_addon_milk_" + productId + "_" + quantity + "_" + categoryId);
             keyboardMarkup.addRow(backButton);
         }
         try {
@@ -227,6 +229,7 @@ public class AddonHandler {
             Long milkId = Long.valueOf(parts[4]);
             long productId = Long.parseLong(parts[5]);
             int quantity = Integer.parseInt(parts[6]);
+            long categoryId = Long.parseLong(parts[7]);
 
             Product milk = productService.getProductById(milkId)
                     .orElseThrow(() -> new RuntimeException("Молоко не найден"));
@@ -254,7 +257,7 @@ public class AddonHandler {
             InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                    .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity);
+                    .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
             keyboard.addRow(backButton);
 
             SendMessage message = new SendMessage(chatId.toString(), messageText)
@@ -276,6 +279,7 @@ public class AddonHandler {
         Long cartItemId = Long.valueOf(parts[3]);
         long productId = Long.parseLong(parts[4]);
         int quantity = Integer.parseInt(parts[5]);
+        long categoryId = Long.parseLong(parts[6]);
 
         Product currentMilk = cartItemAddonService.getMilkByCartItemId(cartItemId);
 
@@ -303,13 +307,13 @@ public class AddonHandler {
                         milk.getName(), milk.getAmount());
 
                 InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
-                        .callbackData("addons_select_milk_" + cartItemId + "_" + milk.getId() + "_" + productId + "_" + quantity);
+                        .callbackData("addons_select_milk_" + cartItemId + "_" + milk.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
                 keyboard.addRow(syrupButton);
             }
         }
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity);
+                .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
         keyboard.addRow(backButton);
 
         try {
@@ -331,6 +335,7 @@ public class AddonHandler {
         Long cartItemId = Long.valueOf(parts[2]);
         long productId = Long.parseLong(parts[3]);
         int quantity = Integer.parseInt(parts[4]);
+        long categoryId = Long.parseLong(parts[5]);
 
         Product syrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
         Product milk = cartItemAddonService.getMilkByCartItemId(cartItemId);
@@ -348,7 +353,7 @@ public class AddonHandler {
 
         InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
         addSyrupButton.setText("➕ Добавить альт. молоко");
-        addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity);
+        addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
         keyboardMarkup.addRow(addSyrupButton);
 
@@ -356,13 +361,13 @@ public class AddonHandler {
         if (milk != null) {
             InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
             removeSyrupButton.setText("➖ Убрать альт. молоко");
-            removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity);
+            removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
             keyboardMarkup.addRow(removeSyrupButton);
         }
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("cart_addon_milk_" + productId + "_" + quantity);
+                .callbackData("cart_addon_milk_" + productId + "_" + quantity + "_" + categoryId);
         keyboardMarkup.addRow(backButton);
 
 
@@ -408,6 +413,7 @@ public class AddonHandler {
             Long syrupId = Long.valueOf(parts[4]);
             long productId = Long.parseLong(parts[5]);
             int quantity = Integer.parseInt(parts[6]);
+            long categoryId = Long.parseLong(parts[7]);
 
             Product syrup = productService.getProductById(syrupId)
                     .orElseThrow(() -> new RuntimeException("Сироп не найден"));
@@ -435,7 +441,7 @@ public class AddonHandler {
             InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                    .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity);
+                    .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
             keyboard.addRow(backButton);
 
             SendMessage message = new SendMessage(chatId.toString(), messageText)
@@ -457,6 +463,7 @@ public class AddonHandler {
         Long cartItemId = Long.valueOf(parts[3]);
         long productId = Long.parseLong(parts[4]);
         int quantity = Integer.parseInt(parts[5]);
+        long categoryId = Long.parseLong(parts[6]);
 
         Product mainProduct = productService.getProductById(productId).orElseThrow(() -> new RuntimeException("Напиток не найден"));
 
@@ -489,13 +496,13 @@ public class AddonHandler {
                         syrup.getName(), syrupPrice);
 
                 InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
-                        .callbackData("addons_select_syrup_" + cartItemId + "_" + syrup.getId() + "_" + productId + "_" + quantity);
+                        .callbackData("addons_select_syrup_" + cartItemId + "_" + syrup.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
                 keyboard.addRow(syrupButton);
             }
         }
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity);
+                .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
         keyboard.addRow(backButton);
 
         try {
@@ -517,6 +524,7 @@ public class AddonHandler {
         Long cartItemId = Long.valueOf(parts[2]);
         long productId = Long.parseLong(parts[3]);
         int quantity = Integer.parseInt(parts[4]);
+        long categoryId = Long.parseLong(parts[5]);
 
         Product syrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
         Product milk = cartItemAddonService.getMilkByCartItemId(cartItemId);
@@ -534,7 +542,7 @@ public class AddonHandler {
 
         InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
         addSyrupButton.setText("➕ Добавить сироп");
-        addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity);
+        addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
 
         keyboardMarkup.addRow(addSyrupButton);
 
@@ -542,13 +550,13 @@ public class AddonHandler {
         if (syrup != null) {
             InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
             removeSyrupButton.setText("➖ Убрать сироп");
-            removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity);
+            removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
 
             keyboardMarkup.addRow(removeSyrupButton);
         }
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("cart_addon_syrup_" + productId + "_" + quantity);
+                .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
         keyboardMarkup.addRow(backButton);
 
 

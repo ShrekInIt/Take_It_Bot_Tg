@@ -61,7 +61,7 @@ public class CallbackHandlerController {
                 cartHandler.handlerCartCallback(chatId, callbackId, data);
             } else if (data.startsWith("addons_")) {
                 log.info("Обработка выбора добавок...");
-                addonHandler.handlerAddonCallback(chatId, messageId,data);
+                addonHandler.handlerAddonCallback(chatId, messageId, data);
             } else if (data.startsWith("order_")) {
                 orderHandler.handlerCartCallback(chatId, callbackId, data);
             } else {

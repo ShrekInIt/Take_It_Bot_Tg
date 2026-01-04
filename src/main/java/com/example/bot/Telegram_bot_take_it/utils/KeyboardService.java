@@ -68,7 +68,7 @@ public class KeyboardService {
     /**
      * Создать клавиатуру для выбора добавок
      */
-    public InlineKeyboardMarkup createAddonsKeyboard(Long productId, int quantity) {
+    public InlineKeyboardMarkup createAddonsKeyboard(Long productId, int quantity, Long categoryId) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         Long syrupCategoryId = 20L; // Сиропы
@@ -79,7 +79,7 @@ public class KeyboardService {
 
         if (!syrups.isEmpty()) {
             InlineKeyboardButton syrupButton = new InlineKeyboardButton("🍯 Сиропы")
-                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity);
+                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
             keyboard.addRow(syrupButton);
         }
 
@@ -88,7 +88,7 @@ public class KeyboardService {
 
         if (!milks.isEmpty()) {
             InlineKeyboardButton milkButton = new InlineKeyboardButton("🥛 Альтернативное молоко")
-                    .callbackData("cart_addon_milk_" + productId + "_" + quantity);
+                    .callbackData("cart_addon_milk_" + productId + "_" + quantity + "_" + categoryId);
             keyboard.addRow(milkButton);
         }
 
@@ -99,7 +99,7 @@ public class KeyboardService {
         }
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к товару")
-                .callbackData("product_" + productId);
+                .callbackData("product_" + productId + "_" + categoryId);
         keyboard.addRow(backButton);
 
         return keyboard;
@@ -130,7 +130,7 @@ public class KeyboardService {
 
         if (needsAddons(product)) {
             InlineKeyboardButton addonsButton = new InlineKeyboardButton("🍯 Добавки")
-                    .callbackData("addons_show_" + productId + "_" + quantity);
+                    .callbackData("addons_show_" + productId + "_" + quantity + "_" + sourceCategoryId);
             keyboard.addRow(addonsButton);
         }
 
