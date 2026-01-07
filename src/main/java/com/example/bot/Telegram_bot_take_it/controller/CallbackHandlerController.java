@@ -44,7 +44,7 @@ public class CallbackHandlerController {
         log.info("Chat ID: {}, Message ID: {}, Data: {}", chatId, messageId, data);
 
         messageSender.answerCallback(callbackId, null);
-        System.out.println(data);
+
         try {
             if (data.startsWith("category_")) {
                 log.info("Обработка категории...");
@@ -58,7 +58,7 @@ public class CallbackHandlerController {
                 log.info("Обработка изменения количества...");
                 quantityHandler.handleQuantityChange(chatId, messageId, callbackId, data);
             } else if (data.startsWith("cart_")) {
-                cartHandler.handlerCartCallback(chatId, callbackId, data);
+                cartHandler.handlerCartCallback(chatId, callbackId, data, messageId);
             } else if (data.startsWith("addons_")) {
                 log.info("Обработка выбора добавок...");
                 addonHandler.handlerAddonCallback(chatId, messageId, data);

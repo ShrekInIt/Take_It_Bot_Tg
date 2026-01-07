@@ -1,7 +1,9 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
+import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
+import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
 import com.example.bot.Telegram_bot_take_it.service.CartItemAddonService;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
@@ -11,6 +13,7 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
+import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,11 +33,12 @@ public class CartHandler {
     private final CartService cartService;
     private final CartItemAddonService cartItemAddonService;
     private final MessageSender messageSender;
+    private final CartItemRepository cartItemRepository;
 
     /**
      * Обработка callback запросов для корзины
      */
-    public void handlerCartCallback(Long chatId, String callbackId, String data){
+    public void handlerCartCallback(Long chatId, String callbackId, String data, Integer messageId){
         if (data.startsWith("cart_add_")) {
             log.info("Обработка добавления в корзину...");
             handleAddToCart(chatId, callbackId, data);
@@ -58,9 +62,26 @@ public class CartHandler {
         else if (data.startsWith("cart_addon_milk_")) {
             log.info("Обработка выбора альтернативного молока...");
             handleCartAddMilk(chatId, data);
-        } else if (data.startsWith("cart_delete_one")) {
+        }
+        else if (data.startsWith("cart_delete_one")) {
             log.info("Обработка удаления конкретного товара");
             handleDeleteSomeProduct(chatId);
+        }
+        else if (data.startsWith("cart_product_")) {
+            log.info("Удаление конкретного товара");
+            handlerDeleteProductKeyboard(chatId, data, messageId);
+        }
+        else if (data.startsWith("cart_delete_quantity_")) {
+            log.info("Изменение количества для удаления");
+            handleDeleteQuantityChange(chatId, data, messageId);
+        }
+        else if (data.startsWith("cart_delete_confirm_")) {
+            log.info("Подтверждение удаления товара");
+            handleDeleteConfirm(chatId, data);
+        }
+        else if (data.startsWith("cart_delete_all_")) {
+            log.info("Удаление всего товара");
+            handleDeleteAll(chatId, data);
         }
     }
 
@@ -380,6 +401,9 @@ public class CartHandler {
         }
     }
 
+    /**
+     * Создание клавиатуры с продуктами
+     */
     private void handleDeleteSomeProduct(Long chatId) {
         InlineKeyboardMarkup keyboard = keyboardService.createCartProductsKeyboard(chatId);
         String caption = "Выберите товар для удаления";
@@ -388,5 +412,208 @@ public class CartHandler {
                 .replyMarkup(keyboard);
 
         bot.execute(message);
+    }
+
+    private void handlerDeleteProductKeyboard(Long chatId, String data, Integer messageId) {
+        try {
+            String[] parts = data.split("_");
+            Long cartItemId = Long.parseLong(parts[2]);
+
+            showDeleteProductKeyboard(chatId, messageId, cartItemId, 1);
+
+        } catch (Exception e) {
+            log.error("Ошибка при создании клавиатуры удаления: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при загрузке товара");
+        }
+    }
+
+    /**
+     * Удаление всего товара
+     */
+    private void handleDeleteAll(Long chatId, String data) {
+        try {
+            String[] parts = data.split("_");
+            Long firstCartItemId = Long.parseLong(parts[3]);
+
+            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+
+            if (group == null || group.getItems().isEmpty()) {
+                messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
+                return;
+            }
+
+            List<CartItem> groupItems = group.getItems();
+            Product product = group.getProduct();
+            int totalInGroup = group.getTotalQuantity();
+
+            for (CartItem item : groupItems) {
+                cartService.removeCartItem(item.getId());
+            }
+
+            messageSender.sendMessage(chatId, String.format(
+                    "✅ *Товар удален*\n\n🗑️ *%s* x%d\n✅ Удалено полностью из корзины.",
+                    product.getName(), totalInGroup
+            ));
+
+            handleDeleteSomeProduct(chatId);
+
+        } catch (Exception e) {
+            log.error("Ошибка при удалении всего товара: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при удалении товара");
+        }
+    }
+    /**
+     * Подтверждение удаления указанного количества
+     */
+    private void handleDeleteConfirm(Long chatId, String data) {
+        try {
+            String[] parts = data.split("_");
+            Long firstCartItemId = Long.parseLong(parts[3]);
+            int deleteQuantity = Integer.parseInt(parts[4]);
+
+            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+
+            if (group == null || group.getItems().isEmpty()) {
+                messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
+                return;
+            }
+
+            List<CartItem> groupItems = group.getItems();
+            Product product = group.getProduct();
+            int totalInGroup = group.getTotalQuantity();
+
+            if (deleteQuantity <= 0) {
+                messageSender.sendMessage(chatId, "❌ Количество должно быть больше 0");
+                return;
+            }
+
+            if (deleteQuantity > totalInGroup) {
+                messageSender.sendMessage(chatId, "❌ Нельзя удалить больше, чем есть в корзине");
+                return;
+            }
+
+            int deletedCount = 0;
+
+            if (group.isCoffee()) {
+                for (int i = 0; i < Math.min(deleteQuantity, groupItems.size()); i++) {
+                    CartItem item = groupItems.get(i);
+                    cartService.removeCartItem(item.getId());
+                    deletedCount++;
+                }
+            } else {
+                CartItem item = groupItems.getFirst();
+
+                if (deleteQuantity >= item.getCountProduct()) {
+                    cartService.removeCartItem(item.getId());
+                    deletedCount = item.getCountProduct();
+                } else {
+                    item.setCountProduct(item.getCountProduct() - deleteQuantity);
+                    cartItemRepository.save(item);
+                    deletedCount = deleteQuantity;
+                }
+            }
+
+            String message;
+            if (deletedCount == totalInGroup) {
+                message = String.format(
+                        "✅ *Товар удален*\n\n🗑️ *%s* x%d\n✅ Удалено полностью из корзины.",
+                        product.getName(), deletedCount
+                );
+            } else {
+                message = String.format(
+                        "✅ *Товар удален*\n\n🗑️ *%s*\n📦 Удалено: %d шт., осталось: %d шт.",
+                        product.getName(), deletedCount, totalInGroup - deletedCount
+                );
+            }
+
+            messageSender.sendMessage(chatId, message);
+            handleDeleteSomeProduct(chatId);
+
+        } catch (Exception e) {
+            log.error("Ошибка при удалении товара: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при удалении товара");
+        }
+    }
+
+    /**
+     * Обработка изменения количества для удаления
+     */
+    private void handleDeleteQuantityChange(Long chatId, String data, Integer messageId) {
+        try {
+            String[] parts = data.split("_");
+            Long firstCartItemId = Long.parseLong(parts[3]);
+            int currentDeleteQuantity = Integer.parseInt(parts[4]);
+            String action = parts[5];
+
+            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+            if (group == null || group.getItems().isEmpty()) {
+                messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
+                return;
+            }
+
+            int maxQuantity = group.getTotalQuantity();
+            int newDeleteQuantity = currentDeleteQuantity;
+
+            if (action.equals("inc")) {
+                newDeleteQuantity = Math.min(currentDeleteQuantity + 1, maxQuantity);
+            } else if (action.equals("dec")) {
+                newDeleteQuantity = Math.max(currentDeleteQuantity - 1, 1);
+            }
+
+            log.info("Изменение количества для удаления: текущее={}, новое={}, максимальное={}, товар={}",
+                    currentDeleteQuantity, newDeleteQuantity, maxQuantity, group.getProduct().getName());
+
+            showDeleteProductKeyboard(chatId, messageId, firstCartItemId, newDeleteQuantity);
+
+        } catch (Exception e) {
+            log.error("Ошибка при изменении количества для удаления: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при изменении количества");
+        }
+    }
+
+    /**
+     * Показ клавиатуры для удаления товара с указанием количества
+     */
+    private void showDeleteProductKeyboard(Long chatId, Integer messageId, Long firstCartItemId, int deleteQuantity) {
+        try {
+            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+
+            if (group == null || group.getItems().isEmpty()) {
+                messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
+                return;
+            }
+
+            Product product = group.getProduct();
+            int currentQuantity = group.getTotalQuantity();
+
+            deleteQuantity = Math.max(1, Math.min(deleteQuantity, currentQuantity));
+
+            String messageText = String.format(
+                    """
+                    🗑️ *Удаление товара*
+                    
+                    🛒 Товар: *%s*
+                    📦 В корзине: *%d шт.*
+                    
+                    Выберите количество для удаления:
+                    """,
+                    product.getName(),
+                    currentQuantity
+            );
+
+            InlineKeyboardMarkup keyboard = keyboardService.createDeleteProductKeyboard(
+                    firstCartItemId, deleteQuantity, currentQuantity
+            );
+
+            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+
+            bot.execute(editMessage);
+
+        } catch (Exception e) {
+            log.error("Ошибка при показе клавиатуры удаления: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при загрузке товара");
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroup;
+import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
 import com.example.bot.Telegram_bot_take_it.entity.*;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -31,6 +33,80 @@ public class CartService {
     public Cart getCartByUser(User user) {
         return cartRepository.findByUser(user)
                 .orElseGet(() -> createCartForUser(user));
+    }
+
+    /**
+     * Получить группу по ID первого элемента
+     */
+    @Transactional(readOnly = true)
+    public CartItemGroupDTO getItemGroupByFirstItemId(Long chatId, Long firstCartItemId) {
+        try {
+            User user = userService.getUserByChatId(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+            Cart cart = getCartByUser(user);
+
+            CartItem firstItem = cartItemRepository.findById(firstCartItemId)
+                    .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
+
+            if (!firstItem.getCart().getId().equals(cart.getId())) {
+                throw new IllegalArgumentException("Товар не принадлежит корзине пользователя");
+            }
+
+            List<CartItem> allItems = cartItemRepository.findByCartWithProductAndAddons(cart);
+
+            boolean isCoffee = productService.isCoffeeProduct(firstItem.getProduct().getId());
+
+            List<CartItem> groupItems = new ArrayList<>();
+            int totalQuantity = 0;
+
+            for (CartItem item : allItems) {
+                if (!item.getProduct().getId().equals(firstItem.getProduct().getId())) {
+                    continue;
+                }
+
+                Set<Long> itemAddonIds = item.getAddons().stream()
+                        .map(addon -> addon.getAddonProduct().getId())
+                        .collect(Collectors.toSet());
+
+                Set<Long> firstItemAddonIds = firstItem.getAddons().stream()
+                        .map(addon -> addon.getAddonProduct().getId())
+                        .collect(Collectors.toSet());
+
+                if (!itemAddonIds.equals(firstItemAddonIds)) {
+                    continue;
+                }
+
+                groupItems.add(item);
+
+                totalQuantity += item.getCountProduct();
+            }
+
+            groupItems.sort(Comparator.comparing(CartItem::getId));
+
+            log.info("Найдена группа товаров: продукт={}, записей={}, общее количество={}, кофе={}",
+                    firstItem.getProduct().getName(), groupItems.size(), totalQuantity, isCoffee);
+
+            return new CartItemGroupDTO(
+                    firstItem.getProduct(),
+                    groupItems,
+                    firstItem.getAddons(),
+                    totalQuantity,
+                    isCoffee
+            );
+
+        } catch (Exception e) {
+            log.error("Ошибка при получении группы товаров: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Удалить элемент корзины
+     */
+    @Transactional
+    public void removeCartItem(Long cartItemId) {
+        cartItemRepository.deleteById(cartItemId);
     }
 
     /**

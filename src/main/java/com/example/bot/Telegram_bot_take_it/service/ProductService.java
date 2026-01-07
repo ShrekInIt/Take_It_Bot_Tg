@@ -5,6 +5,7 @@ import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,5 +52,20 @@ public class ProductService {
     public List<Product> getAvailableMilks() {
         Long milkCategoryId = 21L;
         return getAvailableProductsWithStock(milkCategoryId);
+    }
+
+    /**
+     * Проверить, является ли товар кофе
+     */
+    @Transactional(readOnly = true)
+    public boolean isCoffeeProduct(Long productId) {
+        try {
+            Product product = getProductById(productId)
+                    .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
+            return product.getCategoryId() == 3L;
+        } catch (Exception e) {
+            log.error("Ошибка при проверке типа товара: {}", e.getMessage());
+            return false;
+        }
     }
 }

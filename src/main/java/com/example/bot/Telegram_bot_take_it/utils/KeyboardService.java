@@ -157,6 +157,38 @@ public class KeyboardService {
     }
 
     /**
+     * Создание клавиатуры для удаления товара
+     */
+    public InlineKeyboardMarkup createDeleteProductKeyboard(Long firstCartItemId, int deleteQuantity, int maxQuantity) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton minusButton = new InlineKeyboardButton("➖")
+                .callbackData("cart_delete_quantity_" + firstCartItemId + "_" + deleteQuantity + "_dec");
+
+        InlineKeyboardButton quantityButton = new InlineKeyboardButton(deleteQuantity + " шт")
+                .callbackData("no_action");
+
+        InlineKeyboardButton plusButton = new InlineKeyboardButton("➕")
+                .callbackData("cart_delete_quantity_" + firstCartItemId + "_" + deleteQuantity + "_inc");
+
+        keyboard.addRow(minusButton, quantityButton, plusButton);
+
+        InlineKeyboardButton deleteButton = new InlineKeyboardButton("🗑️ Удалить " + deleteQuantity + " шт")
+                .callbackData("cart_delete_confirm_" + firstCartItemId + "_" + deleteQuantity);
+        keyboard.addRow(deleteButton);
+
+        InlineKeyboardButton deleteAllButton = new InlineKeyboardButton("🗑️ Удалить всю группу (" + maxQuantity + " шт)")
+                .callbackData("cart_delete_all_" + firstCartItemId);
+        keyboard.addRow(deleteAllButton);
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к выбору товара")
+                .callbackData("cart_delete_one");
+        keyboard.addRow(backButton);
+
+        return keyboard;
+    }
+
+    /**
      * Создание клавиатуры для пустой корзины
      */
     private InlineKeyboardMarkup createEmptyCartKeyboard() {
@@ -232,7 +264,7 @@ public class KeyboardService {
             InlineKeyboardButton clearCartButton = new InlineKeyboardButton("🗑️ Очистить корзину")
                     .callbackData("cart_clear");
 
-            InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Назад в корзину")
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад в корзину")
                     .callbackData("cart_back");
 
             keyboard.addRow(clearCartButton);
