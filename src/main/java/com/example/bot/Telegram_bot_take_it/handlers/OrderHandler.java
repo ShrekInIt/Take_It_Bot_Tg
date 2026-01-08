@@ -59,27 +59,6 @@ public class OrderHandler {
         } else if (data.startsWith("order_details_")) {
             log.info("Обработка деталей заказа...");
             orderHistoryHandler.handleOrderDetailsCallback(chatId, callbackId, data);
-        } else if (data.startsWith("repeat_order_")) {
-            log.info("Обработка повторения заказа...");
-            handleRepeatOrder(chatId, callbackId, data);
-        }
-    }
-
-    /**
-     * Обработка повторения заказа
-     */
-    private void handleRepeatOrder(Long chatId, String callbackId, String data) {
-        try {
-            //String orderIdStr = data.replace("repeat_order_", "");
-            //Long orderId = Long.parseLong(orderIdStr);
-
-            // TODO: Реализовать логику повторения заказа
-            messageSender.answerCallback(callbackId, "🔄 Повторение заказа в разработке");
-            messageSender.sendMessage(chatId, "🔄 Функция повторения заказа находится в разработке.");
-
-        } catch (Exception e) {
-            log.error("Ошибка при повторении заказа: {}", e.getMessage(), e);
-            messageSender.answerCallback(callbackId, "❌ Ошибка");
         }
     }
 

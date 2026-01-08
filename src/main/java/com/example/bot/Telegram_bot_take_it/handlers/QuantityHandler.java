@@ -59,6 +59,7 @@ public class QuantityHandler {
             if ("plus".equals(action)) {
                 if (product.getCount() != null && currentQuantity >= product.getCount()) {
                     String message = "⛔ В наличии только " + product.getCount() + " шт.";
+                    messageSender.sendMessage(chatId, message);
                     log.warn(message);
                     messageSender.answerCallback(callbackId, message);
                     return;

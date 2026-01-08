@@ -19,12 +19,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional
 public class CartHandler {
 
     private final TelegramBot bot;
@@ -288,7 +290,8 @@ public class CartHandler {
     /**
      * Обработка добавления добавок к товарам в корзине
      */
-    private void handleCartAddSyrup(Long chatId, String data) {
+    @Transactional(readOnly = true)
+    protected void handleCartAddSyrup(Long chatId, String data) {
         try {
             String[] parts = data.split("_");
             long productId = Long.parseLong(parts[3]);
@@ -346,7 +349,8 @@ public class CartHandler {
     /**
      * Обработка добавления добавок к товарам в корзине
      */
-    private void handleCartAddMilk(Long chatId, String data) {
+    @Transactional(readOnly = true)
+    protected void handleCartAddMilk(Long chatId, String data) {
         try {
             String[] parts = data.split("_");
             long productId = Long.parseLong(parts[3]);

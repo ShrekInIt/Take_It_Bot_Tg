@@ -13,6 +13,7 @@ import java.util.Optional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -34,6 +35,7 @@ public class ProductService {
     /**
      * Получить продукт по ID
      */
+    @Transactional
     public Optional<Product> getProductById(Long productId) {
         return productRepository.findById(productId);
     }

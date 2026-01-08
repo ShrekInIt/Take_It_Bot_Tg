@@ -13,6 +13,7 @@ import com.pengrad.telegrambot.model.request.KeyboardButton;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.LazyInitializationException;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional
 public class KeyboardService {
 
     private final CategoryService categoryService;
@@ -44,12 +46,15 @@ public class KeyboardService {
     /**
      * Проверить, нужны ли добавки для продукта
      */
+    @Transactional(readOnly = true)
     public boolean needsAddons(Product product) {
         if (product == null) {
             return false;
         }
 
-        boolean isCoffee = categoryService.isCoffeeCategoryById(product.getCategoryId());
+        Long categoryId = getProductCategoryIdSafely(product);
+        boolean isCoffee = categoryService.isCoffeeCategoryById(categoryId);
+
         if (!isCoffee) {
             return false;
         }
@@ -66,13 +71,28 @@ public class KeyboardService {
     }
 
     /**
+     * Безопасный метод для получения categoryId из продукта
+     * Работает как с attached, так и с detached продуктами
+     */
+    private Long getProductCategoryIdSafely(Product product) {
+        try {
+            return product.getCategoryId();
+        } catch (LazyInitializationException e) {
+            log.debug("Продукт detached, загружаем заново: {}", product.getId());
+            Product freshProduct = productService.getProductById(product.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Продукт не найден"));
+            return freshProduct.getCategoryId();
+        }
+    }
+
+    /**
      * Создать клавиатуру для выбора добавок
      */
     public InlineKeyboardMarkup createAddonsKeyboard(Long productId, int quantity, Long categoryId) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        Long syrupCategoryId = 20L; // Сиропы
-        Long milkCategoryId = 21L;  // Альтернативное молоко
+        Long syrupCategoryId = 20L;
+        Long milkCategoryId = 21L;
 
         List<Product> syrups = productService.getAvailableProductsWithStock(syrupCategoryId);
         log.info("Найдено сиропов: {}", syrups.size());

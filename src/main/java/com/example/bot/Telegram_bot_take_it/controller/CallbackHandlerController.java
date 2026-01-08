@@ -20,7 +20,7 @@ public class CallbackHandlerController {
     private final CartHandler cartHandler;
     private final AddonHandler addonHandler;
     private final OrderHandler orderHandler;
-
+    private final OrderHistoryHandler orderHistoryHandler;
 
     /**
      * Основной обработчик callback-запросов от inline-кнопок
@@ -61,7 +61,11 @@ public class CallbackHandlerController {
             } else if (data.startsWith("addons_")) {
                 log.info("Обработка выбора добавок...");
                 addonHandler.handlerAddonCallback(chatId, messageId, data);
-            } else if (data.startsWith("order_")) {
+            }
+            if (data.startsWith("repeat_order_")) {
+                orderHistoryHandler.handleRepeatOrder(chatId, callbackId, data);
+            }
+            else if (data.startsWith("order_")) {
                 orderHandler.handlerCartCallback(chatId, callbackId, data);
             } else {
                 log.warn("Неизвестный callback: {}", data);

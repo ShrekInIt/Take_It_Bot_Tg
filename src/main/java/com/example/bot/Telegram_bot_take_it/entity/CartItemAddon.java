@@ -40,11 +40,4 @@ public class CartItemAddon {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-
-    /**
-     * Рассчитать стоимость добавки
-     */
-    public Integer calculateAddonTotal() {
-        return priceAtSelection * (quantity != null ? quantity : 1);
-    }
 }

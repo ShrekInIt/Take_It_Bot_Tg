@@ -2,6 +2,7 @@ package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroup;
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
+import com.example.bot.Telegram_bot_take_it.dto.OrderItemGroupDTO;
 import com.example.bot.Telegram_bot_take_it.entity.*;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
@@ -25,6 +26,7 @@ public class CartService {
     private final ProductService productService;
     private final UserService userService;
     private final SyrupPriceService syrupPriceService;
+    private final CartItemAddonService cartItemAddonService;
 
     /**
      * Получить корзину пользователя
@@ -33,6 +35,89 @@ public class CartService {
     public Cart getCartByUser(User user) {
         return cartRepository.findByUser(user)
                 .orElseGet(() -> createCartForUser(user));
+    }
+
+    /**
+     * Повторить заказ - добавить все товары из заказа в корзину
+     */
+    @Transactional
+    public void repeatOrder(Long chatId, Order order) {
+        try {
+            clearCart(chatId);
+
+            Map<String, OrderItemGroupDTO> groupedItems = new HashMap<>();
+
+            for (OrderItem orderItem : order.getItems()) {
+                String groupKey = generateGroupKey(orderItem);
+
+                if (groupedItems.containsKey(groupKey)) {
+                    OrderItemGroupDTO group = groupedItems.get(groupKey);
+                    group.addOrderItem(orderItem);
+                } else {
+                    groupedItems.put(groupKey, new OrderItemGroupDTO(orderItem));
+                }
+            }
+
+            for (OrderItemGroupDTO group : groupedItems.values()) {
+                OrderItem firstItem = group.getOrderItems().getFirst();
+                Product product = firstItem.getProduct();
+
+                if (!product.getAvailable() || product.getCount() < group.getTotalQuantity()) {
+                    throw new IllegalArgumentException(
+                            String.format("Товар '%s' недоступен в нужном количестве. Доступно: %d",
+                                    product.getName(), product.getCount()));
+                }
+
+                List<CartItem> cartItems = addProductToCart(chatId, product.getId(), group.getTotalQuantity());
+
+                if (!firstItem.getAddons().isEmpty() && !cartItems.isEmpty()) {
+                    for (CartItem cartItem : cartItems) {
+                        for (OrderItemAddon orderItemAddon : firstItem.getAddons()) {
+                            Product addonProduct = orderItemAddon.getAddonProduct();
+
+                            if (addonProduct != null && addonProduct.getAvailable()) {
+                                cartItemAddonService.addAddonToCartItem(
+                                        cartItem,
+                                        addonProduct,
+                                        orderItemAddon.getQuantity(),
+                                        orderItemAddon.getPriceAtOrder()
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            log.info("Заказ повторен: orderId={}, chatId={}, товаров: {}",
+                    order.getId(), chatId, groupedItems.size());
+
+        } catch (Exception e) {
+            log.error("Ошибка при повторении заказа: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    /**
+     * Генерация ключа для группировки OrderItem
+     */
+    private String generateGroupKey(OrderItem orderItem) {
+        StringBuilder key = new StringBuilder();
+        key.append(orderItem.getProduct().getId());
+
+        if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
+            // Сортируем ID добавок для создания одинакового ключа
+            String addonsKey = orderItem.getAddons().stream()
+                    .map(addon -> addon.getAddonProduct() != null ?
+                            String.valueOf(addon.getAddonProduct().getId()) : "")
+                    .filter(s -> !s.isEmpty())
+                    .sorted()
+                    .collect(Collectors.joining(","));
+
+            if (!addonsKey.isEmpty()) {
+                key.append("_").append(addonsKey);
+            }
+        }
+
+        return key.toString();
     }
 
     /**
@@ -120,7 +205,6 @@ public class CartService {
 
             Cart cart = getCartByUser(user);
 
-            // Ищем товар по productId в корзине
             List<CartItem> cartItems = cartItemRepository.findByCartIdAndProductName(cart.getId(), name);
 
             if (cartItems.isEmpty()) {
@@ -308,11 +392,9 @@ public class CartService {
             return "🛒 Корзина пуста";
         }
 
-        // Группируем элементы по ключу, который включает продукт, добавки и инструкции
         Map<String, CartItemGroup> groupedItems = new LinkedHashMap<>();
 
         for (CartItem item : items) {
-            // Создаем уникальный ключ для группировки
             String groupKey = createGroupKey(item);
 
             CartItemGroup group = groupedItems.get(groupKey);
@@ -330,12 +412,10 @@ public class CartService {
         int totalAmount = 0;
         int itemNumber = 1;
 
-        // Выводим сгруппированные элементы
         for (CartItemGroup group : groupedItems.values()) {
             CartItem firstItem = group.getFirstItem();
             int groupQuantity = group.getTotalQuantity();
 
-            // Пересчитываем стоимость группы с учетом динамической цены сиропов
             int itemTotal = firstItem.getProduct().getAmount() * groupQuantity;
             int addonsTotal = 0;
 
@@ -345,15 +425,12 @@ public class CartService {
                 for (CartItemAddon addon : firstItem.getAddons()) {
                     int syrupPricePerUnit;
 
-                    // Проверяем, является ли добавка сиропом
                     if (syrupPriceService.isSyrup(addon.getAddonProduct())) {
-                        // Используем динамическую цену для сиропа
                         syrupPricePerUnit = syrupPriceService.calculateSyrupPriceForSize(
                                 addon.getAddonProduct(),
                                 firstItem.getProduct()
                         );
                     } else {
-                        // Для не-сиропов используем обычную цену
                         syrupPricePerUnit = addon.getPriceAtSelection();
                     }
 
@@ -377,7 +454,6 @@ public class CartService {
                     .append("* x").append(groupQuantity)
                     .append(" - ").append(groupTotalPrice).append("₽\n");
 
-            // Добавляем описания добавок
             for (String addonDesc : addonDescriptions) {
                 description.append(addonDesc);
             }

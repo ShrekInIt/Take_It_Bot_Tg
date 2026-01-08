@@ -2,7 +2,7 @@ package com.example.bot.Telegram_bot_take_it.handlers;
 
 import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.OrderItem;
-import com.example.bot.Telegram_bot_take_it.entity.OrderItemAddon;
+import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.pengrad.telegrambot.TelegramBot;
@@ -15,7 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -24,6 +28,7 @@ public class OrderHistoryHandler {
     private final TelegramBot bot;
     private final OrderService orderService;
     private final MessageSender messageSender;
+    private final CartService cartService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
@@ -49,6 +54,53 @@ public class OrderHistoryHandler {
     }
 
     /**
+     * Обработка повторения заказа
+     */
+    public void handleRepeatOrder(Long chatId, String callbackId, String data) {
+        try {
+            String orderIdStr = data.replace("repeat_order_", "");
+            Long orderId = Long.parseLong(orderIdStr);
+
+            Order order = orderService.getOrderByIdAndUser(orderId, chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("Заказ не найден или не принадлежит вам"));
+
+            cartService.repeatOrder(chatId, order);
+
+            messageSender.answerCallback(callbackId, "✅ Заказ добавлен в корзину");
+
+            String message = String.format(
+                    """
+                            ✅ *Заказ успешно добавлен в корзину!*
+                            
+                            📦 *Номер заказа:* `%s`
+                            📅 *Дата:* %s
+                            🛒 *Товаров добавлено:* %d
+                            
+                            Перейдите в корзину для оформления заказа.""",
+                    order.getOrderNumber(),
+                    order.getCreatedAt().format(DATE_FORMATTER),
+                    order.getItems().size()
+            );
+
+            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+            InlineKeyboardButton cartButton = new InlineKeyboardButton("🛒 Перейти в корзину")
+                    .callbackData("cart_back");
+            keyboard.addRow(cartButton);
+
+            SendMessage sendMessage = new SendMessage(chatId.toString(), message)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+
+            bot.execute(sendMessage);
+
+        } catch (Exception e) {
+            log.error("Ошибка при повторении заказа: {}", e.getMessage(), e);
+            messageSender.answerCallback(callbackId, "❌ Ошибка");
+            messageSender.sendMessage(chatId, "❌ Не удалось повторить заказ: " + e.getMessage());
+        }
+    }
+
+    /**
      * Создание сообщения с историей заказов
      */
     private String createOrderHistoryMessage(List<Order> orders) {
@@ -69,9 +121,9 @@ public class OrderHistoryHandler {
                     .append(order.getStatus().getDescription()).append("\n");
             message.append("🚚 *Тип:* ").append(order.getDeliveryType().getDescription()).append("\n");
 
-            // Краткая информация о составе
             if (!order.getItems().isEmpty()) {
-                message.append("📦 *Товаров:* ").append(order.getItems().size()).append("\n");
+                Map<String, List<OrderItem>> groupedItems = groupOrderItems(order.getItems());
+                message.append("📦 *Позиций:* ").append(groupedItems.size()).append("\n");
             }
 
             if (i < orders.size() - 1) {
@@ -141,7 +193,7 @@ public class OrderHistoryHandler {
     }
 
     /**
-     * Создание детального сообщения о заказе
+     * Создание детального сообщения о заказе (с группировкой одинаковых позиций)
      */
     private String createOrderDetailsMessage(Order order) {
         StringBuilder message = new StringBuilder();
@@ -169,26 +221,48 @@ public class OrderHistoryHandler {
         message.append("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
         message.append("🛒 *Состав заказа:*\n\n");
 
-        List<OrderItem> items = order.getItems();
+        Map<String, List<OrderItem>> groupedItems = groupOrderItems(order.getItems());
+
         int itemNumber = 1;
+        for (Map.Entry<String, List<OrderItem>> entry : groupedItems.entrySet()) {
+            List<OrderItem> group = entry.getValue();
+            OrderItem firstItem = group.getFirst();
 
-        for (OrderItem item : items) {
-            message.append(itemNumber).append(". *").append(item.getProductName()).append("*\n");
-            message.append("   • Количество: ").append(item.getQuantity()).append("\n");
-            message.append("   • Цена за единицу: ").append(item.getPriceAtOrder()).append("₽\n");
-            message.append("   • Сумма: ").append(item.getPriceAtOrder() * item.getQuantity()).append("₽\n");
+            int totalQuantity = group.stream().mapToInt(OrderItem::getQuantity).sum();
+            int pricePerItem = firstItem.getPriceAtOrder();
+            int groupTotalPrice = pricePerItem * totalQuantity;
 
-            List<OrderItemAddon> addons = item.getAddons();
-            if (addons != null && !addons.isEmpty()) {
-                message.append("   • Добавки:\n");
-                for (OrderItemAddon addon : addons) {
-                    message.append("      🍯 ").append(addon.getAddonProductName())
-                            .append(" x").append(addon.getQuantity())
-                            .append(" (+").append(addon.getPriceAtOrder() * addon.getQuantity()).append("₽)\n");
-                }
+            int addonsPrice = 0;
+            if (firstItem.getAddons() != null && !firstItem.getAddons().isEmpty()) {
+                addonsPrice = firstItem.getAddons().stream()
+                        .mapToInt(addon -> addon.getPriceAtOrder() * addon.getQuantity())
+                        .sum() * totalQuantity;
+                groupTotalPrice += addonsPrice;
             }
 
-            message.append("\n");
+            message.append(itemNumber).append(". *").append(firstItem.getProductName()).append("*\n");
+
+            if (firstItem.getAddons() != null && !firstItem.getAddons().isEmpty()) {
+                message.append("   • Добавки: ");
+                String addonsStr = firstItem.getAddons().stream()
+                        .map(addon -> {
+                            String addonName = addon.getAddonProductName() != null ?
+                                    addon.getAddonProductName() : "Добавка";
+                            return addonName + (addon.getQuantity() > 1 ? " x" + addon.getQuantity() : "");
+                        })
+                        .collect(Collectors.joining(", "));
+                message.append(addonsStr).append("\n");
+            }
+
+            message.append("   • Количество: ").append(totalQuantity).append("\n");
+            message.append("   • Цена за единицу: ").append(pricePerItem).append("₽\n");
+
+            if (addonsPrice > 0) {
+                message.append("   • Стоимость добавок: +").append(addonsPrice).append("₽\n");
+            }
+
+            message.append("   • Сумма: ").append(groupTotalPrice).append("₽\n\n");
+
             itemNumber++;
         }
 
@@ -196,6 +270,49 @@ public class OrderHistoryHandler {
         message.append("💰 *Итого к оплате:* ").append(order.getTotalAmount()).append("₽");
 
         return message.toString();
+    }
+
+    /**
+     * Группировка OrderItem по продукту и добавкам
+     */
+    private Map<String, List<OrderItem>> groupOrderItems(List<OrderItem> orderItems) {
+        Map<String, List<OrderItem>> groupedMap = new LinkedHashMap<>();
+
+        for (OrderItem item : orderItems) {
+            String key = generateGroupKey(item);
+
+            groupedMap.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
+        }
+
+        return groupedMap;
+    }
+
+    /**
+     * Генерация ключа для группировки OrderItem
+     * Формат: productId_addonId1,addonId2,addonId3
+     */
+    private String generateGroupKey(OrderItem orderItem) {
+        StringBuilder keyBuilder = new StringBuilder();
+        keyBuilder.append(orderItem.getProduct().getId());
+
+        if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
+            String addonsKey = orderItem.getAddons().stream()
+                    .map(addon -> {
+                        if (addon.getAddonProduct() != null) {
+                            return String.valueOf(addon.getAddonProduct().getId());
+                        }
+                        return "";
+                    })
+                    .filter(s -> !s.isEmpty())
+                    .sorted()
+                    .collect(Collectors.joining(","));
+
+            if (!addonsKey.isEmpty()) {
+                keyBuilder.append("_").append(addonsKey);
+            }
+        }
+
+        return keyBuilder.toString();
     }
 
     /**

@@ -117,24 +117,6 @@ public class HandlerCommandService {
         }
     }
 
-    /**
-     * Обработка неизвестной команды
-     */
-    public void handleUnknownCommand(Long chatId) {
-        String unknownText = """
-            🤔 *Неизвестная команда*
-            
-            Доступные команды:
-            /start - Начать работу с ботом
-            /help - Помощь по командам
-            /menu - Главное меню
-            
-            Используйте кнопку "Меню" для навигации.
-            """;
-
-        messageSender.sendMessage(chatId, unknownText);
-    }
-
     private TelegramUserDto convertToTelegramUserDto(com.pengrad.telegrambot.model.User telegramUser) {
         return TelegramUserDto.builder()
                 .id(telegramUser.id())
