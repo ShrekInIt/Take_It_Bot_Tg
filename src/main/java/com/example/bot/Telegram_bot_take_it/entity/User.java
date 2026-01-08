@@ -31,6 +31,9 @@ public class User {
     @Column(name = "chat_id")
     private Long chatId;
 
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
     @Column(name = "is_active")
     private Boolean isActive = true;
 
@@ -46,5 +49,10 @@ public class User {
      */
     public boolean isActive() {
         return Boolean.TRUE.equals(isActive);
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
     }
 }

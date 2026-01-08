@@ -2,6 +2,7 @@ package com.example.bot.Telegram_bot_take_it.utils;
 
 import com.example.bot.Telegram_bot_take_it.dto.TelegramUserDto;
 import com.example.bot.Telegram_bot_take_it.entity.User;
+import com.example.bot.Telegram_bot_take_it.handlers.OrderHistoryHandler;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.UserTransactionService;
 import com.pengrad.telegrambot.TelegramBot;
@@ -25,6 +26,7 @@ public class HandlerCommandService {
     private final KeyboardService keyboardService;
     private final TelegramMessageSender messageSender;
     private final CartService cartService;
+    private final OrderHistoryHandler orderHistoryHandler;
 
     public void handleStartCommand(Long chatId, com.pengrad.telegrambot.model.User telegramUser) {
         log.info("Обработка /start для chatId: {}", chatId);
@@ -157,5 +159,9 @@ public class HandlerCommandService {
         ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
 
         messageSender.sendMessageWithReplyKeyboard(chatId, welcomeText, keyboard);
+    }
+
+    public void getAllOrdersUser(Long chatId) {
+        orderHistoryHandler.handleOrderHistory(chatId);
     }
 }

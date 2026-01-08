@@ -7,12 +7,10 @@ import com.pengrad.telegrambot.model.Message;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 
 @Controller
 @Slf4j
 @RequiredArgsConstructor
-@Transactional
 public class CallbackHandlerController {
 
     private final MessageSender messageSender;
@@ -42,6 +40,7 @@ public class CallbackHandlerController {
 
         log.info("=== ПОЛУЧЕН CALLBACK ===");
         log.info("Chat ID: {}, Message ID: {}, Data: {}", chatId, messageId, data);
+
 
         messageSender.answerCallback(callbackId, null);
 

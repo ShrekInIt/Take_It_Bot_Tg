@@ -68,4 +68,12 @@ public class ProductService {
             return false;
         }
     }
+
+    /**
+     * Сохранить/обновить продукт
+     */
+    @Transactional
+    public void saveProduct(Product product) {
+        productRepository.save(product);
+    }
 }

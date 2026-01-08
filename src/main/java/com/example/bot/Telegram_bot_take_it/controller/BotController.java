@@ -1,5 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.controller;
 
+import com.example.bot.Telegram_bot_take_it.handlers.OrderHandler;
 import com.example.bot.Telegram_bot_take_it.service.UserService;
 import com.example.bot.Telegram_bot_take_it.utils.HandlerCommandService;
 import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
@@ -24,6 +25,7 @@ public class BotController {
     private final UserService userService;
     private final KeyboardService keyboardService;
     private final TelegramMessageSender messageSender;
+    private final OrderHandler orderHandler;
 
     /**
      * Основной метод обработки входящих обновлений от Telegram
@@ -47,9 +49,19 @@ public class BotController {
     private void handleMessage(Message message) {
         Long chatId = message.chat().id();
         String text = message.text();
+        com.pengrad.telegrambot.model.User telegramUser = message.from();
+
+        userService.registerOrUpdateUser(telegramUser, chatId);
+
+        if (message.contact() != null) {
+            logger.info("Получен контакт от chatId {}: {}", chatId, message.contact().phoneNumber());
+            String phoneNumber = message.contact().phoneNumber();
+            orderHandler.handleContact(chatId, phoneNumber);
+            return;
+        }
 
         if (text != null) {
-            handleCommand(chatId, text, message.from());
+            handleCommand(chatId, text, telegramUser);
         }
     }
 
@@ -70,7 +82,7 @@ public class BotController {
 
         logger.info("Command received: {} from chatId: {}", command, chatId);
 
-        switch (command) {
+        switch (command.toLowerCase()) {
             case "/start" -> handlerCommandService.handleStartCommand(chatId, telegramUser);
             case "/help" -> messageSender.sendMessage(chatId, Messages.HELP_TEXT);
             case "/menu" -> {
@@ -80,7 +92,8 @@ public class BotController {
             case "/photomenu" -> handlerCommandService.handlerPhotoMenu(chatId);
             case "/basket", "🛒 корзина", "корзина" ->handlerCommandService.handleBasketCommand(chatId, telegramUser);
             case Messages.MENU_LOWERCASE ->  handlerCommandService.handleMenuCommandCategory(chatId);
-            default -> handlerCommandService.handleUnknownCommand(chatId);
+            case "\uD83D\uDCE6 мои заказы" -> handlerCommandService.getAllOrdersUser(chatId);
+            default -> orderHandler.handleTextMessage(chatId, text);
         }
     }
 }

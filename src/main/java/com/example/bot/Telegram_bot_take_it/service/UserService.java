@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -92,5 +93,18 @@ public class UserService {
         }
 
         return updated;
+    }
+
+    /**
+     * Обновить номер телефона пользователя
+     */
+    @Transactional
+    public void updatePhoneNumber(Long chatId, String phoneNumber) {
+        User user = getUserByChatId(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        user.setPhoneNumber(phoneNumber);
+        userRepository.save(user);
+        log.info("Номер телефона обновлен для пользователя: {} ({})", user.getName(), phoneNumber);
     }
 }
