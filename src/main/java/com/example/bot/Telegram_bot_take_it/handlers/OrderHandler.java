@@ -52,8 +52,7 @@ public class OrderHandler {
         } else if (data.startsWith("order_cancel")) {
             log.info("Отмена заказа");
             handleOrderCancel(chatId, callbackId);
-        }
-        else if (data.equals("order_history")) {
+        } else if (data.equals("order_history")) {
             log.info("Обработка истории заказов...");
             orderHistoryHandler.handleOrderHistory(chatId);
         } else if (data.startsWith("order_details_")) {
@@ -485,7 +484,7 @@ public class OrderHandler {
     private String createOrderConfirmationMessage(Order order) {
 
         return "🎉 *Ваш заказ оформлен!*\n\n" +
-                "📋 *Номер заказа:* " + order.getId() + "\n" +
+                "📋 *Номер заказа:* " + order.getOrderNumber() + "\n" +
                 "💰 *Сумма:* " + order.getTotalAmount() + "₽\n" +
                 "📱 *Телефон:* " + order.getPhoneNumber() + "\n" +
                 "🚚 *Способ получения:* Доставка\n" +
