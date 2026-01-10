@@ -2,6 +2,7 @@ package com.example.bot.Telegram_bot_take_it.handlers;
 
 import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.OrderItem;
+import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
@@ -9,6 +10,7 @@ import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
+import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class OrderHistoryHandler {
     private final OrderService orderService;
     private final MessageSender messageSender;
     private final CartService cartService;
+    private final OrderRepository orderRepository;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
@@ -151,11 +154,81 @@ public class OrderHistoryHandler {
             keyboard.addRow(detailsButton);
         }
 
+        InlineKeyboardButton clearHistoryButton = new InlineKeyboardButton("🗑️ Очистить историю")
+                .callbackData("order_clear_history");
+        keyboard.addRow(clearHistoryButton);
+
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
                 .callbackData("main_menu");
         keyboard.addRow(backButton);
 
         return keyboard;
+    }
+
+    public void clearHistoryHandler(Long chatId, Integer messageId) {
+        try {
+            List<Order> orders = orderService.getUserOrders(chatId);
+
+            if (orders.isEmpty()) {
+                messageSender.sendMessage(chatId, "📭 У вас нет заказов для скрытия.");
+                return;
+            }
+
+            List<Order> completedOrders = orders.stream()
+                    .filter(order -> order.getStatus() == Order.OrderStatus.COMPLETED)
+                    .toList();
+
+            if (completedOrders.isEmpty()) {
+                messageSender.sendMessage(chatId, "📭 У вас нет завершенных заказов для скрытия.");
+                return;
+            }
+
+            for (Order order : completedOrders) {
+                order.setVisible(false);
+                orderRepository.save(order);
+            }
+
+            int hiddenCount = completedOrders.size();
+
+            List<Order> updatedOrders = orderService.getUserOrders(chatId);
+
+            String message;
+            InlineKeyboardMarkup keyboard;
+
+            if (updatedOrders.isEmpty()) {
+                message = """
+                        📭 *История заказов*
+                        
+                        ✅ Все завершенные заказы скрыты.
+                        Активных заказов не найдено.
+                        
+                        Вы можете просмотреть скрытые заказы в настройках или создать новый заказ.""";
+
+                keyboard = new InlineKeyboardMarkup();
+                InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                        .callbackData("main_menu");
+                keyboard.addRow(backButton);
+            } else {
+                message = createOrderHistoryMessage(updatedOrders);
+                keyboard = createOrderHistoryKeyboard(updatedOrders);
+
+            }
+
+            EditMessageText editMessage = new EditMessageText(chatId, messageId, message)
+                    .parseMode(ParseMode.Markdown)
+                    .replyMarkup(keyboard);
+
+            bot.execute(editMessage);
+
+            messageSender.sendMessage(chatId, "✅ Скрыто завершенных заказов: " + hiddenCount);
+
+            log.info("Скрыта история заказов для chatId {}: {} завершенных заказов",
+                    chatId, hiddenCount);
+
+        } catch (Exception e) {
+            log.error("Ошибка при очистке истории заказов: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Произошла ошибка при очистке истории заказов.");
+        }
     }
 
     /**

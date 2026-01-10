@@ -36,7 +36,7 @@ public class OrderHandler {
     /**
      * Обработка callback-запросов для заказов
      */
-    public void handlerCartCallback(Long chatId, String callbackId, String data) {
+    public void handlerCartCallback(Long chatId, String callbackId, String data, Integer messageId) {
         if (data.startsWith("order_create")) {
             log.info("Начало оформления заказа...");
             handleOrderStart(chatId, callbackId);
@@ -58,6 +58,9 @@ public class OrderHandler {
         } else if (data.startsWith("order_details_")) {
             log.info("Обработка деталей заказа...");
             orderHistoryHandler.handleOrderDetailsCallback(chatId, callbackId, data);
+        }else if (data.startsWith("order_clear_history")) {
+            log.info("Обработка очистки истории...");
+            orderHistoryHandler.clearHistoryHandler(chatId, messageId);
         }
     }
 

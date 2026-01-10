@@ -17,6 +17,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "LEFT JOIN FETCH o.items i " +
             "LEFT JOIN FETCH i.product " +
             "WHERE o.user = :user " +
+            "AND o.visible = true " +
             "ORDER BY o.createdAt DESC")
     List<Order> findByUserWithItems(@Param("user") User user);
 
