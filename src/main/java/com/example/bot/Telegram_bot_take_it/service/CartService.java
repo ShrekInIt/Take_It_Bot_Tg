@@ -28,6 +28,8 @@ public class CartService {
     private final SyrupPriceService syrupPriceService;
     private final CartItemAddonService cartItemAddonService;
 
+    private static final List<Long> COFFEE_IDS = List.of(3L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L);
+
     /**
      * Получить корзину пользователя
      */
@@ -248,7 +250,7 @@ public class CartService {
         Cart cart = getCartByUser(user);
         List<CartItem> createdItems = new ArrayList<>();
 
-        boolean isCoffee = product.getCategoryId() == 3;
+        boolean isCoffee = COFFEE_IDS.contains(product.getCategoryId()) ;
 
         if (!isCoffee) {
             List<CartItem> existingItems = cartItemRepository.findByCartAndProduct(cart, product);

@@ -110,9 +110,6 @@ public class OrderHistoryHandler {
         StringBuilder message = new StringBuilder();
         message.append("📋 *История ваших заказов:*\n\n");
 
-        int totalOrders = orders.size();
-        int totalAmount = orders.stream().mapToInt(Order::getTotalAmount).sum();
-
         for (int i = 0; i < orders.size(); i++) {
             Order order = orders.get(i);
 
@@ -134,9 +131,6 @@ public class OrderHistoryHandler {
             }
         }
 
-        message.append("\n📊 *Статистика:*\n");
-        message.append("• Всего заказов: ").append(totalOrders).append("\n");
-        message.append("• Общая сумма: ").append(totalAmount).append("₽\n");
 
         return message.toString();
     }

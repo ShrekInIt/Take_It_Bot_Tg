@@ -158,10 +158,6 @@ public class KeyboardService {
                 .callbackData("cart_add_" + product.getId() + "_" + quantity);
         keyboard.addRow(addToCartButton);
 
-        InlineKeyboardButton basketButton = new InlineKeyboardButton("🛒 В корзину")
-                .callbackData("cart_back");
-        keyboard.addRow(basketButton);
-
         String backCallback;
         if (sourceCategoryId != null) {
             backCallback = "category_" + sourceCategoryId;

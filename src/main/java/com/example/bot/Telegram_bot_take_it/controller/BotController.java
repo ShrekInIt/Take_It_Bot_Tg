@@ -92,7 +92,7 @@ public class BotController {
             case "/photomenu" -> handlerCommandService.handlerPhotoMenu(chatId);
             case "/basket", "🛒 корзина", "корзина" ->handlerCommandService.handleBasketCommand(chatId, telegramUser);
             case Messages.MENU_LOWERCASE ->  handlerCommandService.handleMenuCommandCategory(chatId);
-            case "\uD83D\uDCE6 мои заказы" -> handlerCommandService.getAllOrdersUser(chatId);
+            case "\uD83D\uDCE6 мои заказы", "/orders" -> handlerCommandService.getAllOrdersUser(chatId);
             default -> orderHandler.handleTextMessage(chatId, text);
         }
     }

@@ -42,10 +42,10 @@ public class OrderHandler {
             handleOrderStart(chatId, callbackId);
         } else if (data.startsWith("order_delivery_pickup")) {
             log.info("Выбран самовывоз");
-            handleDeliveryTypeSelected(chatId, callbackId, "PICKUP");
+            handleDeliveryTypeSelected(chatId, callbackId);
         } else if (data.startsWith("order_delivery_delivery")) {
             log.info("Выбрана доставка");
-            handleDeliveryTypeSelected(chatId, callbackId, "DELIVERY");
+            messageSender.sendMessage(chatId, "К сожалению доставка пока недоступна");
         } else if (data.startsWith("order_confirm")) {
             log.info("Подтверждение заказа");
             handleOrderConfirm(chatId, callbackId);
@@ -305,7 +305,7 @@ public class OrderHandler {
         String message = """
             🚚 *Выберите способ получения заказа*
             
-            ⏰ Время работы: 9:00 - 22:00
+            ⏰ Время работы: 10:00 - 21:00
             """;
 
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
@@ -332,49 +332,19 @@ public class OrderHandler {
     /**
      * Обработка выбора типа доставки
      */
-    private void handleDeliveryTypeSelected(Long chatId, String callbackId, String deliveryType) {
+    private void handleDeliveryTypeSelected(Long chatId, String callbackId) {
         OrderData orderData = orderDataMap.get(chatId);
         if (orderData == null) {
             messageSender.answerCallback(callbackId, "❌ Данные заказа не найдены");
             return;
         }
 
-        orderData.setDeliveryType(deliveryType);
+        orderData.setDeliveryType("PICKUP");
         orderDataMap.put(chatId, orderData);
 
-        if (deliveryType.equals("DELIVERY")) {
-            askForAddress(chatId);
-        } else {
-            askForComments(chatId);
-        }
+        askForComments(chatId);
 
-        messageSender.answerCallback(callbackId, "✅ Способ получения: " +
-                (deliveryType.equals("PICKUP") ? "Самовывоз" : "Доставка"));
-    }
-
-    /**
-     * Запрос адреса для доставки
-     */
-    private void askForAddress(Long chatId) {
-        String message = """
-            🏠 *Введите адрес доставки*
-            
-            Пожалуйста, укажите:
-            • Улица
-            • Дом
-            • Квартира/офис
-            • Подъезд/домофон (если нужно)
-            
-            Например: "ул. Пушкина, д. 10, кв. 25, домофон 125"
-            """;
-
-        ReplyKeyboardRemove removeKeyboard = new ReplyKeyboardRemove();
-
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(removeKeyboard);
-
-        bot.execute(sendMessage);
+        messageSender.answerCallback(callbackId, "✅ Способ получения: Самовывоз");
     }
 
     /**
@@ -424,7 +394,7 @@ public class OrderHandler {
             
             *ВАЖНО:*
             📞 Мы позвоним вам в течение *20 минут* для подтверждения заказа.
-            ⏰ Если мы не дозвонимся, пожалуйста, перезвоните нам.
+            ⏰ Если мы не дозвонимся, пожалуйста, перезвоните нам по номеру +79930990947.
             
             Подтвердить заказ?
             """,
@@ -497,7 +467,7 @@ public class OrderHandler {
                 "*ВАЖНАЯ ИНФОРМАЦИЯ:*\n" +
                 "📞 Мы позвоним вам в течение *20 минут* для подтверждения заказа.\n" +
                 "⏰ Если мы не дозвонимся, пожалуйста, перезвоните нам по номеру:\n" +
-                "📱 +7 (XXX) XXX-XX-XX\n\n" +
+                "📱 +79930990947\n\n" +
                 "Спасибо за заказ! 😊";
     }
 
