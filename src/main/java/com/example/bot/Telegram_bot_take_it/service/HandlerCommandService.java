@@ -1,15 +1,11 @@
-package com.example.bot.Telegram_bot_take_it.utils;
+package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.TelegramUserDto;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.handlers.OrderHistoryHandler;
-import com.example.bot.Telegram_bot_take_it.service.CartService;
-import com.example.bot.Telegram_bot_take_it.service.UserTransactionService;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.InputMediaPhoto;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
+import com.pengrad.telegrambot.model.request.*;
 import com.pengrad.telegrambot.request.SendMediaGroup;
 import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +26,6 @@ public class HandlerCommandService {
 
     public void handleStartCommand(Long chatId, com.pengrad.telegrambot.model.User telegramUser) {
         log.info("Обработка /start для chatId: {}", chatId);
-
         try {
             TelegramUserDto telegramUserDto = convertToTelegramUserDto(telegramUser);
             log.info("DTO создан: id={}, username={}", telegramUserDto.getId(), telegramUserDto.getUsername());
@@ -135,6 +130,32 @@ public class HandlerCommandService {
         }
 
         String welcomeText = "👋 Добро пожаловать, " + user.getName() + "!\n\n" +
+                "При использовании бота вы соглашаетесь с политикой конфиденциальности! \n"+
+                " *\uD83D\uDD10 Политика конфиденциальности*\n" +
+                "\n" +
+                "*1. Какие данные мы собираем:*\n" +
+                "• Номер телефона (только при оформлении заказа)\n" +
+                "• История заказов\n" +
+                "\n" +
+                "*2. Как мы используем данные:*\n" +
+                "• Для связи по вашему заказу\n" +
+                "• Для информирования о статусе заказа\n" +
+                "\n" +
+                "*3. Как мы защищаем данные:*\n" +
+                "• Все данные хранятся на защищенных серверах\n" +
+                "• Доступ имеют только уполномоченные сотрудники\n" +
+                "\n" +
+                "*4. Ваши права:*\n" +
+                "• Запросить удаление данных\n" +
+                "• Получить информацию о хранимых данных\n" +
+                "• Отказаться от обработки\n" +
+                "\n" +
+                "*5. Контакты:*\n" +
+                "По вопросам конфиденциальности обращайтесь:\n" +
+                "\uD83D\uDCE7 @.....\n" +
+                "\uD83D\uDCDE +7 (999) 123-45-67\n" +
+                "\n" +
+                "*Действующая версия от 14.01.2026*\n" +
                 "Вы успешно зарегистрированы в боте.\n" +
                 "Используйте меню для выбора товаров.";
 

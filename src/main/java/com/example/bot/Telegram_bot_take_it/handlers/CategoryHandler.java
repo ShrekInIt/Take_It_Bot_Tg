@@ -4,7 +4,7 @@ import com.example.bot.Telegram_bot_take_it.dto.CategoryData;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
-import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;

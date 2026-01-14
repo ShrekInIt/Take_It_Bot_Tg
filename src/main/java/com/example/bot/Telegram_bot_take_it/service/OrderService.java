@@ -7,6 +7,7 @@ import com.example.bot.Telegram_bot_take_it.repository.OrderItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
 import com.example.bot.Telegram_bot_take_it.utils.ConfectioneryBotClient;
+import com.example.bot.Telegram_bot_take_it.utils.OrderStatusNotifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class OrderService {
     private final CartService cartService;
     private final ProductService productService;
     private final ConfectioneryBotClient confectioneryBotClient;
+    private final OrderStatusNotifier orderStatusNotifier;
 
     /**
      * Получить все заказы пользователя с загруженными items
@@ -320,6 +322,11 @@ public class OrderService {
                 order.setStatus(Order.OrderStatus.valueOf(status.toUpperCase()));
                 orderRepository.save(order);
                 log.info("✅ Статус заказа {} обновлен на: {}", orderId, status);
+
+                if (shouldNotifyUser(order.getStatus())) {
+                    orderStatusNotifier.sendStatusUpdateNotification(order);
+                }
+
                 return true;
             } else {
                 log.error("❌ Заказ с ID {} не найден", orderId);
@@ -329,5 +336,10 @@ public class OrderService {
             log.error("❌ Ошибка обновления статуса заказа {}: {}", orderId, e.getMessage(), e);
             return false;
         }
+    }
+
+    private boolean shouldNotifyUser(Order.OrderStatus newStatus) {
+        return (newStatus == Order.OrderStatus.CONFIRMED ||
+                newStatus == Order.OrderStatus.COMPLETED);
     }
 }

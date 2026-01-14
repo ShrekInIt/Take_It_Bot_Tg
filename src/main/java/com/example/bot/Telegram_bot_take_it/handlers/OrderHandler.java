@@ -61,6 +61,8 @@ public class OrderHandler {
         }else if (data.startsWith("order_clear_history")) {
             log.info("Обработка очистки истории...");
             orderHistoryHandler.clearHistoryHandler(chatId, messageId);
+        } else if (data.startsWith("order_skip")) {
+            handleTextMessage(chatId, "Пропустить");
         }
     }
 
@@ -359,11 +361,19 @@ public class OrderHandler {
             • Особые пожелания
             • Прочее
             
-            Если комментариев нет, отправьте "Нет" или "Пропустить"
+            Если комментариев нет, нажмите кнопку "Пропустить"
             """;
 
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton skipButton = new InlineKeyboardButton("Пропустить")
+                .callbackData("order_skip");
+
+        keyboard.addRow(skipButton);
+
         SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown);
+                .parseMode(ParseMode.Markdown)
+                .replyMarkup(keyboard);
 
         bot.execute(sendMessage);
     }

@@ -1,12 +1,10 @@
-package com.example.bot.Telegram_bot_take_it.utils;
+package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.example.bot.Telegram_bot_take_it.service.CartService;
-import com.example.bot.Telegram_bot_take_it.service.CategoryService;
-import com.example.bot.Telegram_bot_take_it.service.ProductService;
+import com.example.bot.Telegram_bot_take_it.utils.Messages;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.KeyboardButton;

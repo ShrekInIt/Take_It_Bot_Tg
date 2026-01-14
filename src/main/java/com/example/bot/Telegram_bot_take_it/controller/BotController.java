@@ -2,8 +2,8 @@ package com.example.bot.Telegram_bot_take_it.controller;
 
 import com.example.bot.Telegram_bot_take_it.handlers.OrderHandler;
 import com.example.bot.Telegram_bot_take_it.service.UserService;
-import com.example.bot.Telegram_bot_take_it.utils.HandlerCommandService;
-import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.HandlerCommandService;
+import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.Messages;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.CallbackQuery;

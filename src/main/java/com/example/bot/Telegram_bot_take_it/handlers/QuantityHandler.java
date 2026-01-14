@@ -2,7 +2,7 @@ package com.example.bot.Telegram_bot_take_it.handlers;
 
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
-import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;

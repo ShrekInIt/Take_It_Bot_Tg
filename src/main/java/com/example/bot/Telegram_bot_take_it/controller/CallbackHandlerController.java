@@ -1,7 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.controller;
 
 import com.example.bot.Telegram_bot_take_it.handlers.*;
-import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.CallbackQuery;
@@ -71,7 +71,10 @@ public class CallbackHandlerController {
             }else if (data.startsWith("main_menu")) {
                 ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
                 telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard);
-            } else {
+            } else if (data.startsWith("privacy_accepted")) {
+                ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
+                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard);
+            }else {
                 log.warn("Неизвестный callback: {}", data);
                 messageSender.answerCallback(callbackId, "❌ Неизвестная команда");
             }

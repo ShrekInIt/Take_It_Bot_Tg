@@ -34,6 +34,7 @@ public class OrderHistoryHandler {
     private final OrderRepository orderRepository;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+    private static final DateTimeFormatter DATE_FORMATTER_SHORT = DateTimeFormatter.ofPattern("dd.MM HH:mm");
 
     /**
      * Обработка команды просмотра истории заказов
@@ -47,7 +48,7 @@ public class OrderHistoryHandler {
                 return;
             }
 
-            String message = createOrderHistoryMessage(orders);
+            String message = createOrderHistoryMessage();
             sendOrderHistoryMessage(chatId, message, createOrderHistoryKeyboard(orders));
 
         } catch (Exception e) {
@@ -106,33 +107,8 @@ public class OrderHistoryHandler {
     /**
      * Создание сообщения с историей заказов
      */
-    private String createOrderHistoryMessage(List<Order> orders) {
-        StringBuilder message = new StringBuilder();
-        message.append("📋 *История ваших заказов:*\n\n");
-
-        for (int i = 0; i < orders.size(); i++) {
-            Order order = orders.get(i);
-
-            message.append("📍 *Заказ #").append(i + 1).append("*\n");
-            message.append("📦 *Номер:* `").append(order.getOrderNumber()).append("`\n");
-            message.append("📅 *Дата:* ").append(order.getCreatedAt().format(DATE_FORMATTER)).append("\n");
-            message.append("💰 *Сумма:* ").append(order.getTotalAmount()).append("₽\n");
-            message.append("📊 *Статус:* ").append(getStatusEmoji(order.getStatus())).append(" ")
-                    .append(order.getStatus().getDescription()).append("\n");
-            message.append("🚚 *Тип:* ").append(order.getDeliveryType().getDescription()).append("\n");
-
-            if (!order.getItems().isEmpty()) {
-                Map<String, List<OrderItem>> groupedItems = groupOrderItems(order.getItems());
-                message.append("📦 *Позиций:* ").append(groupedItems.size()).append("\n");
-            }
-
-            if (i < orders.size() - 1) {
-                message.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-            }
-        }
-
-
-        return message.toString();
+    private String createOrderHistoryMessage() {
+        return "📋 *История ваших заказов:*\n\n";
     }
 
     /**
@@ -141,10 +117,16 @@ public class OrderHistoryHandler {
     private InlineKeyboardMarkup createOrderHistoryKeyboard(List<Order> orders) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        for (int i = 0; i < orders.size(); i++) {
-            Order order = orders.get(i);
-            InlineKeyboardButton detailsButton = new InlineKeyboardButton("📋 Подробнее #" + (i + 1))
-                    .callbackData("order_details_" + order.getId());
+        for (Order value : orders) {
+            String buttonText = String.format(
+                    "%s %s №%s • %s₽",
+                    getStatusEmoji(value.getStatus()),
+                    value.getCreatedAt().format(DATE_FORMATTER_SHORT),
+                    value.getOrderNumber().substring(Math.max(0, value.getOrderNumber().length() - 6)),
+                    value.getTotalAmount()
+            );
+            InlineKeyboardButton detailsButton = new InlineKeyboardButton(buttonText)
+                    .callbackData("order_details_" + value.getId());
             keyboard.addRow(detailsButton);
         }
 
@@ -203,7 +185,7 @@ public class OrderHistoryHandler {
                         .callbackData("main_menu");
                 keyboard.addRow(backButton);
             } else {
-                message = createOrderHistoryMessage(updatedOrders);
+                message = createOrderHistoryMessage();
                 keyboard = createOrderHistoryKeyboard(updatedOrders);
 
             }

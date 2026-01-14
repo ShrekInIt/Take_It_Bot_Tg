@@ -7,7 +7,7 @@ import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
 import com.example.bot.Telegram_bot_take_it.service.CartItemAddonService;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
-import com.example.bot.Telegram_bot_take_it.utils.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
