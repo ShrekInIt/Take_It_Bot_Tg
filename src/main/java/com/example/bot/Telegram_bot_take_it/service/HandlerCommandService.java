@@ -56,7 +56,7 @@ public class HandlerCommandService {
             return;
         }
 
-        messageSender.sendMessageWithInlineKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard);
+        messageSender.sendMessageWithInlineKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard, true);
     }
 
     /**
@@ -161,7 +161,7 @@ public class HandlerCommandService {
 
         ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
 
-        messageSender.sendMessageWithReplyKeyboard(chatId, welcomeText, keyboard);
+        messageSender.sendMessageWithReplyKeyboard(chatId, welcomeText, keyboard, true);
     }
 
     public void getAllOrdersUser(Long chatId) {

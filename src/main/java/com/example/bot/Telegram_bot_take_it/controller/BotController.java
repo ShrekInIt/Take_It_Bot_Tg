@@ -87,7 +87,7 @@ public class BotController {
             case "/help" -> messageSender.sendMessage(chatId, Messages.HELP_TEXT);
             case "/menu" -> {
                 ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
-                messageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard);
+                messageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard, true);
             }
             case "/photomenu" -> handlerCommandService.handlerPhotoMenu(chatId);
             case "/basket", "🛒 корзина", "корзина" ->handlerCommandService.handleBasketCommand(chatId, telegramUser);

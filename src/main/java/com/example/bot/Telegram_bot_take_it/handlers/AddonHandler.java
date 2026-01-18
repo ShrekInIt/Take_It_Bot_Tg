@@ -3,26 +3,17 @@ package com.example.bot.Telegram_bot_take_it.handlers;
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.*;
-import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.EditMessageText;
-import com.pengrad.telegrambot.request.SendMessage;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class AddonHandler {
 
-    private final TelegramBot bot;
     private final KeyboardService keyboardService;
     private final ProductService productService;
     private final CartService cartService;
@@ -30,6 +21,7 @@ public class AddonHandler {
     private final CartItemAddonService cartItemAddonService;
     private final MessageSender messageSender;
     private final SyrupPriceService syrupPriceService;
+    private final TelegramMessageSender telegramMessageSender;
 
     /**
      * Обработка callback запросов для добавок
@@ -103,13 +95,7 @@ public class AddonHandler {
                                 quantity
                         );
 
-                        InlineKeyboardMarkup keyboard = keyboardService.createAddonsKeyboard(productId, quantity, categoryId);
-
-                        SendMessage sendMessage = new SendMessage(chatId.toString(), messageText)
-                                .parseMode(ParseMode.Markdown)
-                                .replyMarkup(keyboard);
-
-                        bot.execute(sendMessage);
+                        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText, keyboardService.createAddonsKeyboard(productId, quantity, categoryId), true);
                     }
             );
 
@@ -141,57 +127,8 @@ public class AddonHandler {
                 (syrup == null) ? "Не добавлен": syrup.getName(),
                 (milk == null) ? "Не добавлено": milk.getName()
         );
-        InlineKeyboardMarkup keyboardMarkup;
-        if(addon.equals("syrup")) {
-            keyboardMarkup = new InlineKeyboardMarkup();
-
-            InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
-            addSyrupButton.setText("➕ Добавить сироп");
-            addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-
-            keyboardMarkup.addRow(addSyrupButton);
-
-
-            if (syrup != null) {
-                InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
-                removeSyrupButton.setText("➖ Убрать сироп");
-                removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-
-                keyboardMarkup.addRow(removeSyrupButton);
-            }
-
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
-            keyboardMarkup.addRow(backButton);
-        }else {
-            keyboardMarkup = new InlineKeyboardMarkup();
-
-            InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
-            addSyrupButton.setText("➕ Добавить альт. молоко");
-            addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
-
-            keyboardMarkup.addRow(addSyrupButton);
-
-
-            if (milk != null) {
-                InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
-                removeSyrupButton.setText("➖ Убрать альт. молоко");
-                removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-
-                keyboardMarkup.addRow(removeSyrupButton);
-            }
-
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                    .callbackData("cart_addon_milk_" + productId + "_" + quantity + "_" + categoryId);
-            keyboardMarkup.addRow(backButton);
-        }
         try {
-
-            EditMessageText editMessage = new EditMessageText(chatId, messageId, text)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboardMarkup);
-
-            bot.execute(editMessage);
+            telegramMessageSender.sendEditMessage(chatId, messageId, text, keyboardService.createKeyboardSyrupAndMilk(cartItemId, productId, quantity,categoryId, addon, syrup, milk), true);
         } catch (Exception e) {
             log.error("Ошибка при обновлении сообщения с добавками", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при обновлении добавок");
@@ -254,16 +191,8 @@ public class AddonHandler {
                     milk.getName(),
                     milk.getAmount());
 
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                    .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-            keyboard.addRow(backButton);
-
-            SendMessage message = new SendMessage(chatId.toString(), messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+                    keyboardService.createButtonBackForAddonsMilkOrSyrup(cartItemId, productId, quantity, categoryId, "milk"), true);
 
         } catch (Exception e) {
             log.error("Ошибка выбора молока", e);
@@ -289,38 +218,14 @@ public class AddonHandler {
                 : "";
 
         String messageText = String.format("""
-            🍯 *Выбор сиропа*
+            🍯 *Выбор  альт.молока*
             
             Выберите альт.молоко для вашего напитка:%s
             """, currentSyrupText);
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-        List<Product> milks = productService.getAvailableMilks();
-
-        if (milks.isEmpty()) {
-            InlineKeyboardButton unavailableButton = new InlineKeyboardButton("⚠️ Сиропы временно недоступны")
-                    .callbackData("noop");
-            keyboard.addRow(unavailableButton);
-        } else {
-            for (Product milk : milks) {
-                String buttonText = String.format("%s +%d₽",
-                        milk.getName(), milk.getAmount());
-
-                InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
-                        .callbackData("addons_select_milk_" + cartItemId + "_" + milk.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
-                keyboard.addRow(syrupButton);
-            }
-        }
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-        keyboard.addRow(backButton);
-
         try {
-            SendMessage message = new SendMessage(chatId.toString(), messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+                    keyboardService.createKeyboardForSelectedMilkOrSyrup(cartItemId, productId, quantity, categoryId, "milk", null), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке выбора альтернативного молока", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке альтернативного молока");
@@ -349,33 +254,10 @@ public class AddonHandler {
                 (syrup == null) ? "Не добавлен": syrup.getName(),
                 (milk == null) ? "Не добавлено": milk.getName()
         );
-        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
-        addSyrupButton.setText("➕ Добавить альт. молоко");
-        addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-
-        keyboardMarkup.addRow(addSyrupButton);
-
-
-        if (milk != null) {
-            InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
-            removeSyrupButton.setText("➖ Убрать альт. молоко");
-            removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-
-            keyboardMarkup.addRow(removeSyrupButton);
-        }
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("cart_addon_milk_" + productId + "_" + quantity + "_" + categoryId);
-        keyboardMarkup.addRow(backButton);
-
 
         try {
-            SendMessage message = new SendMessage(chatId.toString(), text)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboardMarkup);
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, text,
+                    keyboardService.createKeyboardForMilkActionOrSyrupAction(cartItemId, productId, quantity, categoryId, milk, "milk"), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке сообщения с добавками", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке добавок");
@@ -438,16 +320,8 @@ public class AddonHandler {
                     syrup.getName(),
                     syrup.getAmount());
 
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                    .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-            keyboard.addRow(backButton);
-
-            SendMessage message = new SendMessage(chatId.toString(), messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+                    keyboardService.createButtonBackForAddonsMilkOrSyrup(cartItemId, productId, quantity, categoryId, "syrup"), true);
 
         } catch (Exception e) {
             log.error("Ошибка выбора сиропа", e);
@@ -482,34 +356,9 @@ public class AddonHandler {
             Выберите сироп для вашего напитка:%s
             """, currentSyrupText);
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-        List<Product> syrups = productService.getAvailableSyrups();
-
-        if (syrups.isEmpty()) {
-            InlineKeyboardButton unavailableButton = new InlineKeyboardButton("⚠️ Сиропы временно недоступны")
-                    .callbackData("noop");
-            keyboard.addRow(unavailableButton);
-        } else {
-            for (Product syrup : syrups) {
-                int syrupPrice = syrupPriceService.calculateSyrupPriceForSize(syrup, mainProduct);
-                String buttonText = String.format("%s +%d₽",
-                        syrup.getName(), syrupPrice);
-
-                InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
-                        .callbackData("addons_select_syrup_" + cartItemId + "_" + syrup.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
-                keyboard.addRow(syrupButton);
-            }
-        }
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
-                .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
-        keyboard.addRow(backButton);
-
         try {
-            SendMessage message = new SendMessage(chatId.toString(), messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+                    keyboardService.createKeyboardForSelectedMilkOrSyrup(cartItemId, productId, quantity, categoryId, "syrup", mainProduct), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке выбора сиропов", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке сиропов");
@@ -538,33 +387,10 @@ public class AddonHandler {
                 (syrup == null) ? "Не добавлен": syrup.getName(),
                 (milk == null) ? "Не добавлено": milk.getName()
         );
-        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
-        addSyrupButton.setText("➕ Добавить сироп");
-        addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
-
-        keyboardMarkup.addRow(addSyrupButton);
-
-
-        if (syrup != null) {
-            InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
-            removeSyrupButton.setText("➖ Убрать сироп");
-            removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
-
-            keyboardMarkup.addRow(removeSyrupButton);
-        }
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
-        keyboardMarkup.addRow(backButton);
-
 
         try {
-            SendMessage message = new SendMessage(chatId.toString(), text)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboardMarkup);
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, text,
+                    keyboardService.createKeyboardForMilkActionOrSyrupAction(cartItemId, productId, quantity, categoryId,syrup, "syrup"), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке сообщения с добавками", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке добавок");

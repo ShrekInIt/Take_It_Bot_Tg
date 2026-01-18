@@ -70,10 +70,10 @@ public class CallbackHandlerController {
                 orderHandler.handlerCartCallback(chatId, callbackId, data, messageId);
             }else if (data.startsWith("main_menu")) {
                 ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
-                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard);
+                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard, true);
             } else if (data.startsWith("privacy_accepted")) {
                 ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
-                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard);
+                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard, true);
             }else {
                 log.warn("Неизвестный callback: {}", data);
                 messageSender.answerCallback(callbackId, "❌ Неизвестная команда");

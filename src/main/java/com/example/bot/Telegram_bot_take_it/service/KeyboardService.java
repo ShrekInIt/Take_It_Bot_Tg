@@ -30,6 +30,7 @@ public class KeyboardService {
     private final CategoryService categoryService;
     private final ProductService productService;
     private final CartService cartService;
+    private final SyrupPriceService syrupPriceService;
 
     // Кэш для фото: путь → байты
     private final Map<String, byte[]> photoCache = new ConcurrentHashMap<>();
@@ -517,6 +518,178 @@ public class KeyboardService {
         }
 
         return keyboard;
+    }
+
+    public InlineKeyboardMarkup createKeyboardSyrupAndMilk(Long cartItemId, long productId, int quantity,
+                                                           long categoryId, String addon, Product syrup, Product milk) {
+        InlineKeyboardMarkup keyboardMarkup;
+        if(addon.equals("syrup")) {
+            keyboardMarkup = new InlineKeyboardMarkup();
+
+            InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
+            addSyrupButton.setText("➕ Добавить сироп");
+            addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+
+            keyboardMarkup.addRow(addSyrupButton);
+
+
+            if (syrup != null) {
+                InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
+                removeSyrupButton.setText("➖ Убрать сироп");
+                removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+
+                keyboardMarkup.addRow(removeSyrupButton);
+            }
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
+            keyboardMarkup.addRow(backButton);
+        }else {
+            keyboardMarkup = new InlineKeyboardMarkup();
+
+            InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
+            addSyrupButton.setText("➕ Добавить альт. молоко");
+            addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
+
+            keyboardMarkup.addRow(addSyrupButton);
+
+
+            if (milk != null) {
+                InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
+                removeSyrupButton.setText("➖ Убрать альт. молоко");
+                removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+
+                keyboardMarkup.addRow(removeSyrupButton);
+            }
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                    .callbackData("cart_addon_milk_" + productId + "_" + quantity + "_" + categoryId);
+            keyboardMarkup.addRow(backButton);
+        }
+
+        return keyboardMarkup;
+    }
+
+    public InlineKeyboardMarkup createButtonBackForAddonsMilkOrSyrup(Long cartItemId, long productId, int quantity,
+                                                              long categoryId, String addon) {
+        InlineKeyboardMarkup keyboard;
+
+        if (addon.equals("milk")) {
+            keyboard = new InlineKeyboardMarkup();
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
+                    .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+            keyboard.addRow(backButton);
+        }else {
+            keyboard = new InlineKeyboardMarkup();
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
+                    .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+            keyboard.addRow(backButton);
+        }
+
+        return keyboard;
+    }
+
+    public InlineKeyboardMarkup createKeyboardForSelectedMilkOrSyrup(Long cartItemId, long productId, int quantity,
+                                                              long categoryId, String addon, Product mainProduct) {
+        InlineKeyboardMarkup keyboard;
+
+        if (addon.equals("milk")) {
+            keyboard = new InlineKeyboardMarkup();
+            List<Product> milks = productService.getAvailableMilks();
+
+            if (milks.isEmpty()) {
+                InlineKeyboardButton unavailableButton = new InlineKeyboardButton("⚠️ Альт.молоко временно недоступны")
+                        .callbackData("noop");
+                keyboard.addRow(unavailableButton);
+            } else {
+                for (Product milk : milks) {
+                    String buttonText = String.format("%s +%d₽",
+                            milk.getName(), milk.getAmount());
+
+                    InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
+                            .callbackData("addons_select_milk_" + cartItemId + "_" + milk.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
+                    keyboard.addRow(syrupButton);
+                }
+            }
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
+                    .callbackData("addons_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+            keyboard.addRow(backButton);
+        }else {
+            keyboard = new InlineKeyboardMarkup();
+            List<Product> syrups = productService.getAvailableSyrups();
+
+            if (syrups.isEmpty()) {
+                InlineKeyboardButton unavailableButton = new InlineKeyboardButton("⚠️ Сиропы временно недоступны")
+                        .callbackData("noop");
+                keyboard.addRow(unavailableButton);
+            } else {
+                for (Product syrup : syrups) {
+                    int syrupPrice = syrupPriceService.calculateSyrupPriceForSize(syrup, mainProduct);
+                    String buttonText = String.format("%s +%d₽",
+                            syrup.getName(), syrupPrice);
+
+                    InlineKeyboardButton syrupButton = new InlineKeyboardButton(buttonText)
+                            .callbackData("addons_select_syrup_" + cartItemId + "_" + syrup.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
+                    keyboard.addRow(syrupButton);
+                }
+            }
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к добавкам")
+                    .callbackData("addons_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+            keyboard.addRow(backButton);
+        }
+
+        return keyboard;
+    }
+
+    public InlineKeyboardMarkup createKeyboardForMilkActionOrSyrupAction(Long cartItemId, long productId, int quantity,
+                                                            long categoryId, Product addonProduct, String addon){
+        InlineKeyboardMarkup keyboardMarkup;
+        if (addon.equals("milk")) {
+            keyboardMarkup = new InlineKeyboardMarkup();
+
+            InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
+            addSyrupButton.setText("➕ Добавить альт. молоко");
+            addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+
+            keyboardMarkup.addRow(addSyrupButton);
+
+            if (addonProduct != null) {
+                InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
+                removeSyrupButton.setText("➖ Убрать альт. молоко");
+                removeSyrupButton.setCallbackData("addons_remove_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
+
+                keyboardMarkup.addRow(removeSyrupButton);
+            }
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                    .callbackData("cart_addon_milk_" + productId + "_" + quantity + "_" + categoryId);
+            keyboardMarkup.addRow(backButton);
+        }else {
+            keyboardMarkup = new InlineKeyboardMarkup();
+
+            InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
+            addSyrupButton.setText("➕ Добавить сироп");
+            addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
+
+            keyboardMarkup.addRow(addSyrupButton);
+
+            if (addonProduct != null) {
+                InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
+                removeSyrupButton.setText("➖ Убрать сироп");
+                removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
+
+                keyboardMarkup.addRow(removeSyrupButton);
+            }
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                    .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
+            keyboardMarkup.addRow(backButton);
+        }
+        return keyboardMarkup;
     }
 }
 
