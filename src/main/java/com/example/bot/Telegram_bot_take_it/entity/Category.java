@@ -36,4 +36,9 @@ public class Category {
 
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_type_id")
+    @JsonIgnore
+    private CategoryType categoryType;
 }

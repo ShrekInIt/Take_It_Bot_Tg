@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
 
 @Service
 @Slf4j
@@ -66,27 +65,10 @@ public class CategoryService {
      */
     @Transactional(readOnly = true)
     public boolean isCoffeeCategoryById(Long categoryId) {
-        Category category = getCategoryById(categoryId);
-        if (category == null) {
-            return false;
-        }
-
-        // Список ID категорий кофе
-        Set<Long> coffeeCategoryIds = Set.of(
-                3L,    // Кофе
-                5L,    // Капучино
-                6L,    // Раф
-                7L,    // Раф авторский
-                8L,    // Капучино(200)
-                9L,    // Раф(200)
-                10L,   // Раф авторский(200)
-                11L,   // Капучино(300)
-                12L,   // Раф(400)
-                13L,   // Раф авторский(400)
-                19L    // Добавки
-        );
-
-        return coffeeCategoryIds.contains(categoryId);
+        return categoryRepository.findById(categoryId)
+                .map(category -> category.getCategoryType() != null
+                        && "COFFEE".equalsIgnoreCase(category.getCategoryType().getCode()))
+                .orElse(false);
     }
 
     /**
