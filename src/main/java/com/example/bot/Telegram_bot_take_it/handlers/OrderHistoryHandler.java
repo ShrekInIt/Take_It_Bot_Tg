@@ -4,14 +4,11 @@ import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.OrderItem;
 import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
+import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.EditMessageText;
-import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,14 +24,15 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class OrderHistoryHandler {
-    private final TelegramBot bot;
+
     private final OrderService orderService;
     private final MessageSender messageSender;
     private final CartService cartService;
     private final OrderRepository orderRepository;
+    private final TelegramMessageSender telegramMessageSender;
+    private final KeyboardService keyboardService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-    private static final DateTimeFormatter DATE_FORMATTER_SHORT = DateTimeFormatter.ofPattern("dd.MM HH:mm");
 
     /**
      * Обработка команды просмотра истории заказов
@@ -49,7 +47,7 @@ public class OrderHistoryHandler {
             }
 
             String message = createOrderHistoryMessage();
-            sendOrderHistoryMessage(chatId, message, createOrderHistoryKeyboard(orders));
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message, keyboardService.createOrderHistoryKeyboard(orders), true);
 
         } catch (Exception e) {
             log.error("Ошибка при получении истории заказов: {}", e.getMessage(), e);
@@ -86,16 +84,8 @@ public class OrderHistoryHandler {
                     order.getItems().size()
             );
 
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-            InlineKeyboardButton cartButton = new InlineKeyboardButton("🛒 Перейти в корзину")
-                    .callbackData("cart_back");
-            keyboard.addRow(cartButton);
-
-            SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(sendMessage);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+                    keyboardService.createButtonBackBasket(),true);
 
         } catch (Exception e) {
             log.error("Ошибка при повторении заказа: {}", e.getMessage(), e);
@@ -109,36 +99,6 @@ public class OrderHistoryHandler {
      */
     private String createOrderHistoryMessage() {
         return "📋 *История ваших заказов:*\n\n";
-    }
-
-    /**
-     * Создание клавиатуры для истории заказов
-     */
-    private InlineKeyboardMarkup createOrderHistoryKeyboard(List<Order> orders) {
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        for (Order value : orders) {
-            String buttonText = String.format(
-                    "%s %s №%s • %s₽",
-                    getStatusEmoji(value.getStatus()),
-                    value.getCreatedAt().format(DATE_FORMATTER_SHORT),
-                    value.getOrderNumber().substring(Math.max(0, value.getOrderNumber().length() - 6)),
-                    value.getTotalAmount()
-            );
-            InlineKeyboardButton detailsButton = new InlineKeyboardButton(buttonText)
-                    .callbackData("order_details_" + value.getId());
-            keyboard.addRow(detailsButton);
-        }
-
-        InlineKeyboardButton clearHistoryButton = new InlineKeyboardButton("🗑️ Очистить историю")
-                .callbackData("order_clear_history");
-        keyboard.addRow(clearHistoryButton);
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("main_menu");
-        keyboard.addRow(backButton);
-
-        return keyboard;
     }
 
     public void clearHistoryHandler(Long chatId, Integer messageId) {
@@ -180,21 +140,15 @@ public class OrderHistoryHandler {
                         
                         Вы можете просмотреть скрытые заказы в настройках или создать новый заказ.""";
 
-                keyboard = new InlineKeyboardMarkup();
-                InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                        .callbackData("main_menu");
-                keyboard.addRow(backButton);
+                keyboard = keyboardService.createButtonMainMenuBack();
+
             } else {
                 message = createOrderHistoryMessage();
-                keyboard = createOrderHistoryKeyboard(updatedOrders);
-
+                keyboard = keyboardService.createOrderHistoryKeyboard(updatedOrders);
             }
 
-            EditMessageText editMessage = new EditMessageText(chatId, messageId, message)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(editMessage);
+            telegramMessageSender.sendEditMessage(chatId, messageId, message,
+                    keyboard, true);
 
             messageSender.sendMessage(chatId, "✅ Скрыто завершенных заказов: " + hiddenCount);
 
@@ -205,17 +159,6 @@ public class OrderHistoryHandler {
             log.error("Ошибка при очистке истории заказов: {}", e.getMessage(), e);
             messageSender.sendMessage(chatId, "❌ Произошла ошибка при очистке истории заказов.");
         }
-    }
-
-    /**
-     * Отправка сообщения с историей заказов
-     */
-    private void sendOrderHistoryMessage(Long chatId, String message, InlineKeyboardMarkup keyboard) {
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(sendMessage);
     }
 
     /**
@@ -230,7 +173,9 @@ public class OrderHistoryHandler {
                     .orElseThrow(() -> new IllegalArgumentException("Заказ не найден или не принадлежит вам"));
 
             String detailsMessage = createOrderDetailsMessage(order);
-            sendOrderDetailsMessage(chatId, detailsMessage, order.getId());
+
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, detailsMessage,
+                    keyboardService.createKeyboardForOrders(orderId), true);
 
             messageSender.answerCallback(callbackId, "✅ Детали заказа загружены");
 
@@ -251,7 +196,7 @@ public class OrderHistoryHandler {
         message.append("📦 *Номер заказа:* `").append(order.getOrderNumber()).append("`\n");
         message.append("📅 *Дата создания:* ").append(order.getCreatedAt().format(DATE_FORMATTER)).append("\n");
         message.append("💰 *Сумма заказа:* ").append(order.getTotalAmount()).append("₽\n");
-        message.append("📊 *Статус:* ").append(getStatusEmoji(order.getStatus())).append(" ")
+        message.append("📊 *Статус:* ").append(keyboardService.getStatusEmoji(order.getStatus())).append(" ")
                 .append(order.getStatus().getDescription()).append("\n");
         message.append("🚚 *Способ получения:* ").append(order.getDeliveryType().getDescription()).append("\n");
 
@@ -362,41 +307,5 @@ public class OrderHistoryHandler {
         }
 
         return keyBuilder.toString();
-    }
-
-    /**
-     * Отправка детального сообщения о заказе
-     */
-    private void sendOrderDetailsMessage(Long chatId, String message, Long orderId) {
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к истории")
-                .callbackData("order_history");
-
-        InlineKeyboardButton repeatButton = new InlineKeyboardButton("🔄 Повторить заказ")
-                .callbackData("repeat_order_" + orderId);
-
-        keyboard.addRow(backButton, repeatButton);
-
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(sendMessage);
-    }
-
-    /**
-     * Получить эмодзи для статуса заказа
-     */
-    private String getStatusEmoji(Order.OrderStatus status) {
-        return switch (status) {
-            case PENDING -> "⏳";
-            case CONFIRMED -> "✅";
-            case PREPARING -> "👨‍🍳";
-            case READY -> "🚀";
-            case DELIVERING -> "🚚";
-            case COMPLETED -> "🎉";
-            case CANCELLED -> "❌";
-        };
     }
 }

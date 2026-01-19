@@ -37,7 +37,6 @@ public class SyrupPriceService {
                 return basePrice;
             }
         }
-
         return basePrice;
     }
 }

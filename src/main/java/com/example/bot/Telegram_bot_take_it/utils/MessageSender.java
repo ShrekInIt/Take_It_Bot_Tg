@@ -96,21 +96,6 @@ public class MessageSender {
     }
 
     /**
-     * Выполнить редактирование сообщения с новой клавиатурой
-     */
-    public void executeEditMessage(Long chatId, EditMessageText editMessage) {
-        try {
-            var response = bot.execute(editMessage);
-            log.info("EditMessage successful. Response: {}", response);
-            bot.execute(editMessage);
-        } catch (Exception e) {
-            log.error("Error editing message for chat {}: {}", chatId, e.getMessage(), e);
-            log.error("Error editing message for chat {}: {}", chatId, e.getMessage());
-            sendMessage(chatId, "❌ Ошибка при обновлении сообщения");
-        }
-    }
-
-    /**
      * Отправить текстовое сообщение пользователю
      */
     public void sendMessage(Long chatId, String text) {

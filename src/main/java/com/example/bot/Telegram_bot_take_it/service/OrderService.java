@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class OrderService {
+
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAddonRepository orderItemAddonRepository;
@@ -52,7 +53,6 @@ public class OrderService {
                     }
                 });
             }
-
             return orders;
         } catch (Exception e) {
             log.error("Ошибка при получении заказов пользователя: {}", e.getMessage(), e);
@@ -123,6 +123,20 @@ public class OrderService {
                             String.format("Товар '%s' недоступен в нужном количестве. Осталось: %d",
                                     product.getName(), product.getCount()));
                 }
+
+                if (cartItem.getAddons() != null && !cartItem.getAddons().isEmpty()) {
+                    for (CartItemAddon cartItemAddon : cartItem.getAddons()) {
+                        Product addonProduct = cartItemAddon.getAddonProduct();
+                        if (addonProduct != null) {
+                            int requiredAddonQuantity = cartItemAddon.getQuantity() * cartItem.getCountProduct();
+                            if (addonProduct.getCount() < requiredAddonQuantity) {
+                                throw new IllegalArgumentException(
+                                        String.format("Добавка '%s' недоступна в нужном количестве. Осталось: %d",
+                                                addonProduct.getName(), addonProduct.getCount()));
+                            }
+                        }
+                    }
+                }
             }
 
             int totalAmount = cartService.getCartTotal(chatId);
@@ -185,8 +199,13 @@ public class OrderService {
 
                         OrderItemAddon savedAddon = orderItemAddonRepository.save(orderItemAddon);
                         orderItemAddons.add(savedAddon);
-                    }
 
+                        if (addonProduct != null) {
+                            int addonQuantityToDeduct = cartItemAddon.getQuantity() * cartItem.getCountProduct();
+                            addonProduct.setCount(addonProduct.getCount() - addonQuantityToDeduct);
+                            productService.saveProduct(addonProduct);
+                        }
+                    }
                     savedOrderItem.setAddons(orderItemAddons);
                 }
 
@@ -198,7 +217,6 @@ public class OrderService {
                     savedOrder.getId(), savedOrder.getOrderNumber(),
                     user.getName(), savedOrder.getTotalAmount());
 
-            // Отправляем заказ в кондитерский бот
             OrderRequest orderRequest = convertToOrderRequest(savedOrder);
             confectioneryBotClient.sendOrderToConfectionery(orderRequest);
 

@@ -4,11 +4,11 @@ import com.example.bot.Telegram_bot_take_it.dto.CategoryData;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
+import com.example.bot.Telegram_bot_take_it.service.CategoryTransactionService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.EditMessageText;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,12 +24,12 @@ public class CategoryHandler {
     private final CategoryService categoryService;
     private final MessageSender messageSender;
     private final CategoryTransactionService categoryTransactionService;
+    private final TelegramMessageSender telegramMessageSender;
 
     /**
      * Обработка callback-запросов для категорий
      */
     public void handleCategoryCallback(Long chatId, Integer messageId, String data) {
-
         String categoryIdStr = data.substring("category_".length());
         if ("null".equals(categoryIdStr)) {
             showRootCategories(chatId, messageId);
@@ -56,11 +56,8 @@ public class CategoryHandler {
             return;
         }
 
-        EditMessageText editMessage = new EditMessageText(chatId, messageId, "🍽️ *Главное меню*\n\nВыберите категорию:")
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        messageSender.executeEditMessage(chatId, editMessage);
+        telegramMessageSender.sendEditMessage(chatId, messageId, "🍽️ *Главное меню*\n\nВыберите категорию:",
+                keyboard, true);
     }
 
     /**
@@ -96,7 +93,7 @@ public class CategoryHandler {
 
         if (hasSubcategories && hasProducts) {
             log.info("Path: Has both subcategories and products");
-            InlineKeyboardMarkup keyboard = categoryService.createCombinedKeyboard(
+            InlineKeyboardMarkup keyboard = keyboardService.createCombinedKeyboard(
                     categoryId, subcategories, products);
             String messageText = categoryService.getCategoryDescription(category, true, true);
 

@@ -1,15 +1,14 @@
 package com.example.bot.Telegram_bot_take_it.controller;
 
 import com.example.bot.Telegram_bot_take_it.handlers.OrderHandler;
-import com.example.bot.Telegram_bot_take_it.service.UserService;
 import com.example.bot.Telegram_bot_take_it.service.HandlerCommandService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.UserService;
 import com.example.bot.Telegram_bot_take_it.utils.Messages;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
-import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,10 +84,7 @@ public class BotController {
         switch (command.toLowerCase()) {
             case "/start" -> handlerCommandService.handleStartCommand(chatId, telegramUser);
             case "/help" -> messageSender.sendMessage(chatId, Messages.HELP_TEXT);
-            case "/menu" -> {
-                ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
-                messageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard, true);
-            }
+            case "/menu" -> messageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboardService.getMainMenuKeyboard(), true);
             case "/photomenu" -> handlerCommandService.handlerPhotoMenu(chatId);
             case "/basket", "🛒 корзина", "корзина" ->handlerCommandService.handleBasketCommand(chatId, telegramUser);
             case Messages.MENU_LOWERCASE ->  handlerCommandService.handleMenuCommandCategory(chatId);

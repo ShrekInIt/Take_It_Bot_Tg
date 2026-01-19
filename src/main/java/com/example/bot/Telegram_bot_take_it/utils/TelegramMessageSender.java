@@ -2,10 +2,10 @@ package com.example.bot.Telegram_bot_take_it.utils;
 
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
+import com.pengrad.telegrambot.model.request.InputMediaPhoto;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
-import com.pengrad.telegrambot.request.EditMessageText;
-import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.request.*;
 import com.pengrad.telegrambot.response.SendResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -43,6 +43,21 @@ public class TelegramMessageSender {
     }
 
     /**
+     * Отправить сообщение с Inline клавиатурой
+     */
+    public void sendMessageWithInlineKeyboardHtml(Long chatId, String text, InlineKeyboardMarkup keyboard, boolean parseMode) {
+        SendMessage request = new SendMessage(chatId.toString(), text)
+                .replyMarkup(keyboard);
+
+        if (parseMode) {
+            request.parseMode(ParseMode.HTML);
+        }
+
+        executeRequest(request, chatId);
+    }
+
+
+    /**
      * Отправить сообщение с Reply клавиатурой
      */
     public void sendMessageWithReplyKeyboard(Long chatId, String text, ReplyKeyboardMarkup keyboard, boolean parseMode) {
@@ -51,6 +66,20 @@ public class TelegramMessageSender {
 
         if (parseMode) {
             request.parseMode(ParseMode.Markdown);
+        }
+
+        executeRequest(request, chatId);
+    }
+
+    /**
+     * Отправить сообщение с Reply клавиатурой
+     */
+    public void sendMessageWithReplyKeyboardHtml(Long chatId, String text, ReplyKeyboardMarkup keyboard, boolean parseMode) {
+        SendMessage request = new SendMessage(chatId.toString(), text)
+                .replyMarkup(keyboard);
+
+        if (parseMode) {
+            request.parseMode(ParseMode.HTML);
         }
 
         executeRequest(request, chatId);
@@ -68,6 +97,59 @@ public class TelegramMessageSender {
         }
 
         bot.execute(editMessage);
+    }
+
+    /**
+     * Изменить сообщение
+     */
+    public void sendEditMessageHtml(Long chatId, int messageId,String text, InlineKeyboardMarkup keyboard, boolean parseMode) {
+        EditMessageText editMessage = new EditMessageText(chatId, messageId, text)
+                .replyMarkup(keyboard);
+
+        if (parseMode) {
+            editMessage.parseMode(ParseMode.HTML);
+        }
+
+        bot.execute(editMessage);
+    }
+
+    /**
+     * Изменить сообщение
+     */
+    public void sendEditCaption(Long chatId, int messageId,String text, InlineKeyboardMarkup keyboard, boolean parseMode) {
+        EditMessageCaption editCaption = new EditMessageCaption(chatId, messageId)
+                .caption(text)
+                .replyMarkup(keyboard);
+
+        if (parseMode) {
+            editCaption.parseMode(ParseMode.HTML);
+        }
+
+        bot.execute(editCaption);
+    }
+
+    /**
+     * Отправить фото
+     */
+    public void sendPhoto(Long chatId,  byte[] photoBytes, String caption,  InlineKeyboardMarkup keyboard, boolean parseMode){
+        SendPhoto sendPhoto = new SendPhoto(chatId.toString(), photoBytes)
+                .caption(caption)
+                .parseMode(ParseMode.HTML)
+                .replyMarkup(keyboard);
+
+        if (parseMode) {
+            sendPhoto.parseMode(ParseMode.HTML);
+        }
+
+        bot.execute(sendPhoto);
+    }
+
+    /**
+     * Отправить несколько фото
+     */
+    public void sendMediaGroup(Long chatId, InputMediaPhoto[] mediaGroup){
+        SendMediaGroup sendMediaGroup = new SendMediaGroup(chatId.toString(), mediaGroup);
+        bot.execute(sendMediaGroup);
     }
 
     /**

@@ -4,10 +4,8 @@ import com.example.bot.Telegram_bot_take_it.dto.TelegramUserDto;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.handlers.OrderHistoryHandler;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.*;
-import com.pengrad.telegrambot.request.SendMediaGroup;
-import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
+import com.pengrad.telegrambot.model.request.InputMediaPhoto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,7 +15,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class HandlerCommandService {
 
-    private final TelegramBot bot;
     private final UserTransactionService userTransactionService;
     private final KeyboardService keyboardService;
     private final TelegramMessageSender messageSender;
@@ -74,8 +71,7 @@ public class HandlerCommandService {
             mediaGroup[1] = new InputMediaPhoto(file2)
                     .caption("Не кофейное меню");
 
-            SendMediaGroup sendMediaGroup = new SendMediaGroup(chatId.toString(), mediaGroup);
-            bot.execute(sendMediaGroup);
+           messageSender.sendMediaGroup(chatId, mediaGroup);
 
         } catch (Exception e) {
             log.error("Ошибка отправки медиагруппы: {}", e.getMessage());
@@ -96,15 +92,8 @@ public class HandlerCommandService {
                 return;
             }
 
-            String cartDescription = cartService.getCartDescription(chatId);
-
-            InlineKeyboardMarkup keyboard = keyboardService.createBasketKeyboard(chatId);
-
-            SendMessage message = new SendMessage(chatId.toString(), cartDescription)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(message);
+            messageSender.sendMessageWithInlineKeyboard(chatId, cartService.getCartDescription(chatId),
+                    keyboardService.createBasketKeyboard(chatId), true);
 
         } catch (Exception e) {
             log.error("Ошибка при просмотре корзины: {}", e.getMessage(), e);
@@ -159,9 +148,7 @@ public class HandlerCommandService {
                 "Вы успешно зарегистрированы в боте.\n" +
                 "Используйте меню для выбора товаров.";
 
-        ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
-
-        messageSender.sendMessageWithReplyKeyboard(chatId, welcomeText, keyboard, true);
+        messageSender.sendMessageWithReplyKeyboardHtml(chatId, welcomeText, keyboardService.getMainMenuKeyboard(), true);
     }
 
     public void getAllOrdersUser(Long chatId) {

@@ -4,17 +4,11 @@ import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
-import com.example.bot.Telegram_bot_take_it.service.CartItemAddonService;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
-import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
-import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.EditMessageText;
-import com.pengrad.telegrambot.request.SendMessage;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -29,13 +23,12 @@ import java.util.List;
 @Transactional
 public class CartHandler {
 
-    private final TelegramBot bot;
     private final KeyboardService keyboardService;
     private final ProductService productService;
     private final CartService cartService;
-    private final CartItemAddonService cartItemAddonService;
     private final MessageSender messageSender;
     private final CartItemRepository cartItemRepository;
+    private final TelegramMessageSender telegramMessageSender;
 
     /**
      * Обработка callback запросов для корзины
@@ -94,13 +87,8 @@ public class CartHandler {
         try {
             String cartDescription = cartService.getCartDescription(chatId);
 
-            InlineKeyboardMarkup keyboard = keyboardService.createBasketKeyboard(chatId);
-
-            SendMessage message = new SendMessage(chatId.toString(), cartDescription)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, cartDescription,
+                    keyboardService.createBasketKeyboard(chatId), true);
 
         } catch (Exception e) {
             log.error("Ошибка при возврате в корзину: {}", e.getMessage(), e);
@@ -123,17 +111,8 @@ public class CartHandler {
                 Ваша корзина была успешно очищена.
                 """;
 
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-            InlineKeyboardButton menuButton = new InlineKeyboardButton("🍽️ Перейти в меню")
-                    .callbackData("category_null");
-            keyboard.addRow(menuButton);
-
-            SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(sendMessage);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+                    keyboardService.createButtonGoMenu(), true);
 
         } catch (Exception e) {
             log.error("Ошибка очистки корзины: {}", e.getMessage(), e);
@@ -209,21 +188,8 @@ public class CartHandler {
      * Создание клавиатуры
      */
     private void method(Long chatId, String message) {
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton basketButton = new InlineKeyboardButton("🛒 Перейти в корзину")
-                .callbackData("cart_back");
-        keyboard.addRow(basketButton);
-
-        InlineKeyboardButton continueButton = new InlineKeyboardButton("🛍️ Продолжить покупки")
-                .callbackData("category_null");
-        keyboard.addRow(continueButton);
-
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(sendMessage);
+        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+                keyboardService.createKeyboardMenu(), true);
     }
 
     /**
@@ -314,31 +280,8 @@ public class CartHandler {
                 Выберите товар, к которому хотите добавить добавки:
                 """;
 
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-            for (CartItem cartItem : cartItems) {
-                product = cartItem.getProduct();
-
-                if (keyboardService.needsAddons(product)) {
-                    String buttonText = String.format("%s - Добавки %s",
-                            product.getName(),
-                            (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
-
-                    InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("addons_syrup_" + cartItem.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
-                    keyboard.addRow(itemButton);
-                }
-            }
-
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к выбору добавок")
-                    .callbackData("addons_show_" + productId + "_" + quantity + "_" + categoryId);
-            keyboard.addRow(backButton);
-
-            SendMessage message = new SendMessage(chatId.toString(), messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+                    keyboardService.createKeyboardAddAddonsInBasket(cartItems, productId, quantity,categoryId, "syrup"), true);
 
         } catch (Exception e) {
             log.error("Ошибка при показе товаров для добавления добавок: {}", e.getMessage(), e);
@@ -373,31 +316,8 @@ public class CartHandler {
                 Выберите товар, к которому хотите добавить добавки:
                 """;
 
-            InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-            for (CartItem cartItem : cartItems) {
-                product = cartItem.getProduct();
-
-                if (keyboardService.needsAddons(product)) {
-                    String buttonText = String.format("%s - Добавки %s",
-                            product.getName(),
-                            (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
-
-                    InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("addons_milk_" + cartItem.getId() + "_" + productId + "_" + quantity + "_"  + categoryId);
-                    keyboard.addRow(itemButton);
-                }
-            }
-
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к выбору добавок")
-                    .callbackData("addons_show_" + productId + "_" + quantity + "_" + categoryId);
-            keyboard.addRow(backButton);
-
-            SendMessage message = new SendMessage(chatId.toString(), messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(message);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+                    keyboardService.createKeyboardAddAddonsInBasket(cartItems, productId, quantity,categoryId, "milk"), true);
 
         } catch (Exception e) {
             log.error("Ошибка при показе товаров для добавления добавок: {}", e.getMessage(), e);
@@ -409,13 +329,8 @@ public class CartHandler {
      * Создание клавиатуры с продуктами
      */
     private void handleDeleteSomeProduct(Long chatId) {
-        InlineKeyboardMarkup keyboard = keyboardService.createCartProductsKeyboard(chatId);
-        String caption = "Выберите товар для удаления";
-        SendMessage message = new SendMessage(chatId.toString(), caption)
-                .parseMode(ParseMode.HTML)
-                .replyMarkup(keyboard);
-
-        bot.execute(message);
+        telegramMessageSender.sendMessageWithInlineKeyboardHtml(chatId, "Выберите товар для удаления",
+                keyboardService.createCartProductsKeyboard(chatId), false);
     }
 
     private void handlerDeleteProductKeyboard(Long chatId, String data, Integer messageId) {
@@ -605,15 +520,9 @@ public class CartHandler {
                     currentQuantity
             );
 
-            InlineKeyboardMarkup keyboard = keyboardService.createDeleteProductKeyboard(
-                    firstCartItemId, deleteQuantity, currentQuantity
-            );
-
-            EditMessageText editMessage = new EditMessageText(chatId, messageId, messageText)
-                    .parseMode(ParseMode.Markdown)
-                    .replyMarkup(keyboard);
-
-            bot.execute(editMessage);
+            telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
+                    keyboardService.createDeleteProductKeyboard(
+                            firstCartItemId, deleteQuantity, currentQuantity), true);
 
         } catch (Exception e) {
             log.error("Ошибка при показе клавиатуры удаления: {}", e.getMessage(), e);

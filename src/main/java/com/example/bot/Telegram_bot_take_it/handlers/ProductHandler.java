@@ -1,13 +1,10 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
-import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
-import com.pengrad.telegrambot.TelegramBot;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.SendMessage;
-import com.pengrad.telegrambot.request.SendPhoto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,10 +14,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ProductHandler {
 
-    private final TelegramBot bot;
     private final KeyboardService keyboardService;
     private final ProductService productService;
     private final MessageSender messageSender;
+    private final TelegramMessageSender telegramMessageSender;
 
     /**
      * Обработка callback-запросов для товаров
@@ -66,12 +63,7 @@ public class ProductHandler {
                             byte[] photoBytes = keyboardService.readPhotoFile(product.getPhoto());
 
                             if (photoBytes != null && photoBytes.length > 0) {
-                                SendPhoto sendPhoto = new SendPhoto(chatId.toString(), photoBytes)
-                                        .caption(caption)
-                                        .parseMode(ParseMode.HTML)
-                                        .replyMarkup(keyboard);
-
-                                bot.execute(sendPhoto);
+                                telegramMessageSender.sendPhoto(chatId, photoBytes, caption, keyboard, true);
                                 return;
                             }
                         } catch (Exception e) {
@@ -79,11 +71,7 @@ public class ProductHandler {
                         }
                     }
 
-                    SendMessage message = new SendMessage(chatId.toString(), caption)
-                            .parseMode(ParseMode.HTML)
-                            .replyMarkup(keyboard);
-
-                    bot.execute(message);
+                    telegramMessageSender.sendMessageWithInlineKeyboardHtml(chatId, caption, keyboard, true);
                 },
                 () -> messageSender.sendMessage(chatId, "❌ Товар не найден")
         );

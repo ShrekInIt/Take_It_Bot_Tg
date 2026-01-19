@@ -1,14 +1,11 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
 import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
+import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
-import com.pengrad.telegrambot.TelegramBot;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
-import com.pengrad.telegrambot.model.request.ParseMode;
-import com.pengrad.telegrambot.request.EditMessageCaption;
-import com.pengrad.telegrambot.request.EditMessageText;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,10 +15,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class QuantityHandler {
 
-    private final TelegramBot bot;
     private final KeyboardService keyboardService;
     private final ProductService productService;
     private final MessageSender messageSender;
+    private final TelegramMessageSender telegramMessageSender;
 
     /**
      * Обработка изменения количества товара
@@ -104,13 +101,7 @@ public class QuantityHandler {
                 boolean editSuccess = false;
 
                 try {
-                    EditMessageCaption editCaption =
-                            new EditMessageCaption(chatId, messageId)
-                                    .caption(caption)
-                                    .parseMode(ParseMode.HTML)
-                                    .replyMarkup(keyboard);
-
-                    bot.execute(editCaption);
+                    telegramMessageSender.sendEditCaption(chatId, messageId, caption, keyboard, true);
                     editSuccess = true;
                     log.info("Успешно обновлен caption товара");
                 } catch (Exception e1) {
@@ -119,11 +110,7 @@ public class QuantityHandler {
 
                 if (!editSuccess) {
                     try {
-                        EditMessageText editText = new EditMessageText(chatId, messageId, caption)
-                                .parseMode(ParseMode.HTML)
-                                .replyMarkup(keyboard);
-
-                        bot.execute(editText);
+                        telegramMessageSender.sendEditMessageHtml(chatId, messageId, caption, keyboard, true);
                         editSuccess = true;
                         log.info("Успешно обновлен текст товара");
                     } catch (Exception e2) {

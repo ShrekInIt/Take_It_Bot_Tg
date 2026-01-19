@@ -106,7 +106,6 @@ public class CartService {
         key.append(orderItem.getProduct().getId());
 
         if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
-            // Сортируем ID добавок для создания одинакового ключа
             String addonsKey = orderItem.getAddons().stream()
                     .map(addon -> addon.getAddonProduct() != null ?
                             String.valueOf(addon.getAddonProduct().getId()) : "")
@@ -329,7 +328,6 @@ public class CartService {
                         addonProduct.getName(), addonPrice);
             }
         }
-
         return cartItem;
     }
 

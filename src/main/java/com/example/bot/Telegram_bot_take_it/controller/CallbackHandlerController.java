@@ -6,7 +6,6 @@ import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
-import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -69,11 +68,9 @@ public class CallbackHandlerController {
             } else if (data.startsWith("order_")) {
                 orderHandler.handlerCartCallback(chatId, callbackId, data, messageId);
             }else if (data.startsWith("main_menu")) {
-                ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
-                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard, true);
+                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboardService.getMainMenuKeyboard(), true);
             } else if (data.startsWith("privacy_accepted")) {
-                ReplyKeyboardMarkup keyboard = keyboardService.getMainMenuKeyboard();
-                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboard, true);
+                telegramMessageSender.sendMessageWithReplyKeyboard(chatId, "🍽️ *Главное меню*\n\nВыберите категорию:", keyboardService.getMainMenuKeyboard(), true);
             }else {
                 log.warn("Неизвестный callback: {}", data);
                 messageSender.answerCallback(callbackId, "❌ Неизвестная команда");

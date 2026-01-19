@@ -6,9 +6,11 @@ import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
+import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
 import com.example.bot.Telegram_bot_take_it.service.UserService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.*;
 import com.pengrad.telegrambot.request.SendMessage;
@@ -29,6 +31,8 @@ public class OrderHandler {
     private final UserService userService;
     private final MessageSender messageSender;
     private final OrderHistoryHandler orderHistoryHandler;
+    private final TelegramMessageSender telegramMessageSender;
+    private final KeyboardService keyboardService;
 
     // Мапа для хранения временных данных заказа
     private final Map<Long, OrderData> orderDataMap = new ConcurrentHashMap<>();
@@ -293,11 +297,7 @@ public class OrderHandler {
                 .oneTimeKeyboard(true)
                 .selective(true);
 
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(sendMessage);
+        telegramMessageSender.sendMessageWithReplyKeyboard(chatId, message, keyboard, true);
     }
 
     /**
@@ -310,25 +310,8 @@ public class OrderHandler {
             ⏰ Время работы: 10:00 - 21:00
             """;
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton pickupButton = new InlineKeyboardButton("🚶 Самовывоз")
-                .callbackData("order_delivery_pickup");
-
-        InlineKeyboardButton deliveryButton = new InlineKeyboardButton("🚚 Доставка")
-                .callbackData("order_delivery_delivery");
-
-        InlineKeyboardButton cancelButton = new InlineKeyboardButton("❌ Отменить заказ")
-                .callbackData("order_cancel");
-
-        keyboard.addRow(pickupButton, deliveryButton);
-        keyboard.addRow(cancelButton);
-
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(sendMessage);
+        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+                keyboardService.createKeyboardForChoiceDelivery(), true);
     }
 
     /**
@@ -364,18 +347,7 @@ public class OrderHandler {
             Если комментариев нет, нажмите кнопку "Пропустить"
             """;
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton skipButton = new InlineKeyboardButton("Пропустить")
-                .callbackData("order_skip");
-
-        keyboard.addRow(skipButton);
-
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(sendMessage);
+        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message, keyboardService.createButtonSkip(), true);
     }
 
     /**
@@ -414,22 +386,7 @@ public class OrderHandler {
                 orderData.getComments() != null ? orderData.getComments() : "Нет"
         );
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton confirmButton = new InlineKeyboardButton("✅ Подтвердить заказ")
-                .callbackData("order_confirm");
-
-        InlineKeyboardButton cancelButton = new InlineKeyboardButton("❌ Отменить заказ")
-                .callbackData("order_cancel");
-
-        keyboard.addRow(confirmButton);
-        keyboard.addRow(cancelButton);
-
-        SendMessage sendMessage = new SendMessage(chatId.toString(), message)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(sendMessage);
+        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message, keyboardService.createKeyboardConfirmOrder(), true);
     }
 
     /**
@@ -489,18 +446,8 @@ public class OrderHandler {
 
         String cartDescription = cartService.getCartDescription(chatId);
 
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("🛒 Вернуться в корзину")
-                .callbackData("cart_back");
-
-        keyboard.addRow(backButton);
-
-        SendMessage message = new SendMessage(chatId.toString(), "❌ Заказ отменен\n\n" + cartDescription)
-                .parseMode(ParseMode.Markdown)
-                .replyMarkup(keyboard);
-
-        bot.execute(message);
+        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, "❌ Заказ отменен\n\n" + cartDescription,
+                keyboardService.createButtonBackBasket(), false);
         messageSender.answerCallback(callbackId, "❌ Заказ отменен");
     }
 }

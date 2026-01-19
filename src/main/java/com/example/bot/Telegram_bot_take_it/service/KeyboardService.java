@@ -3,6 +3,7 @@ package com.example.bot.Telegram_bot_take_it.service;
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
+import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.utils.Messages;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,6 +33,9 @@ public class KeyboardService {
     private final ProductService productService;
     private final CartService cartService;
     private final SyrupPriceService syrupPriceService;
+    private final CartItemAddonService cartItemAddonService;
+
+    private static final DateTimeFormatter DATE_FORMATTER_SHORT = DateTimeFormatter.ofPattern("dd.MM HH:mm");
 
     // Кэш для фото: путь → байты
     private final Map<String, byte[]> photoCache = new ConcurrentHashMap<>();
@@ -192,7 +197,7 @@ public class KeyboardService {
                 .callbackData("cart_delete_confirm_" + firstCartItemId + "_" + deleteQuantity);
         keyboard.addRow(deleteButton);
 
-        InlineKeyboardButton deleteAllButton = new InlineKeyboardButton("🗑️ Удалить всю группу (" + maxQuantity + " шт)")
+        InlineKeyboardButton deleteAllButton = new InlineKeyboardButton("🗑️ Удалить полностью товар (" + maxQuantity + " шт)")
                 .callbackData("cart_delete_all_" + firstCartItemId);
         keyboard.addRow(deleteAllButton);
 
@@ -472,10 +477,16 @@ public class KeyboardService {
             keyboard.addRow(backButton);
         }
 
+        if (category != null && category.getParentId() == null) {
+            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Главное меню")
+                    .callbackData("category_null");
+            keyboard.addRow(backButton);
+        }
+        System.out.println(category);
         return keyboard;
     }
 
-    /**
+    /**А
      * Создать основную Reply-клавиатуру приложения
      * Содержит основные команды: меню, корзина, заказы, настройки
      */
@@ -494,6 +505,9 @@ public class KeyboardService {
                 .selective(true);
     }
 
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для корзины
+     */
     public InlineKeyboardMarkup createBasketKeyboard(Long chatId) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
@@ -520,6 +534,9 @@ public class KeyboardService {
         return keyboard;
     }
 
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для сиропов и альт.молока
+     */
     public InlineKeyboardMarkup createKeyboardSyrupAndMilk(Long cartItemId, long productId, int quantity,
                                                            long categoryId, String addon, Product syrup, Product milk) {
         InlineKeyboardMarkup keyboardMarkup;
@@ -570,6 +587,9 @@ public class KeyboardService {
         return keyboardMarkup;
     }
 
+    /**
+     * Создать InlineKeyboardMarkup кнопки назад для добавок
+     */
     public InlineKeyboardMarkup createButtonBackForAddonsMilkOrSyrup(Long cartItemId, long productId, int quantity,
                                                               long categoryId, String addon) {
         InlineKeyboardMarkup keyboard;
@@ -591,6 +611,9 @@ public class KeyboardService {
         return keyboard;
     }
 
+    /**
+     * Создать InlineKeyboardMarkup клавиатуры доступных добавок
+     */
     public InlineKeyboardMarkup createKeyboardForSelectedMilkOrSyrup(Long cartItemId, long productId, int quantity,
                                                               long categoryId, String addon, Product mainProduct) {
         InlineKeyboardMarkup keyboard;
@@ -645,6 +668,9 @@ public class KeyboardService {
         return keyboard;
     }
 
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для действий с добавками
+     */
     public InlineKeyboardMarkup createKeyboardForMilkActionOrSyrupAction(Long cartItemId, long productId, int quantity,
                                                             long categoryId, Product addonProduct, String addon){
         InlineKeyboardMarkup keyboardMarkup;
@@ -690,6 +716,259 @@ public class KeyboardService {
             keyboardMarkup.addRow(backButton);
         }
         return keyboardMarkup;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup кнопку "Перейти в меню"
+     */
+    public InlineKeyboardMarkup createButtonGoMenu(){
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton menuButton = new InlineKeyboardButton("🍽️ Перейти в меню")
+                .callbackData("category_null");
+        keyboard.addRow(menuButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для меню
+     */
+    public InlineKeyboardMarkup createKeyboardMenu(){
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton basketButton = new InlineKeyboardButton("🛒 Перейти в корзину")
+                .callbackData("cart_back");
+        keyboard.addRow(basketButton);
+
+        InlineKeyboardButton continueButton = new InlineKeyboardButton("🛍️ Продолжить покупки")
+                .callbackData("category_null");
+        keyboard.addRow(continueButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для продуктов и добавок
+     */
+    public InlineKeyboardMarkup createKeyboardAddAddonsInBasket(List<CartItem> cartItems, long productId, int quantity, long categoryId, String addon){
+        InlineKeyboardMarkup keyboard;
+
+        if(addon.equals("syrup")) {
+            keyboard = new InlineKeyboardMarkup();
+            for (CartItem cartItem : cartItems) {
+                Product product = cartItem.getProduct();
+
+                if (needsAddons(product)) {
+                    String buttonText = String.format("%s - Добавки %s",
+                            product.getName(),
+                            (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
+
+                    InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
+                            .callbackData("addons_syrup_" + cartItem.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
+                    keyboard.addRow(itemButton);
+                }
+            }
+        }else {
+            keyboard = new InlineKeyboardMarkup();
+            for (CartItem cartItem : cartItems) {
+                Product product = cartItem.getProduct();
+
+                if (needsAddons(product)) {
+                    String buttonText = String.format("%s - Добавки %s",
+                            product.getName(),
+                            (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
+
+                    InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
+                            .callbackData("addons_milk_" + cartItem.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
+                    keyboard.addRow(itemButton);
+                }
+            }
+        }
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к выбору добавок")
+                .callbackData("addons_show_" + productId + "_" + quantity + "_" + categoryId);
+        keyboard.addRow(backButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для заказа
+     */
+    public InlineKeyboardMarkup createKeyboardForChoiceDelivery(){
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton pickupButton = new InlineKeyboardButton("🚶 Самовывоз")
+                .callbackData("order_delivery_pickup");
+
+        InlineKeyboardButton deliveryButton = new InlineKeyboardButton("🚚 Доставка")
+                .callbackData("order_delivery_delivery");
+
+        InlineKeyboardButton cancelButton = new InlineKeyboardButton("❌ Отменить заказ")
+                .callbackData("order_cancel");
+
+        keyboard.addRow(pickupButton, deliveryButton);
+        keyboard.addRow(cancelButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup кнопку "Пропустить"
+     */
+    public InlineKeyboardMarkup createButtonSkip(){
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton skipButton = new InlineKeyboardButton("Пропустить")
+                .callbackData("order_skip");
+
+        keyboard.addRow(skipButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для подтверждения заказа
+     */
+    public InlineKeyboardMarkup createKeyboardConfirmOrder(){
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton confirmButton = new InlineKeyboardButton("✅ Подтвердить заказ")
+                .callbackData("order_confirm");
+
+        InlineKeyboardButton cancelButton = new InlineKeyboardButton("❌ Отменить заказ")
+                .callbackData("order_cancel");
+
+        keyboard.addRow(confirmButton);
+        keyboard.addRow(cancelButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup кнопку "Вернуться в корзину"
+     */
+    public InlineKeyboardMarkup createButtonBackBasket(){
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("🛒 Вернуться в корзину")
+                .callbackData("cart_back");
+
+        keyboard.addRow(backButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создание клавиатуры для истории заказов
+     */
+    public InlineKeyboardMarkup createOrderHistoryKeyboard(List<Order> orders) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        for (Order value : orders) {
+            String buttonText = String.format(
+                    "%s %s №%s • %s₽",
+                    getStatusEmoji(value.getStatus()),
+                    value.getCreatedAt().format(DATE_FORMATTER_SHORT),
+                    value.getOrderNumber().substring(Math.max(0, value.getOrderNumber().length() - 6)),
+                    value.getTotalAmount()
+            );
+            InlineKeyboardButton detailsButton = new InlineKeyboardButton(buttonText)
+                    .callbackData("order_details_" + value.getId());
+            keyboard.addRow(detailsButton);
+        }
+
+        InlineKeyboardButton clearHistoryButton = new InlineKeyboardButton("🗑️ Очистить историю")
+                .callbackData("order_clear_history");
+        keyboard.addRow(clearHistoryButton);
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                .callbackData("main_menu");
+        keyboard.addRow(backButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup клавиатуру для заказа
+     */
+    public InlineKeyboardMarkup createKeyboardForOrders(Long orderId) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к истории")
+                .callbackData("order_history");
+
+        InlineKeyboardButton repeatButton = new InlineKeyboardButton("🔄 Повторить заказ")
+                .callbackData("repeat_order_" + orderId);
+
+        keyboard.addRow(backButton, repeatButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать InlineKeyboardMarkup кнопку назад в меню
+     */
+    public InlineKeyboardMarkup createButtonMainMenuBack(){
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
+                .callbackData("main_menu");
+        keyboard.addRow(backButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создать комбинированную клавиатуру (подкатегории + товары)
+     * @Transactional для безопасного доступа к полям категории
+     */
+    @Transactional(readOnly = true)
+    public InlineKeyboardMarkup createCombinedKeyboard(Long categoryId, List<Category> subcategories, List<com.example.bot.Telegram_bot_take_it.entity.Product> products) {
+        log.info("=== CREATE COMBINED KEYBOARD ===");
+        log.info("Category ID: {}", categoryId);
+        log.info("Number of subcategories passed: {}", subcategories.size());
+        log.info("Number of products passed: {}", products.size());
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        for (Category subcategory : subcategories) {
+            InlineKeyboardButton button = new InlineKeyboardButton("📁 " + subcategory.getName())
+                    .callbackData("category_" + subcategory.getId());
+            keyboard.addRow(button);
+        }
+
+        for (com.example.bot.Telegram_bot_take_it.entity.Product product : products) {
+            String buttonText = String.format("%s - %d₽",
+                    product.getName(),
+                    product.getAmount());
+
+            InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
+                    .callbackData("product_" + product.getId() + "_" + categoryId);
+
+            keyboard.addRow(button);
+        }
+
+        Category category = categoryService.getCategoryWithParent(categoryId);
+        if (category != null) {
+            KeyboardService.addBackButton(keyboard, category);
+        }
+
+        return keyboard;
+    }
+
+    /**
+     * Получить эмодзи для статуса заказа
+     */
+    public String getStatusEmoji(Order.OrderStatus status) {
+        return switch (status) {
+            case PENDING -> "⏳";
+            case CONFIRMED -> "✅";
+            case PREPARING -> "👨‍🍳";
+            case READY -> "🚀";
+            case DELIVERING -> "🚚";
+            case COMPLETED -> "🎉";
+            case CANCELLED -> "❌";
+        };
     }
 }
 
