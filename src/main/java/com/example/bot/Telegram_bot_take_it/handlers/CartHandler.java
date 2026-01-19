@@ -36,11 +36,11 @@ public class CartHandler {
     public void handlerCartCallback(Long chatId, String callbackId, String data, Integer messageId){
         if (data.startsWith("cart_add_")) {
             log.info("Обработка добавления в корзину...");
-            handleAddToCart(chatId, callbackId, data, messageId);
+            handleAddToCart(chatId, callbackId, data);
         }
         else if (data.startsWith("cart_add_with_addon_")) {
             log.info("Обработка добавления в корзину с добавкой...");
-            handleAddToCartWithAddon(chatId, callbackId, data, messageId);
+            handleAddToCartWithAddon(chatId, callbackId, data);
         }
         else if (data.startsWith("cart_clear")) {
             log.info("Очистка корзины...");
@@ -144,7 +144,7 @@ public class CartHandler {
     /**
      * Обработка добавления в корзину
      */
-    private void handleAddToCart(Long chatId, String callbackId, String data, Integer messageId) {
+    private void handleAddToCart(Long chatId, String callbackId, String data) {
         try {
             log.info("Добавление товара в корзину, данные: {}", data);
             String[] parts = data.split("_");
@@ -168,7 +168,7 @@ public class CartHandler {
 
                 String message = getString(addedItems, product, quantity);
 
-                method(chatId, message, messageId);
+                method(chatId, message);
 
                 messageSender.answerCallback(callbackId, "✅ Товар добавлен в корзину");
             } else {
@@ -207,7 +207,7 @@ public class CartHandler {
     /**
      * Создание клавиатуры
      */
-    private void method(Long chatId, String message, Integer messageId) {
+    private void method(Long chatId, String message) {
         telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
                 keyboardService.createKeyboardMenu(), true);
     }
@@ -215,7 +215,7 @@ public class CartHandler {
     /**
      * Обработка добавления товара в корзину с добавкой
      */
-    private void handleAddToCartWithAddon(Long chatId, String callbackId, String data, Integer messageId) {
+    private void handleAddToCartWithAddon(Long chatId, String callbackId, String data) {
         try {
             log.info("Добавление товара с добавкой в корзину, данные: {}", data);
             String[] parts = data.split("_");
@@ -260,7 +260,7 @@ public class CartHandler {
                         cartItem.calculateItemTotal()
                 );
 
-                method(chatId, message, messageId);
+                method(chatId, message);
                 messageSender.answerCallback(callbackId, "✅ Товар с добавкой добавлен в корзину");
             } else {
                 throw new Exception("Не удалось добавить товар с добавкой в корзину");
