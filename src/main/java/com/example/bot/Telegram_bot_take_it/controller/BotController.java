@@ -100,6 +100,7 @@ public class BotController {
             case "/basket", "🛒 корзина", "корзина" ->handlerCommandService.handleBasketCommand(chatId, telegramUser);
             case Messages.MENU_LOWERCASE ->  handlerCommandService.handleMenuCommandCategory(chatId);
             case "\uD83D\uDCE6 мои заказы", "/orders" -> handlerCommandService.getAllOrdersUser(chatId);
+            case "ℹ️ о нас" -> handlerCommandService.handleInfoAboutUs(chatId);
             default -> orderHandler.handleTextMessage(chatId, text, messageId);
         }
     }

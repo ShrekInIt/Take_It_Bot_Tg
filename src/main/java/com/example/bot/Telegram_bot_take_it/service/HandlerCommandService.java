@@ -3,6 +3,7 @@ package com.example.bot.Telegram_bot_take_it.service;
 import com.example.bot.Telegram_bot_take_it.dto.TelegramUserDto;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.handlers.OrderHistoryHandler;
+import com.example.bot.Telegram_bot_take_it.utils.Messages;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.InputMediaPhoto;
@@ -165,5 +166,9 @@ public class HandlerCommandService {
      */
     public void getAllOrdersUser(Long chatId) {
         orderHistoryHandler.handleOrderHistory(chatId);
+    }
+
+    public void handleInfoAboutUs(Long chatId) {
+        messageSender.sendMessage(chatId, Messages.ABOUT_US_TEXT);
     }
 }

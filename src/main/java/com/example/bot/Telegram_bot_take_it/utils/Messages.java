@@ -11,6 +11,10 @@ public class Messages {
             /orders - команда для просмотра для заказов
             """;
 
+    public static final String ABOUT_US_TEXT = """
+            Информация о кондитерской
+            """;
+
     public static final String MENU = "🍽️ Меню";
     public static final String MENU_LOWERCASE = "🍽️ меню";
 }

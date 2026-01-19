@@ -494,7 +494,7 @@ public class KeyboardService {
         KeyboardButton menuButton = new KeyboardButton(Messages.MENU);
         KeyboardButton cartButton = new KeyboardButton("🛒 Корзина");
         KeyboardButton ordersButton = new KeyboardButton("📦 Мои заказы");
-        KeyboardButton settingsButton = new KeyboardButton("⚙️ Настройки");
+        KeyboardButton settingsButton = new KeyboardButton("ℹ️ О нас");
 
         return new ReplyKeyboardMarkup(
                 new KeyboardButton[]{menuButton, cartButton},
