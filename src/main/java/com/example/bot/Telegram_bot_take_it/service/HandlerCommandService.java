@@ -21,6 +21,9 @@ public class HandlerCommandService {
     private final CartService cartService;
     private final OrderHistoryHandler orderHistoryHandler;
 
+    /**
+     * Обработка команды /start
+     */
     public void handleStartCommand(Long chatId, com.pengrad.telegrambot.model.User telegramUser) {
         log.info("Обработка /start для chatId: {}", chatId);
         try {
@@ -101,6 +104,9 @@ public class HandlerCommandService {
         }
     }
 
+    /**
+     * Конвертация в DTO
+     */
     private TelegramUserDto convertToTelegramUserDto(com.pengrad.telegrambot.model.User telegramUser) {
         return TelegramUserDto.builder()
                 .id(telegramUser.id())
@@ -112,6 +118,9 @@ public class HandlerCommandService {
                 .build();
     }
 
+    /**
+     * Отправление начального сообщения
+     */
     private void sendWelcomeMessage(Long chatId, User user) {
         if (user == null) {
             messageSender.sendMessage(chatId, "❌ Ошибка регистрации. Попробуйте еще раз.");
@@ -151,6 +160,9 @@ public class HandlerCommandService {
         messageSender.sendMessageWithReplyKeyboardHtml(chatId, welcomeText, keyboardService.getMainMenuKeyboard(), true);
     }
 
+    /**
+     * Получение всех заказов пользователя по chatId
+     */
     public void getAllOrdersUser(Long chatId) {
         orderHistoryHandler.handleOrderHistory(chatId);
     }

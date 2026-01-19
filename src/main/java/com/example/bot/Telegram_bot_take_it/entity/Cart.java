@@ -55,7 +55,6 @@ public class Cart {
         return cartItems.isEmpty();
     }
 
-
     /**
      * Добавить товар в корзину
      */

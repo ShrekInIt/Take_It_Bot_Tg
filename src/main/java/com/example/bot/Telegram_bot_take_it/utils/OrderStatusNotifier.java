@@ -12,8 +12,19 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @RequiredArgsConstructor
 public class OrderStatusNotifier {
+
     private final TelegramBot bot;
 
+    /**
+     * Отправляет пользователю Telegram-уведомление
+     * об изменении статуса заказа.
+     * Сообщение формируется в формате Markdown и содержит:
+     * - номер заказа
+     * - текущий статус
+     * - дополнительную информацию в зависимости от статуса
+     *
+     * @param order заказ, по которому отправляется уведомление
+     */
     public void sendStatusUpdateNotification(Order order) {
         try {
             Long chatId = order.getUser().getChatId();
@@ -31,6 +42,16 @@ public class OrderStatusNotifier {
         }
     }
 
+    /**
+     * Формирует текст уведомления об изменении статуса заказа.
+     * Сообщение включает:
+     * - заголовок уведомления
+     * - номер заказа
+     * - текущий статус с эмодзи
+     * - дополнительную информацию для пользователя
+     * @param order заказ, для которого формируется сообщение
+     * @return готовый текст сообщения в формате Markdown
+     */
     private String createStatusUpdateMessage(Order order) {
         String statusEmoji = getStatusEmoji(order.getStatus());
         String statusText = order.getStatus().getDescription();
@@ -50,6 +71,13 @@ public class OrderStatusNotifier {
         );
     }
 
+    /**
+     * Возвращает эмодзи, соответствующий текущему статусу заказа.
+     * Используется для наглядного отображения этапа обработки заказа
+     * в уведомлениях пользователю.
+     * @param status текущий статус заказа
+     * @return строка с эмодзи для указанного статуса
+     */
     private String getStatusEmoji(Order.OrderStatus status) {
         return switch (status) {
             case PENDING -> "⏳";
@@ -62,6 +90,16 @@ public class OrderStatusNotifier {
         };
     }
 
+    /**
+     * Возвращает дополнительный текст для уведомления пользователя
+     * в зависимости от статуса заказа.
+     * Текст может содержать:
+     * - пояснение текущего этапа
+     * - ориентировочное время ожидания
+     * - инструкции для пользователя
+     * @param status текущий статус заказа
+     * @return дополнительный текст уведомления
+     */
     private String getStatusAdditionalInfo(Order.OrderStatus status) {
         return switch (status) {
             case CONFIRMED -> "*Ваш заказ подтверждён!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.";

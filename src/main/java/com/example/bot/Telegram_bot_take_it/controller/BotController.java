@@ -9,6 +9,8 @@ import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.User;
+import com.pengrad.telegrambot.model.message.InaccessibleMessage;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,9 +70,17 @@ public class BotController {
     /**
      * Обработка callback-запросов от inline-кнопок
      */
-    @SuppressWarnings("deprecation")
     private void handleCallbackQuery(CallbackQuery callbackQuery) {
-        userService.registerOrUpdateUser(callbackQuery.from(), callbackQuery.message().chat().id());
+        User from = callbackQuery.from();
+
+        com.pengrad.telegrambot.model.message.MaybeInaccessibleMessage maybe = callbackQuery.maybeInaccessibleMessage();
+
+        if (maybe instanceof Message msg) {
+            userService.registerOrUpdateUser(from, msg.chat().id());
+        } else if (maybe instanceof InaccessibleMessage im) {
+            userService.registerOrUpdateUser(from, im.chat().id());
+        }
+
         callbackHandler.handleCallbackQuery(callbackQuery);
     }
 

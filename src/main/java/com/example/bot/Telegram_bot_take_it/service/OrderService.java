@@ -330,6 +330,9 @@ public class OrderService {
         return "ORD-" + timestamp.substring(timestamp.length() - 6) + "-" + random;
     }
 
+    /**
+     * Обновление статуса заказа
+     */
     @Transactional
     public boolean updateOrderStatus(Long orderId, String status) {
         try {
@@ -356,6 +359,14 @@ public class OrderService {
         }
     }
 
+    /**
+     * Проверяет необходимость уведомления пользователя о смене статуса заказа
+     * и отправляет уведомление, если текущий статус предполагает оповещение.
+     *
+     * @param  newStatus статус которого был обновлён
+     * @return true — если заказ найден и обработан,
+     *         false — если заказ не найден или произошла ошибка
+     */
     private boolean shouldNotifyUser(Order.OrderStatus newStatus) {
         return (newStatus == Order.OrderStatus.CONFIRMED ||
                 newStatus == Order.OrderStatus.COMPLETED);
