@@ -12,13 +12,18 @@ import com.example.bot.Telegram_bot_take_it.service.UserService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.TelegramBot;
-import com.pengrad.telegrambot.model.request.*;
+import com.pengrad.telegrambot.model.request.KeyboardButton;
+import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
+import com.pengrad.telegrambot.model.request.ReplyKeyboardRemove;
 import com.pengrad.telegrambot.request.SendMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -43,37 +48,37 @@ public class OrderHandler {
     public void handlerCartCallback(Long chatId, String callbackId, String data, Integer messageId) {
         if (data.startsWith("order_create")) {
             log.info("Начало оформления заказа...");
-            handleOrderStart(chatId, callbackId);
+            handleOrderStart(chatId, callbackId, messageId);
         } else if (data.startsWith("order_delivery_pickup")) {
             log.info("Выбран самовывоз");
-            handleDeliveryTypeSelected(chatId, callbackId);
+            handleDeliveryTypeSelected(chatId, callbackId, messageId);
         } else if (data.startsWith("order_delivery_delivery")) {
             log.info("Выбрана доставка");
             messageSender.sendMessage(chatId, "К сожалению доставка пока недоступна");
         } else if (data.startsWith("order_confirm")) {
             log.info("Подтверждение заказа");
-            handleOrderConfirm(chatId, callbackId);
+            handleOrderConfirm(chatId, callbackId, messageId);
         } else if (data.startsWith("order_cancel")) {
             log.info("Отмена заказа");
-            handleOrderCancel(chatId, callbackId);
+            handleOrderCancel(chatId, callbackId, messageId);
         } else if (data.equals("order_history")) {
             log.info("Обработка истории заказов...");
-            orderHistoryHandler.handleOrderHistory(chatId);
+            orderHistoryHandler.handleOrderHistory(chatId, messageId);
         } else if (data.startsWith("order_details_")) {
             log.info("Обработка деталей заказа...");
-            orderHistoryHandler.handleOrderDetailsCallback(chatId, callbackId, data);
+            orderHistoryHandler.handleOrderDetailsCallback(chatId, callbackId, data, messageId);
         }else if (data.startsWith("order_clear_history")) {
             log.info("Обработка очистки истории...");
             orderHistoryHandler.clearHistoryHandler(chatId, messageId);
         } else if (data.startsWith("order_skip")) {
-            handleTextMessage(chatId, "Пропустить");
+            handleTextMessage(chatId, "Пропустить", messageId);
         }
     }
 
     /**
      * Обработка контакта (номера телефона)
      */
-    public void handleContact(Long chatId, String phoneNumber) {
+    public void handleContact(Long chatId, String phoneNumber, Integer messageId) {
         try {
             log.info("Получен контакт от chatId {}: {}", chatId, phoneNumber);
 
@@ -89,7 +94,7 @@ public class OrderHandler {
                         .replyMarkup(removeKeyboard);
                 bot.execute(removeMessage);
 
-                askForDeliveryType(chatId);
+                askForDeliveryType(chatId, messageId);
             } else {
                 messageSender.sendMessage(chatId, "✅ Номер телефона сохранен. Теперь вы можете оформить заказ.");
             }
@@ -102,7 +107,7 @@ public class OrderHandler {
     /**
      * Обработка текстовых сообщений для оформления заказа
      */
-    public void handleTextMessage(Long chatId, String text) {
+    public void handleTextMessage(Long chatId, String text, Integer messageId) {
         try {
             log.info("Обработка текста в OrderHandler: chatId={}, text={}", chatId, text);
 
@@ -110,7 +115,7 @@ public class OrderHandler {
 
             if (orderData == null) {
                 if (isPhoneNumber(text)) {
-                    processPhoneNumberInput(chatId, text);
+                    processPhoneNumberInput(chatId, text, messageId);
                 }
                 return;
             }
@@ -126,7 +131,7 @@ public class OrderHandler {
 
                 orderData.setAddress(text);
                 orderDataMap.put(chatId, orderData);
-                askForComments(chatId);
+                askForComments(chatId, messageId);
 
             }
             else if ((orderData.getDeliveryType() != null && orderData.getDeliveryType().equals("PICKUP")) ||
@@ -149,7 +154,7 @@ public class OrderHandler {
     /**
      * Начало оформления заказа
      */
-    private void handleOrderStart(Long chatId, String callbackId) {
+    private void handleOrderStart(Long chatId, String callbackId, Integer messageId) {
         try {
             if (cartService.isCartEmpty(chatId)) {
                 messageSender.answerCallback(callbackId, "❌ Корзина пуста");
@@ -184,7 +189,7 @@ public class OrderHandler {
             } else {
                 orderData.setPhoneNumber(user.getPhoneNumber());
                 orderDataMap.put(chatId, orderData);
-                askForDeliveryType(chatId);
+                askForDeliveryType(chatId, messageId);
             }
 
             messageSender.answerCallback(callbackId, "Начинаем оформление заказа");
@@ -207,7 +212,7 @@ public class OrderHandler {
     /**
      * Обработка введенного номера телефона
      */
-    private void processPhoneNumberInput(Long chatId, String text) {
+    private void processPhoneNumberInput(Long chatId, String text, Integer messageId) {
         try {
             log.info("Обработка ввода номера телефона: chatId={}, text={}", chatId, text);
 
@@ -225,7 +230,7 @@ public class OrderHandler {
 
             if (phoneNumber != null) {
                 log.info("Распознан номер телефона: {}", phoneNumber);
-                handleContact(chatId, phoneNumber);
+                handleContact(chatId, phoneNumber, messageId);
             } else {
                 log.warn("Не удалось распознать номер телефона: {}", text);
                 messageSender.sendMessage(chatId, "❌ Неверный формат номера телефона. Пожалуйста, используйте формат: +79991234567 или 89991234567");
@@ -303,21 +308,21 @@ public class OrderHandler {
     /**
      * Запрос типа доставки
      */
-    private void askForDeliveryType(Long chatId) {
+    private void askForDeliveryType(Long chatId, Integer messageId) {
         String message = """
             🚚 *Выберите способ получения заказа*
             
             ⏰ Время работы: 10:00 - 21:00
             """;
 
-        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+        telegramMessageSender.sendEditMessage(chatId, messageId, message,
                 keyboardService.createKeyboardForChoiceDelivery(), true);
     }
 
     /**
      * Обработка выбора типа доставки
      */
-    private void handleDeliveryTypeSelected(Long chatId, String callbackId) {
+    private void handleDeliveryTypeSelected(Long chatId, String callbackId, Integer messageId) {
         OrderData orderData = orderDataMap.get(chatId);
         if (orderData == null) {
             messageSender.answerCallback(callbackId, "❌ Данные заказа не найдены");
@@ -327,7 +332,7 @@ public class OrderHandler {
         orderData.setDeliveryType("PICKUP");
         orderDataMap.put(chatId, orderData);
 
-        askForComments(chatId);
+        askForComments(chatId, messageId);
 
         messageSender.answerCallback(callbackId, "✅ Способ получения: Самовывоз");
     }
@@ -335,7 +340,7 @@ public class OrderHandler {
     /**
      * Запрос комментариев к заказу
      */
-    private void askForComments(Long chatId) {
+    private void askForComments(Long chatId, Integer messageId) {
         String message = """
             💬 *Комментарий к заказу*
             
@@ -347,7 +352,7 @@ public class OrderHandler {
             Если комментариев нет, нажмите кнопку "Пропустить"
             """;
 
-        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message, keyboardService.createButtonSkip(), true);
+        telegramMessageSender.sendEditMessage(chatId, messageId, message, keyboardService.createButtonSkip(), true);
     }
 
     /**
@@ -392,7 +397,7 @@ public class OrderHandler {
     /**
      * Подтверждение и создание заказа
      */
-    private void handleOrderConfirm(Long chatId, String callbackId) {
+    private void handleOrderConfirm(Long chatId, String callbackId, Integer messageId) {
         try {
             OrderData orderData = orderDataMap.get(chatId);
             if (orderData == null) {
@@ -408,8 +413,7 @@ public class OrderHandler {
 
             String orderMessage = createOrderConfirmationMessage(order);
 
-            messageSender.sendMessage(chatId, orderMessage);
-            messageSender.answerCallback(callbackId, "✅ Заказ оформлен");
+            telegramMessageSender.sendEditMessage(chatId, messageId, orderMessage, keyboardService.createEmptyCartKeyboard(), true);
 
         } catch (Exception e) {
             log.error("Ошибка при подтверждении заказа: {}", e.getMessage(), e);
@@ -427,8 +431,8 @@ public class OrderHandler {
                 "📋 *Номер заказа:* " + order.getOrderNumber() + "\n" +
                 "💰 *Сумма:* " + order.getTotalAmount() + "₽\n" +
                 "📱 *Телефон:* " + order.getPhoneNumber() + "\n" +
-                "🚚 *Способ получения:* Доставка\n" +
-                "📍 *Адрес:* " + order.getAddress() + "\n" +
+                "🚚 *Способ получения:* Самовывоз\n" +
+                ((order.getAddress() != null) ? "*Адрес:* " + order.getAddress() + "\n": "" ) +
                 "\n" +
                 "⏰ *Примерное время:* 30-45 минут\n\n" +
                 "*ВАЖНАЯ ИНФОРМАЦИЯ:*\n" +
@@ -441,12 +445,12 @@ public class OrderHandler {
     /**
      * Отмена заказа
      */
-    private void handleOrderCancel(Long chatId, String callbackId) {
+    private void handleOrderCancel(Long chatId, String callbackId, Integer messageId) {
         orderDataMap.remove(chatId);
 
         String cartDescription = cartService.getCartDescription(chatId);
 
-        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, "❌ Заказ отменен\n\n" + cartDescription,
+        telegramMessageSender.sendEditMessage(chatId, messageId, "❌ Заказ отменен\n\n" + cartDescription,
                 keyboardService.createButtonBackBasket(), false);
         messageSender.answerCallback(callbackId, "❌ Заказ отменен");
     }

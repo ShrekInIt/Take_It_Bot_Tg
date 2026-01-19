@@ -56,9 +56,30 @@ public class OrderHistoryHandler {
     }
 
     /**
+     * Обработка команды просмотра истории заказов
+     */
+    public void handleOrderHistory(Long chatId, Integer messageId) {
+        try {
+            List<Order> orders = orderService.getUserOrders(chatId);
+
+            if (orders.isEmpty()) {
+                messageSender.sendMessage(chatId, "📭 У вас еще нет заказов.");
+                return;
+            }
+
+            String message = createOrderHistoryMessage();
+            telegramMessageSender.sendEditMessage(chatId, messageId, message, keyboardService.createOrderHistoryKeyboard(orders), true);
+
+        } catch (Exception e) {
+            log.error("Ошибка при получении истории заказов: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при получении истории заказов.");
+        }
+    }
+
+    /**
      * Обработка повторения заказа
      */
-    public void handleRepeatOrder(Long chatId, String callbackId, String data) {
+    public void handleRepeatOrder(Long chatId, String callbackId, String data, Integer messageId) {
         try {
             String orderIdStr = data.replace("repeat_order_", "");
             Long orderId = Long.parseLong(orderIdStr);
@@ -84,7 +105,7 @@ public class OrderHistoryHandler {
                     order.getItems().size()
             );
 
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+            telegramMessageSender.sendEditMessage(chatId, messageId,message,
                     keyboardService.createButtonBackBasket(),true);
 
         } catch (Exception e) {
@@ -101,6 +122,9 @@ public class OrderHistoryHandler {
         return "📋 *История ваших заказов:*\n\n";
     }
 
+    /**
+     * Очистить историю заказов
+     */
     public void clearHistoryHandler(Long chatId, Integer messageId) {
         try {
             List<Order> orders = orderService.getUserOrders(chatId);
@@ -164,7 +188,7 @@ public class OrderHistoryHandler {
     /**
      * Обработка callback для просмотра деталей заказа
      */
-    public void handleOrderDetailsCallback(Long chatId, String callbackId, String data) {
+    public void handleOrderDetailsCallback(Long chatId, String callbackId, String data, Integer messageId) {
         try {
             String orderIdStr = data.replace("order_details_", "");
             Long orderId = Long.parseLong(orderIdStr);
@@ -174,7 +198,7 @@ public class OrderHistoryHandler {
 
             String detailsMessage = createOrderDetailsMessage(order);
 
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, detailsMessage,
+            telegramMessageSender.sendEditMessage(chatId, messageId, detailsMessage,
                     keyboardService.createKeyboardForOrders(orderId), true);
 
             messageSender.answerCallback(callbackId, "✅ Детали заказа загружены");

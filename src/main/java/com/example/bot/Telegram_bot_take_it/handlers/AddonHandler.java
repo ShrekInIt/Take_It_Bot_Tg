@@ -27,21 +27,25 @@ public class AddonHandler {
      * Обработка callback запросов для добавок
      */
     public void handlerAddonCallback(Long chatId, Integer messageId, String data){
-        if (data.startsWith("addons_show_")) {
+        if (data.startsWith("addons_show_edit_")) {
+            System.out.println("We here");
+            handleAddonsSelection(chatId, data, messageId);
+        }
+        else if (data.startsWith("addons_show_")) {
             log.info("Обработка выбора добавок...");
             handleAddonsSelection(chatId, data);
         }
         else if (data.startsWith("addons_milk_")) {
-            handleAddonsSelectionMilk(chatId, data);
+            handleAddonsSelectionMilk(chatId, data, messageId);
         }
         else if (data.startsWith("addons_syrup_")) {
-            handleAddonsSelectionSyrup(chatId, data);
+            handleAddonsSelectionSyrup(chatId, data, messageId);
         }
         else if (data.startsWith("addons_add_syrup_")) {
-            showSyrupsSelection(chatId, data);
+            showSyrupsSelection(chatId, data, messageId);
         }
         else if (data.startsWith("addons_add_milk_")) {
-            showMilksSelection(chatId, data);
+            showMilksSelection(chatId, data, messageId);
         }
         else if (data.startsWith("addons_remove_syrup_")) {
             removeSelectedSyrup(chatId, messageId, data);
@@ -50,13 +54,13 @@ public class AddonHandler {
             removeSelectedMilk(chatId, messageId, data);
         }
         else if (data.startsWith("addons_select_milk_")) {
-            handleSelectMilk(chatId, data);
+            handleSelectMilk(chatId, data, messageId);
         }
         else if (data.startsWith("addons_select_syrup_")) {
-            handleSelectSyrup(chatId, data);
+            handleSelectSyrup(chatId, data, messageId);
         }
     }
-    
+
     /**
      * Обработка выбора добавок (только для кофе)
      */
@@ -96,6 +100,54 @@ public class AddonHandler {
                         );
 
                         telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText, keyboardService.createAddonsKeyboard(productId, quantity, categoryId), true);
+                    }
+            );
+
+        } catch (Exception e) {
+            log.error("Ошибка выбора добавок: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при выборе добавок");
+        }
+    }
+
+    /**
+     * Обработка выбора добавок (только для кофе)
+     */
+    private void handleAddonsSelection(Long chatId, String data, Integer messageId) {
+        try {
+            log.info("Обработка выбора добавок, данные: {}", data);
+            String[] parts = data.split("_");
+
+            if (parts.length < 3) {
+                log.error("Недостаточно параметров: {}", data);
+                messageSender.sendMessage(chatId, "❌ Ошибка в данных добавок");
+                return;
+            }
+
+            Long productId = Long.parseLong(parts[3]);
+            int quantity = Integer.parseInt(parts[4]);
+            Long categoryId = Long.parseLong(parts[5]);
+
+            if(cartService.findProductInCart(chatId, productId)){
+                messageSender.sendMessage(chatId, "Сначала добавьте товар в корзину");
+                return;
+            }
+
+            log.info("Товар ID: {}, количество: {}", productId, quantity);
+
+            productService.getProductById(productId).ifPresent(
+                    product -> {
+                        String messageText = String.format(
+                                """
+                                🍯 *Выбор добавок для:* %s
+                                
+                                Количество: %d шт.
+                                
+                                Выберите тип добавки:""",
+                                product.getName(),
+                                quantity
+                        );
+
+                        telegramMessageSender.sendEditMessage(chatId, messageId, messageText, keyboardService.createAddonsKeyboard(productId, quantity, categoryId), true);
                     }
             );
 
@@ -159,7 +211,7 @@ public class AddonHandler {
     /**
      * Выбор альтернативного молока
      */
-    private void handleSelectMilk(Long chatId, String data) {
+    private void handleSelectMilk(Long chatId, String data, Integer messageId) {
         try {
             String[] parts = data.split("_");
             Long cartItemId = Long.valueOf(parts[3]);
@@ -191,7 +243,7 @@ public class AddonHandler {
                     milk.getName(),
                     milk.getAmount());
 
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+            telegramMessageSender.sendEditMessage(chatId, messageId,messageText,
                     keyboardService.createButtonBackForAddonsMilkOrSyrup(cartItemId, productId, quantity, categoryId, "milk"), true);
 
         } catch (Exception e) {
@@ -203,7 +255,7 @@ public class AddonHandler {
     /**
      * Показ выбранного молока
      */
-    private void showMilksSelection(Long chatId, String data) {
+    private void showMilksSelection(Long chatId, String data, Integer messageId) {
         String[] parts = data.split("_");
         Long cartItemId = Long.valueOf(parts[3]);
         long productId = Long.parseLong(parts[4]);
@@ -224,7 +276,7 @@ public class AddonHandler {
             """, currentSyrupText);
 
         try {
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+            telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
                     keyboardService.createKeyboardForSelectedMilkOrSyrup(cartItemId, productId, quantity, categoryId, "milk", null), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке выбора альтернативного молока", e);
@@ -235,7 +287,7 @@ public class AddonHandler {
     /**
      * Показ альтернативного молока
      */
-    private void handleAddonsSelectionMilk(Long chatId, String data) {
+    private void handleAddonsSelectionMilk(Long chatId, String data, Integer messageId) {
         String[] parts = data.split("_");
         Long cartItemId = Long.valueOf(parts[2]);
         long productId = Long.parseLong(parts[3]);
@@ -256,7 +308,7 @@ public class AddonHandler {
         );
 
         try {
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, text,
+            telegramMessageSender.sendEditMessage(chatId, messageId, text,
                     keyboardService.createKeyboardForMilkActionOrSyrupAction(cartItemId, productId, quantity, categoryId, milk, "milk"), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке сообщения с добавками", e);
@@ -288,7 +340,7 @@ public class AddonHandler {
     /**
      * Выбор альтернативного сиропа
      */
-    private void handleSelectSyrup(Long chatId, String data) {
+    private void handleSelectSyrup(Long chatId, String data, Integer messageId) {
         try {
             String[] parts = data.split("_");
             Long cartItemId = Long.valueOf(parts[3]);
@@ -320,7 +372,7 @@ public class AddonHandler {
                     syrup.getName(),
                     syrup.getAmount());
 
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+            telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
                     keyboardService.createButtonBackForAddonsMilkOrSyrup(cartItemId, productId, quantity, categoryId, "syrup"), true);
 
         } catch (Exception e) {
@@ -332,7 +384,7 @@ public class AddonHandler {
     /**
      * Показ выбранного сиропа
      */
-    private void showSyrupsSelection(Long chatId, String data) {
+    private void showSyrupsSelection(Long chatId, String data, Integer messageId) {
         String[] parts = data.split("_");
         Long cartItemId = Long.valueOf(parts[3]);
         long productId = Long.parseLong(parts[4]);
@@ -357,7 +409,7 @@ public class AddonHandler {
             """, currentSyrupText);
 
         try {
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+            telegramMessageSender.sendEditMessage(chatId, messageId,messageText,
                     keyboardService.createKeyboardForSelectedMilkOrSyrup(cartItemId, productId, quantity, categoryId, "syrup", mainProduct), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке выбора сиропов", e);
@@ -368,7 +420,7 @@ public class AddonHandler {
     /**
      * Показ альтернативного сиропа
      */
-    private void handleAddonsSelectionSyrup(Long chatId, String data) {
+    private void handleAddonsSelectionSyrup(Long chatId, String data, Integer messageId) {
         String[] parts = data.split("_");
         Long cartItemId = Long.valueOf(parts[2]);
         long productId = Long.parseLong(parts[3]);
@@ -389,7 +441,7 @@ public class AddonHandler {
         );
 
         try {
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, text,
+            telegramMessageSender.sendEditMessage(chatId, messageId, text,
                     keyboardService.createKeyboardForMilkActionOrSyrupAction(cartItemId, productId, quantity, categoryId,syrup, "syrup"), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке сообщения с добавками", e);

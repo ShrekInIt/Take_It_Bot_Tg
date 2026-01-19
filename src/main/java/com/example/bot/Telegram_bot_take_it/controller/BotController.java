@@ -49,18 +49,19 @@ public class BotController {
         Long chatId = message.chat().id();
         String text = message.text();
         com.pengrad.telegrambot.model.User telegramUser = message.from();
+        Integer messageId = message.messageId();
 
         userService.registerOrUpdateUser(telegramUser, chatId);
 
         if (message.contact() != null) {
             logger.info("Получен контакт от chatId {}: {}", chatId, message.contact().phoneNumber());
             String phoneNumber = message.contact().phoneNumber();
-            orderHandler.handleContact(chatId, phoneNumber);
+            orderHandler.handleContact(chatId, phoneNumber, messageId);
             return;
         }
 
         if (text != null) {
-            handleCommand(chatId, text, telegramUser);
+            handleCommand(chatId, text, telegramUser, messageId);
         }
     }
 
@@ -76,7 +77,7 @@ public class BotController {
     /**
      * Обработка текстовых команд от пользователя
      */
-    private void handleCommand(Long chatId, String text, com.pengrad.telegrambot.model.User telegramUser) {
+    private void handleCommand(Long chatId, String text, com.pengrad.telegrambot.model.User telegramUser, Integer messageId) {
         String command = text.trim().toLowerCase();
 
         logger.info("Command received: {} from chatId: {}", command, chatId);
@@ -89,7 +90,7 @@ public class BotController {
             case "/basket", "🛒 корзина", "корзина" ->handlerCommandService.handleBasketCommand(chatId, telegramUser);
             case Messages.MENU_LOWERCASE ->  handlerCommandService.handleMenuCommandCategory(chatId);
             case "\uD83D\uDCE6 мои заказы", "/orders" -> handlerCommandService.getAllOrdersUser(chatId);
-            default -> orderHandler.handleTextMessage(chatId, text);
+            default -> orderHandler.handleTextMessage(chatId, text, messageId);
         }
     }
 }

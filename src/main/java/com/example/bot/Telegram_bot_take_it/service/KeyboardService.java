@@ -211,7 +211,7 @@ public class KeyboardService {
     /**
      * Создание клавиатуры для пустой корзины
      */
-    private InlineKeyboardMarkup createEmptyCartKeyboard() {
+    public InlineKeyboardMarkup createEmptyCartKeyboard() {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         InlineKeyboardButton menuButton = new InlineKeyboardButton("📋 Перейти в меню")
@@ -285,7 +285,7 @@ public class KeyboardService {
                     .callbackData("cart_clear");
 
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад в корзину")
-                    .callbackData("cart_back");
+                    .callbackData("cart_back_edit");
 
             keyboard.addRow(clearCartButton);
             keyboard.addRow(backButton);
@@ -738,7 +738,7 @@ public class KeyboardService {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         InlineKeyboardButton basketButton = new InlineKeyboardButton("🛒 Перейти в корзину")
-                .callbackData("cart_back");
+                .callbackData("cart_back_edit");
         keyboard.addRow(basketButton);
 
         InlineKeyboardButton continueButton = new InlineKeyboardButton("🛍️ Продолжить покупки")
@@ -787,7 +787,7 @@ public class KeyboardService {
         }
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к выбору добавок")
-                .callbackData("addons_show_" + productId + "_" + quantity + "_" + categoryId);
+                .callbackData("addons_show_edit_" + productId + "_" + quantity + "_" + categoryId);
         keyboard.addRow(backButton);
 
         return keyboard;
@@ -853,7 +853,7 @@ public class KeyboardService {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("🛒 Вернуться в корзину")
-                .callbackData("cart_back");
+                .callbackData("cart_back_edit");
 
         keyboard.addRow(backButton);
 

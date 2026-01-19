@@ -36,15 +36,19 @@ public class CartHandler {
     public void handlerCartCallback(Long chatId, String callbackId, String data, Integer messageId){
         if (data.startsWith("cart_add_")) {
             log.info("Обработка добавления в корзину...");
-            handleAddToCart(chatId, callbackId, data);
+            handleAddToCart(chatId, callbackId, data, messageId);
         }
         else if (data.startsWith("cart_add_with_addon_")) {
             log.info("Обработка добавления в корзину с добавкой...");
-            handleAddToCartWithAddon(chatId, callbackId, data);
+            handleAddToCartWithAddon(chatId, callbackId, data, messageId);
         }
         else if (data.startsWith("cart_clear")) {
             log.info("Очистка корзины...");
-            handleClearCart(chatId, callbackId);
+            handleClearCart(chatId, callbackId, messageId);
+        }
+        else if (data.startsWith("cart_back_edit")) {
+            log.info("Возврат в корзину...");
+            handleBackToCart(chatId, messageId);
         }
         else if (data.startsWith("cart_back")) {
             log.info("Возврат в корзину...");
@@ -52,15 +56,15 @@ public class CartHandler {
         }
         else if (data.startsWith("cart_addon_syrup_")) {
             log.info("Обработка выбора сиропа...");
-            handleCartAddSyrup(chatId, data);
+            handleCartAddSyrup(chatId, data, messageId);
         }
         else if (data.startsWith("cart_addon_milk_")) {
             log.info("Обработка выбора альтернативного молока...");
-            handleCartAddMilk(chatId, data);
+            handleCartAddMilk(chatId, data, messageId);
         }
         else if (data.startsWith("cart_delete_one")) {
             log.info("Обработка удаления конкретного товара");
-            handleDeleteSomeProduct(chatId);
+            handleDeleteSomeProduct(chatId, messageId);
         }
         else if (data.startsWith("cart_product_")) {
             log.info("Удаление конкретного товара");
@@ -72,11 +76,11 @@ public class CartHandler {
         }
         else if (data.startsWith("cart_delete_confirm_")) {
             log.info("Подтверждение удаления товара");
-            handleDeleteConfirm(chatId, data);
+            handleDeleteConfirm(chatId, data, messageId);
         }
         else if (data.startsWith("cart_delete_all_")) {
             log.info("Удаление всего товара");
-            handleDeleteAll(chatId, data);
+            handleDeleteAll(chatId, data, messageId);
         }
     }
 
@@ -97,9 +101,25 @@ public class CartHandler {
     }
 
     /**
+     * Возврат в корзину
+     */
+    private void handleBackToCart(Long chatId, Integer messageId) {
+        try {
+            String cartDescription = cartService.getCartDescription(chatId);
+
+            telegramMessageSender.sendEditMessage(chatId, messageId, cartDescription,
+                    keyboardService.createBasketKeyboard(chatId), true);
+
+        } catch (Exception e) {
+            log.error("Ошибка при возврате в корзину: {}", e.getMessage(), e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при загрузке корзины");
+        }
+    }
+
+    /**
      * Очистка корзины
      */
-    private void handleClearCart(Long chatId, String callbackId) {
+    private void handleClearCart(Long chatId, String callbackId, Integer messageId) {
         try {
             cartService.clearCart(chatId);
 
@@ -111,7 +131,7 @@ public class CartHandler {
                 Ваша корзина была успешно очищена.
                 """;
 
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+            telegramMessageSender.sendEditMessage(chatId, messageId, message,
                     keyboardService.createButtonGoMenu(), true);
 
         } catch (Exception e) {
@@ -124,7 +144,7 @@ public class CartHandler {
     /**
      * Обработка добавления в корзину
      */
-    private void handleAddToCart(Long chatId, String callbackId, String data) {
+    private void handleAddToCart(Long chatId, String callbackId, String data, Integer messageId) {
         try {
             log.info("Добавление товара в корзину, данные: {}", data);
             String[] parts = data.split("_");
@@ -148,7 +168,7 @@ public class CartHandler {
 
                 String message = getString(addedItems, product, quantity);
 
-                method(chatId, message);
+                method(chatId, message, messageId);
 
                 messageSender.answerCallback(callbackId, "✅ Товар добавлен в корзину");
             } else {
@@ -187,7 +207,7 @@ public class CartHandler {
     /**
      * Создание клавиатуры
      */
-    private void method(Long chatId, String message) {
+    private void method(Long chatId, String message, Integer messageId) {
         telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
                 keyboardService.createKeyboardMenu(), true);
     }
@@ -195,7 +215,7 @@ public class CartHandler {
     /**
      * Обработка добавления товара в корзину с добавкой
      */
-    private void handleAddToCartWithAddon(Long chatId, String callbackId, String data) {
+    private void handleAddToCartWithAddon(Long chatId, String callbackId, String data, Integer messageId) {
         try {
             log.info("Добавление товара с добавкой в корзину, данные: {}", data);
             String[] parts = data.split("_");
@@ -240,7 +260,7 @@ public class CartHandler {
                         cartItem.calculateItemTotal()
                 );
 
-                method(chatId, message);
+                method(chatId, message, messageId);
                 messageSender.answerCallback(callbackId, "✅ Товар с добавкой добавлен в корзину");
             } else {
                 throw new Exception("Не удалось добавить товар с добавкой в корзину");
@@ -257,7 +277,7 @@ public class CartHandler {
      * Обработка добавления добавок к товарам в корзине
      */
     @Transactional(readOnly = true)
-    protected void handleCartAddSyrup(Long chatId, String data) {
+    protected void handleCartAddSyrup(Long chatId, String data, Integer messageId) {
         try {
             String[] parts = data.split("_");
             long productId = Long.parseLong(parts[3]);
@@ -280,7 +300,7 @@ public class CartHandler {
                 Выберите товар, к которому хотите добавить добавки:
                 """;
 
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+            telegramMessageSender.sendEditMessage(chatId, messageId,messageText,
                     keyboardService.createKeyboardAddAddonsInBasket(cartItems, productId, quantity,categoryId, "syrup"), true);
 
         } catch (Exception e) {
@@ -293,7 +313,7 @@ public class CartHandler {
      * Обработка добавления добавок к товарам в корзине
      */
     @Transactional(readOnly = true)
-    protected void handleCartAddMilk(Long chatId, String data) {
+    protected void handleCartAddMilk(Long chatId, String data, Integer messageId) {
         try {
             String[] parts = data.split("_");
             long productId = Long.parseLong(parts[3]);
@@ -316,7 +336,7 @@ public class CartHandler {
                 Выберите товар, к которому хотите добавить добавки:
                 """;
 
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, messageText,
+            telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
                     keyboardService.createKeyboardAddAddonsInBasket(cartItems, productId, quantity,categoryId, "milk"), true);
 
         } catch (Exception e) {
@@ -328,8 +348,8 @@ public class CartHandler {
     /**
      * Создание клавиатуры с продуктами
      */
-    private void handleDeleteSomeProduct(Long chatId) {
-        telegramMessageSender.sendMessageWithInlineKeyboardHtml(chatId, "Выберите товар для удаления",
+    private void handleDeleteSomeProduct(Long chatId, Integer messageId) {
+        telegramMessageSender.sendEditMessage(chatId, messageId,"Выберите товар для удаления",
                 keyboardService.createCartProductsKeyboard(chatId), false);
     }
 
@@ -349,7 +369,7 @@ public class CartHandler {
     /**
      * Удаление всего товара
      */
-    private void handleDeleteAll(Long chatId, String data) {
+    private void handleDeleteAll(Long chatId, String data, Integer messageId) {
         try {
             String[] parts = data.split("_");
             Long firstCartItemId = Long.parseLong(parts[3]);
@@ -374,7 +394,7 @@ public class CartHandler {
                     product.getName(), totalInGroup
             ));
 
-            handleDeleteSomeProduct(chatId);
+            handleDeleteSomeProduct(chatId, messageId);
 
         } catch (Exception e) {
             log.error("Ошибка при удалении всего товара: {}", e.getMessage(), e);
@@ -384,7 +404,7 @@ public class CartHandler {
     /**
      * Подтверждение удаления указанного количества
      */
-    private void handleDeleteConfirm(Long chatId, String data) {
+    private void handleDeleteConfirm(Long chatId, String data, Integer messageId) {
         try {
             String[] parts = data.split("_");
             Long firstCartItemId = Long.parseLong(parts[3]);
@@ -446,7 +466,7 @@ public class CartHandler {
             }
 
             messageSender.sendMessage(chatId, message);
-            handleDeleteSomeProduct(chatId);
+            handleDeleteSomeProduct(chatId, messageId);
 
         } catch (Exception e) {
             log.error("Ошибка при удалении товара: {}", e.getMessage(), e);
