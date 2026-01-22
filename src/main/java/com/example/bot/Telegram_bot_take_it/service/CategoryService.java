@@ -88,7 +88,7 @@ public class CategoryService {
         return categoryRepository.save(category);
     }
 
-    public Optional<Object> findById(Long categoryId) {
-        return Optional.of(categoryRepository.findById(categoryId));
+    public Optional<Category> findById(Long categoryId) {
+        return categoryRepository.findById(categoryId);
     }
 }

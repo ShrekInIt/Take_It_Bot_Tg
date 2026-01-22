@@ -1,5 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.admin.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -18,6 +20,7 @@ public class AdminUser {
     @Column(name = "username", unique = true, nullable = false, length = 100)
     private String username;
 
+    @JsonIgnore
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
@@ -29,5 +32,6 @@ public class AdminUser {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 }

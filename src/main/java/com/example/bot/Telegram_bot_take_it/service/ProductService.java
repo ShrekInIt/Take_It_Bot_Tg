@@ -87,27 +87,8 @@ public class ProductService {
         return productRepository.findAll();
     }
 
-    public List<Product> findAllWithCategory() {
-        return productRepository.findAllWithCategory();
-    }
-
     public Product save(Product product) {
         return productRepository.save(product);
     }
 
-    public void deleteById(Long id) {
-        productRepository.deleteById(id);
-    }
-
-    public Optional<Product> findById(Long id) {
-        return productRepository.findById(id);
-    }
-
-    public List<Product> findByCategoryId(Long categoryId) {
-        return productRepository.findByCategoryId(categoryId);
-    }
-
-    public List<Product> findAvailableProducts() {
-        return productRepository.findByAvailable(true);
-    }
 }

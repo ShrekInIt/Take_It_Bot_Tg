@@ -1,0 +1,28 @@
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Типы категорий</h1>
+        <button class="btn btn-primary" onclick="showCreateCategoryTypeModal()">
+            <i class="bi bi-plus"></i> Добавить тип
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Код</th>
+                    <th>Название</th>
+                    <th>Описание</th>
+                    <th>Порядок</th>
+                    <th>Действия</th>
+                </tr>
+                </thead>
+                <tbody id="categoryTypesTableBody">
+                <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

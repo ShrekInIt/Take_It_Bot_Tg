@@ -47,6 +47,173 @@ async function checkAuth() {
     }
 }
 
+async function loadAdmins() {
+    console.log('Загрузка администраторов...');
+    const tbody = document.getElementById('adminUsersTableBody');
+
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Загрузка...</td></tr>';
+
+    try {
+        const response = await axios.get(`${API_BASE}/admins`);
+        const admins = response.data;
+
+        tbody.innerHTML = '';
+
+        if (!admins || admins.length === 0) {
+            tbody.innerHTML =
+                '<tr><td colspan="6" class="text-center">Администраторы не найдены</td></tr>';
+            return;
+        }
+
+        // Используем createAdminRowElement для создания всех строк
+        admins.forEach(admin => {
+            const tr = createAdminRowElement(admin);
+            tbody.appendChild(tr);
+        });
+
+    } catch (error) {
+        console.error('Ошибка загрузки администраторов:', error);
+        tbody.innerHTML =
+            '<tr><td colspan="6" class="text-center text-danger">Ошибка загрузки</td></tr>';
+    }
+}
+
+
+function showCreateAdminUserModal() {
+    // Удаляем старую модалку, если она есть
+    const oldModal = document.getElementById('createAdminUserModal');
+    if (oldModal) {
+        oldModal.remove();
+    }
+
+    const modalHtml = `
+    <div class="modal fade" id="createAdminUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Добавить администратора</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <form id="createAdminUserForm">
+                        <div class="mb-3">
+                            <label class="form-label">Логин</label>
+                            <input type="text" class="form-control" name="username" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Пароль</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="password" required id="adminPasswordInput">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('adminPasswordInput')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Роль</label>
+                            <select class="form-select" name="role">
+                                <option value="ADMIN">ADMIN</option>
+                                <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                            </select>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="isActive" checked>
+                            <label class="form-check-label">
+                                Активен
+                            </label>
+                        </div>
+                    </form>
+
+                    <div id="createAdminError" class="alert alert-danger d-none mt-3"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Отмена
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="createAdminUser()">
+                        Создать
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modal = new bootstrap.Modal(document.getElementById('createAdminUserModal'));
+    modal.show();
+}
+
+function togglePasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    if (input.type === 'password') {
+        input.type = 'text';
+    } else {
+        input.type = 'password';
+    }
+}
+
+
+async function createAdminUser() {
+    const form = document.getElementById('createAdminUserForm');
+    const errorBlock = document.getElementById('createAdminError');
+
+    // Получаем значения напрямую из элементов
+    const payload = {
+        username: form.querySelector('[name="username"]').value,
+        password: form.querySelector('#adminPasswordInput').value, // Важно: берем по id!
+        role: form.querySelector('[name="role"]').value,
+        isActive: form.querySelector('[name="isActive"]').checked
+    };
+
+    // Логирование для отладки
+    console.log('Отправляемые данные:', payload);
+    console.log('Пароль пустой?', !payload.password);
+
+    try {
+        const response = await axios.post(`${API_BASE}/admins`, payload);
+        const created = response.data;
+
+        // Закрываем модалку
+        const modalEl = document.getElementById('createAdminUserModal');
+        bootstrap.Modal.getInstance(modalEl).hide();
+
+        if (created && created.id) {
+            insertOrUpdateAdminRow(created);
+            showToast('Администратор создан', 'success');
+        } else {
+            loadAdmins();
+            showToast('Администратор создан', 'success');
+        }
+    } catch (error) {
+        console.error('Ошибка создания администратора:', error);
+
+        // Подробный вывод ошибки
+        if (error.response) {
+            console.error('Ответ сервера:', error.response.data);
+            console.error('Статус:', error.response.status);
+        }
+
+        errorBlock.textContent = error.response?.data?.message ||
+            error.response?.data?.error ||
+            'Ошибка при создании администратора';
+        errorBlock.classList.remove('d-none');
+
+        showToast('Ошибка при создании администратора', 'danger');
+    }
+}
+
+
 // Показать сообщение о необходимости входа
 function showLoginMessage() {
     console.log('Показываем сообщение о необходимости входа');
@@ -199,12 +366,86 @@ function executePageScripts() {
         loadAddons();
     }
 
-    // Администраторы
-    if (content.includes('id="adminsTableBody"')) {
+    if (content.includes('id="adminUsersTableBody"')) {
         console.log('Обнаружена страница администраторов');
-        loadAdmins();
+        loadAdmins(); // теперь точно вызывается
     }
 }
+
+async function showEditAdminModal(adminId) {
+    let admin;
+    try {
+        const response = await axios.get(`${API_BASE}/admins/${adminId}`);
+        admin = response.data;
+    } catch (error) {
+        console.error('Не удалось получить данные админа', error);
+        showToast('Ошибка загрузки данных администратора', 'danger');
+        return;
+    }
+
+    // Удаляем старое модальное окно
+    const oldModal = document.getElementById('editAdminModal');
+    if (oldModal) oldModal.remove();
+
+    const modalHtml = `
+    <div class="modal fade" id="editAdminModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Редактировать администратора</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editAdminForm">
+                        <input type="hidden" name="id" value="${admin.id}" />
+                        <div class="mb-3">
+                            <label class="form-label">Логин</label>
+                            <input type="text" class="form-control" name="username" 
+                                   value="${admin.username || ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Новый пароль (оставьте пустым, чтобы не менять)</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" 
+                                       id="editAdminPasswordInput" placeholder="Новый пароль">
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        onclick="togglePasswordVisibility('editAdminPasswordInput')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Роль</label>
+                            <select class="form-select" name="role">
+                                <option value="ADMIN" ${admin.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
+                                <option value="SUPER_ADMIN" ${admin.role === 'SUPER_ADMIN' ? 'selected' : ''}>SUPER_ADMIN</option>
+                            </select>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" name="isActive" 
+                                   id="editAdminIsActive" ${admin.isActive ? 'checked' : ''}>
+                            <label class="form-check-label" for="editAdminIsActive">
+                                Активен
+                            </label>
+                        </div>
+                        <div id="editAdminError" class="alert alert-danger d-none"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" onclick="updateAdmin(${admin.id})">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modal = new bootstrap.Modal(document.getElementById('editAdminModal'));
+    modal.show();
+}
+
 
 // Функция для загрузки статистики на dashboard
 async function loadDashboardStats() {
@@ -423,15 +664,199 @@ async function loadAddons() {
     }
 }
 
-// Функция для загрузки администраторов
-async function loadAdmins() {
-    console.log('Загрузка администраторов...');
-    // Реализовать позже
-    const tbody = document.getElementById('adminsTableBody');
-    if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Страница в разработке</td></tr>';
+function createAdminRowElement(admin) {
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-admin-id', admin.id);
+    const isActive = admin.isActive !== undefined ? admin.isActive : admin.active;
+    const created = admin.createdAt ? new Date(admin.createdAt).toLocaleString() : '—';
+
+    tr.innerHTML = `
+        <td>${admin.id}</td>
+        <td>${admin.username || ''}</td>
+        <td>${admin.role || ''}</td>
+        <td>
+            <span class="badge ${isActive ? 'bg-success' : 'bg-danger'}">
+                ${isActive ? 'Да' : 'Нет'}
+            </span>
+        </td>
+        <td>${created}</td>
+        <td>
+            <button class="btn btn-sm btn-outline-primary me-1" onclick="showEditAdminModal(${admin.id})">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteAdmin(${admin.id})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    return tr;
+}
+
+async function searchAdmin() {
+    const q = document.getElementById('adminSearchInput').value.trim();
+    const tbody = document.getElementById('adminUsersTableBody');
+    if (!tbody) return;
+
+    if (!q) {
+        loadAdmins();
+        return;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Поиск...</td></tr>';
+
+    try {
+        const response = await axios.get(`${API_BASE}/admins/search`, {
+            params: { username: q }
+        });
+
+        const result = response.data;
+
+        tbody.innerHTML = '';
+
+        // backend может вернуть один объект или массив
+        if (!result) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">Ничего не найдено</td></tr>';
+            return;
+        }
+
+        if (Array.isArray(result)) {
+            if (result.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Ничего не найдено</td></tr>';
+                return;
+            }
+            result.forEach(admin => insertOrUpdateAdminRow(admin));
+        } else {
+            insertOrUpdateAdminRow(result);
+        }
+
+        showToast('Результаты поиска загружены', 'info');
+    } catch (error) {
+        console.error('Ошибка поиска админа:', error);
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Ошибка при поиске</td></tr>';
+        showToast('Ошибка при поиске', 'danger');
     }
 }
+
+
+async function deleteAdmin(id) {
+    if (!confirm('Удалить администратора? Это действие нельзя отменить.')) return;
+
+    try {
+        await axios.delete(`${API_BASE}/admins/${id}`);
+
+        // Удаляем строку из DOM с анимацией (плавное исчезание)
+        const tr = document.querySelector(`tr[data-admin-id="${id}"]`);
+        if (tr) {
+            tr.style.transition = 'opacity 250ms';
+            tr.style.opacity = '0';
+            setTimeout(() => tr.remove(), 260);
+        } else {
+            // если не нашли строку — просто перезагрузим таблицу
+            loadAdmins();
+        }
+
+        showToast('Администратор удалён', 'success');
+    } catch (error) {
+        console.error('Ошибка удаления администратора:', error);
+        showToast('Не удалось удалить администратора', 'danger');
+    }
+}
+
+
+function insertOrUpdateAdminRow(admin) {
+    const tbody = document.getElementById('adminUsersTableBody');
+    if (!tbody) return;
+
+    // Удаляем строку "Загрузка..." или "Нет администраторов"
+    const emptyRow = tbody.querySelector('tr td[colspan="6"]');
+    if (emptyRow) {
+        emptyRow.parentElement.remove();
+    }
+
+    // Ищем существующую строку
+    const existingRow = tbody.querySelector(`tr[data-admin-id="${admin.id}"]`);
+
+    const newRow = createAdminRowElement(admin);
+
+    if (existingRow) {
+        // Заменяем существующую строку
+        existingRow.replaceWith(newRow);
+    } else {
+        // Добавляем новую строку в начало
+        tbody.prepend(newRow);
+    }
+}
+
+async function updateAdmin(adminId) {
+    const form = document.getElementById('editAdminForm');
+    const errorBlock = document.getElementById('editAdminError');
+
+    // Получаем значения напрямую
+    const payload = {
+        username: form.querySelector('[name="username"]').value,
+        role: form.querySelector('[name="role"]').value,
+        isActive: form.querySelector('[name="isActive"]').checked
+    };
+
+    // Если пароль введен - добавляем его, если нет - не отправляем
+    const passwordInput = form.querySelector('#editAdminPasswordInput');
+    if (passwordInput && passwordInput.value.trim()) {
+        payload.password = passwordInput.value;
+    }
+
+    console.log('Обновление администратора', adminId, payload);
+
+    try {
+        const response = await axios.put(`${API_BASE}/admins/${adminId}`, payload);
+        const updatedAdmin = response.data;
+
+        // Обновляем строку в таблице
+        insertOrUpdateAdminRow(updatedAdmin);
+
+        // Закрываем модалку
+        const modalEl = document.getElementById('editAdminModal');
+        bootstrap.Modal.getInstance(modalEl).hide();
+
+        showToast('Администратор обновлён', 'success');
+    } catch (error) {
+        console.error('Ошибка обновления администратора:', error);
+        errorBlock.textContent = error.response?.data?.message || 'Ошибка при обновлении';
+        errorBlock.classList.remove('d-none');
+        showToast('Ошибка при обновлении администратора', 'danger');
+    }
+}
+
+
+function showToast(message, type = 'info', timeout = 3000) {
+    // type: 'success'|'danger'|'info'|'warning'
+    const id = `toast-${Date.now()}`;
+    const bgClass = (type === 'success') ? 'bg-success text-white' :
+        (type === 'danger') ? 'bg-danger text-white' :
+            (type === 'warning') ? 'bg-warning text-dark' : 'bg-secondary text-white';
+
+    const toastHtml = `
+      <div id="${id}" class="toast align-items-center ${bgClass}" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body">
+            ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
+        </div>
+      </div>
+    `;
+
+    const container = document.getElementById('toastContainer');
+    container.insertAdjacentHTML('beforeend', toastHtml);
+
+    const toastEl = document.getElementById(id);
+    const bsToast = new bootstrap.Toast(toastEl, { delay: timeout });
+    bsToast.show();
+
+    // автоматически удалить DOM-элемент после скрытия
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
+
 
 // Вспомогательные функции
 function getStatusBadgeClass(status) {
