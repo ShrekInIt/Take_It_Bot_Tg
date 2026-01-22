@@ -1,6 +1,5 @@
 package com.example.bot.Telegram_bot_take_it.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

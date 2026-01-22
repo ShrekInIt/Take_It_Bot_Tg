@@ -1,6 +1,5 @@
 package com.example.bot.Telegram_bot_take_it.admin.controller;
 
-import com.example.bot.Telegram_bot_take_it.dto.UserDTO;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
@@ -17,7 +16,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -30,7 +28,6 @@ public class AdminController {
     private final ProductService productService;
     private final OrderService orderService;
 
-    // Endpoint для проверки аутентификации (должен быть доступен без аутентификации)
     @GetMapping("/auth/check")
     public ResponseEntity<?> checkAuth() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -40,7 +37,6 @@ public class AdminController {
         if (authentication != null && authentication.isAuthenticated()
                 && !authentication.getName().equals("anonymousUser")) {
 
-            // Пользователь аутентифицирован
             Map<String, Object> userInfo = new HashMap<>();
             userInfo.put("username", authentication.getName());
 
@@ -48,13 +44,11 @@ public class AdminController {
             response.put("user", userInfo);
 
         } else {
-            // Пользователь не аутентифицирован
             response.put("authenticated", false);
         }
         return ResponseEntity.ok(response);
     }
 
-    // Endpoint для текущего пользователя
     @GetMapping("/current-user")
     public ResponseEntity<?> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -69,7 +63,6 @@ public class AdminController {
         return ResponseEntity.ok(new HashMap<>());
     }
 
-    // Статистика
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> stats = new HashMap<>();
@@ -97,12 +90,11 @@ public class AdminController {
             stats.put("todayRevenue", 0);
         }
 
-        stats.put("newUsersToday", 0); // временное значение
+        stats.put("newUsersToday", 0);
 
         return ResponseEntity.ok(stats);
     }
 
-    // Пользователи
     @GetMapping("/users")
     public ResponseEntity<List<User>> getAllUsers() {
         return ResponseEntity.ok(userService.findAll());
@@ -118,24 +110,6 @@ public class AdminController {
         Optional<User> user = userService.findById(id);
         return user.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping("/users")
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        List<User> users = userService.findAll();
-        List<UserDTO> userDTOs = users.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok((User) userDTOs);
-    }
-
-    private UserDTO convertToDTO(User user) {
-        UserDTO dto = new UserDTO();
-        dto.setId(user.getId());
-        dto.setTelegramId(user.getTelegramId());
-        dto.setPhoneNumber(user.getPhoneNumber());
-        dto.setCreatedAt(user.getCreatedAt());
-        return dto;
     }
 
     @PutMapping("/users/{id}")
@@ -154,18 +128,15 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    // Категории
     @GetMapping("/categories")
     public ResponseEntity<List<Category>> getAllCategories() {
         return ResponseEntity.ok(categoryService.findAll());
     }
 
-    // Продукты
     @GetMapping("/products")
     public ResponseEntity<List<Map<String, Object>>> getAllProducts() {
         List<Product> products = productService.findAll();
 
-        // Преобразуем продукты в Map для удобства
         List<Map<String, Object>> productList = new ArrayList<>();
 
         for (Product product : products) {
@@ -193,7 +164,6 @@ public class AdminController {
         return ResponseEntity.ok(productList);
     }
 
-    // Заказы
     @GetMapping("/orders")
     public ResponseEntity<List<Map<String, Object>>> getAllOrders() {
         List<Order> orders = orderService.findAll();
@@ -207,7 +177,6 @@ public class AdminController {
             orderMap.put("status", order.getStatus());
             orderMap.put("createdAt", order.getCreatedAt());
 
-            // Получаем пользователя
             if (order.getUserId() != null) {
                 Optional<User> userOpt = userService.findById(order.getUserId());
                 if (userOpt.isPresent()) {
@@ -227,7 +196,7 @@ public class AdminController {
 
     @GetMapping("/orders/recent")
     public ResponseEntity<List<Order>> getRecentOrders() {
-        return ResponseEntity.ok(orderService.findRecentOrders(10));
+        return ResponseEntity.ok(orderService.findRecentOrders());
     }
 
     @PutMapping("/orders/{id}/status")

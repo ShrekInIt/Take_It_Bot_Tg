@@ -4,7 +4,6 @@ import com.example.bot.Telegram_bot_take_it.controller.BotController;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.UpdatesListener;
 import com.pengrad.telegrambot.model.Update;
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -12,21 +11,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class BotUpdateService {
     private final TelegramBot telegramBot;
-    private final BotController botController; // Добавлено: внедряем контроллер
+    private final BotController botController;
 
     @Getter
     private boolean isRunning = false;
-
-    @PostConstruct
-    public void init() {
-        log.info("Initializing BotUpdateService...");
-        startBot();
-    }
 
     public void startBot() {
         if (isRunning) {
@@ -95,7 +89,6 @@ public class BotUpdateService {
             log.info("Message from {}: {}", update.message().chat().id(), update.message().text());
         }
 
-        // Перенаправляем обновление в BotController для обработки
         try {
             botController.handleUpdate(update);
             log.debug("Update {} forwarded to BotController", update.updateId());

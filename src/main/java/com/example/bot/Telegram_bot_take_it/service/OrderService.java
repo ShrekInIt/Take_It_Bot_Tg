@@ -374,7 +374,7 @@ public class OrderService {
     }
 
     public long countActiveOrders() {
-        return orderRepository.countByStatusIn(List.of("pending", "confirmed", "preparing", "ready"));
+        return orderRepository.countByStatusIn(List.of());
     }
 
     public long getTodayRevenue() {
@@ -391,11 +391,7 @@ public class OrderService {
         return orderRepository.findAll();
     }
 
-    public List<Order> findAllWithUser() {
-        return orderRepository.findAllWithUser();
-    }
-
-    public List<Order> findRecentOrders(int i) {
+    public List<Order> findRecentOrders() {
         return orderRepository.findTop10ByOrderByDateOrderDesc();
     }
 
@@ -408,13 +404,5 @@ public class OrderService {
 
     public Order save(Order order) {
         return orderRepository.save(order);
-    }
-
-    public void deleteById(Long id) {
-        orderRepository.deleteById(id);
-    }
-
-    public Optional<Order> findById(Long id) {
-        return orderRepository.findById(id);
     }
 }
