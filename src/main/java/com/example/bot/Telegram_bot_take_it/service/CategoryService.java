@@ -2,12 +2,14 @@ package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
+import com.example.bot.Telegram_bot_take_it.repository.CategoryTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -77,5 +79,17 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public List<Category> getActiveRootCategories() {
         return categoryRepository.findByParentIdIsNullAndActiveTrueOrderBySortOrder();
+    }
+
+    public List<Category> findAll() {
+        return categoryRepository.findAll();
+    }
+
+    public Category save(Category category) {
+        return categoryRepository.save(category);
+    }
+
+    public Optional<Object> findById(Long categoryId) {
+        return Optional.of(categoryRepository.findById(categoryId));
     }
 }

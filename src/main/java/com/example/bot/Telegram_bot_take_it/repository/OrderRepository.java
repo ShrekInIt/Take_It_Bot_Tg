@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,4 +34,21 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "LEFT JOIN FETCH i.product " +
             "WHERE o.id = :orderId AND o.user = :user")
     Optional<Order> findByIdAndUserWithItems(@Param("orderId") Long orderId, @Param("user") User user);
+
+    List<Order> findByUserId(Long userId);
+
+    long countByStatusIn(List<String> statuses);
+
+    @Query("SELECT o FROM Order o JOIN FETCH o.user ORDER BY o.createdAt DESC LIMIT 10")
+    List<Order> findTop10ByOrderByDateOrderDesc();
+
+    @Query("SELECT o FROM Order o JOIN FETCH o.user")
+    List<Order> findAllWithUser();
+
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o " +
+            "WHERE o.createdAt >= :startDate AND o.createdAt < :endDate " +
+            "AND o.status = :status")
+    Long sumTotalAmountByDateAndStatus(@Param("startDate") LocalDateTime startDate,
+                                       @Param("endDate") LocalDateTime endDate,
+                                       @Param("status") String status);
 }

@@ -19,9 +19,10 @@ public class BotInitializer {
 
 
     @PostConstruct
-    public void init() {
+    public void init() throws InterruptedException {
         logger.info("=== STARTING TELEGRAM BOT ===");
 
+        Thread.sleep(2000);
         bot.setUpdatesListener(updates -> {
             updates.forEach(update -> {
                 try {

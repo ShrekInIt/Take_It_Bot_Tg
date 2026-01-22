@@ -1,6 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.repository;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,4 +30,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
      */
     @Query("SELECT c FROM Category c LEFT JOIN FETCH c.parent WHERE c.id = :id")
     Optional<Category> findByIdWithParent(@Param("id") Long id);
+
+    @NotNull
+    @Query("SELECT c FROM Category c ORDER BY c.id")
+    List<Category> findAll();
 }

@@ -1,0 +1,33 @@
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Пользователи</h1>
+        <button class="btn btn-primary" onclick="showCreateUserModal()">
+            <i class="bi bi-plus"></i> Добавить пользователя
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Имя пользователя</th>
+                        <th>Telegram ID</th>
+                        <th>Телефон</th>
+                        <th>Статус</th>
+                        <th>Дата регистрации</th>
+                        <th>Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center">Загрузка...</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

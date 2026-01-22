@@ -83,6 +83,10 @@ public class Order {
         return "ORD-" + datePart + "-" + randomPart;
     }
 
+    public Long getUserId() {
+        return user.getId();
+    }
+
     @Getter
     public enum OrderStatus {
         PENDING("Ожидает подтверждения"),

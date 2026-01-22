@@ -41,4 +41,8 @@ public class Category {
     @JoinColumn(name = "category_type_id")
     @JsonIgnore
     private CategoryType categoryType;
+
+    public Boolean getIsActive() {
+        return active;
+    }
 }

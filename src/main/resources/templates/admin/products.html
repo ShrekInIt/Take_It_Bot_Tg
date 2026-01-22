@@ -1,0 +1,32 @@
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Продукты</h1>
+    <button class="btn btn-primary" onclick="showCreateProductModal()">
+      <i class="bi bi-plus"></i> Добавить продукт
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+          <tr>
+            <th>ID</th>
+            <th>Название</th>
+            <th>Цена</th>
+            <th>Категория</th>
+            <th>Наличие</th>
+            <th>Действия</th>
+          </tr>
+          </thead>
+          <tbody id="productsTableBody">
+          <tr>
+            <td colspan="6" class="text-center">Загрузка...</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

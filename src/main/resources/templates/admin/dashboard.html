@@ -1,0 +1,240 @@
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Дашборд</h2>
+        <p class="text-muted">Общая статистика и основные показатели</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Пользователи</h5>
+                        <h2 id="totalUsers">0</h2>
+                    </div>
+                    <i class="bi bi-people-fill" style="font-size: 2rem;"></i>
+                </div>
+                <p class="card-text mb-0" id="newUsersToday">+0 сегодня</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Заказы</h5>
+                        <h2 id="totalOrders">0</h2>
+                    </div>
+                    <i class="bi bi-cart-check-fill" style="font-size: 2rem;"></i>
+                </div>
+                <p class="card-text mb-0">Активные заказы</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Продукты</h5>
+                        <h2 id="totalProducts">0</h2>
+                    </div>
+                    <i class="bi bi-cup-fill" style="font-size: 2rem;"></i>
+                </div>
+                <p class="card-text mb-0">В наличии</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Доход</h5>
+                        <h2 id="todayRevenue">0 ₽</h2>
+                    </div>
+                    <i class="bi bi-currency-exchange" style="font-size: 2rem;"></i>
+                </div>
+                <p class="card-text mb-0">За сегодня</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Последние заказы</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="recentOrdersTable">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Клиент</th>
+                            <th>Сумма</th>
+                            <th>Статус</th>
+                        </tr>
+                        </thead>
+                        <tbody id="recentOrdersBody">
+                        <!-- Данные будут загружены через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Новые пользователи</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="recentUsersTable">
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Имя</th>
+                            <th>Telegram</th>
+                            <th>Дата</th>
+                        </tr>
+                        </thead>
+                        <tbody id="recentUsersBody">
+                        <!-- Данные будут загружены через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Загрузка данных для дашборда
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardData();
+    });
+
+    async function loadDashboardData() {
+        try {
+            // Загружаем статистику
+            const statsResponse = await axios.get('/api/admin/stats');
+            const stats = statsResponse.data;
+
+            document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
+            document.getElementById('totalOrders').textContent = stats.activeOrders || 0;
+            document.getElementById('totalProducts').textContent = stats.totalProducts || 0;
+            document.getElementById('todayRevenue').textContent = (stats.todayRevenue || 0) + ' ₽';
+
+            if (stats.newUsersToday) {
+                document.getElementById('newUsersToday').textContent = `+${stats.newUsersToday} сегодня`;
+            }
+
+            // Загрузка последних заказов
+            const ordersResponse = await axios.get('/api/admin/orders/recent');
+            const orders = ordersResponse.data;
+            const ordersBody = document.getElementById('recentOrdersBody');
+
+            ordersBody.innerHTML = '';
+            if (orders && orders.length > 0) {
+                orders.forEach(order => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>#${order.id}</td>
+                        <td>${order.user?.username || order.user?.firstName || 'Неизвестно'}</td>
+                        <td>${order.totalAmount || 0} ₽</td>
+                        <td>
+                            <span class="badge bg-${getStatusColor(order.status)}">
+                                ${getStatusText(order.status)}
+                            </span>
+                        </td>
+                    `;
+                    ordersBody.appendChild(row);
+                });
+            } else {
+                ordersBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">
+                            Нет заказов
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // Загрузка последних пользователей
+            const usersResponse = await axios.get('/api/admin/users/recent');
+            const users = usersResponse.data;
+            const usersBody = document.getElementById('recentUsersBody');
+
+            usersBody.innerHTML = '';
+            if (users && users.length > 0) {
+                users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${user.id}</td>
+                        <td>${user.firstName || user.username || 'Без имени'}</td>
+                        <td>${user.telegramId ? `@${user.username || 'user'}` : '-'}</td>
+                        <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+                    `;
+                    usersBody.appendChild(row);
+                });
+            } else {
+                usersBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">
+                            Нет пользователей
+                        </td>
+                    </tr>
+                `;
+            }
+
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            showError('Ошибка загрузки данных дашборда');
+        }
+    }
+
+    function getStatusColor(status) {
+        if (!status) return 'secondary';
+        switch(status.toLowerCase()) {
+            case 'new': return 'info';
+            case 'pending': return 'warning';
+            case 'confirmed': return 'primary';
+            case 'processing': return 'primary';
+            case 'completed': return 'success';
+            case 'cancelled': return 'danger';
+            default: return 'secondary';
+        }
+    }
+
+    function getStatusText(status) {
+        if (!status) return 'Неизвестно';
+        switch(status.toLowerCase()) {
+            case 'new': return 'Новый';
+            case 'pending': return 'Ожидает';
+            case 'confirmed': return 'Подтвержден';
+            case 'processing': return 'В работе';
+            case 'completed': return 'Завершен';
+            case 'cancelled': return 'Отменен';
+            default: return status;
+        }
+    }
+
+    function showError(message) {
+        // Показываем ошибку пользователю
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.main-content').prepend(alert);
+    }
+</script>

@@ -10,6 +10,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -106,5 +109,47 @@ public class UserService {
         user.setPhoneNumber(phoneNumber);
         userRepository.save(user);
         log.info("Номер телефона обновлен для пользователя: {} ({})", user.getName(), phoneNumber);
+    }
+
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+
+    public Optional<User> findById(Long id) {
+        return userRepository.findById(id);
+    }
+
+    public void delete(Long id) {
+        userRepository.deleteById(id);
+    }
+
+    public long countActiveUsers() {
+        return userRepository.countActiveUsers();
+    }
+
+
+    public List<User> findRecentUsers(int limit) {
+        return userRepository.findAllOrderByCreatedAtDesc()
+                .stream()
+                .limit(limit)
+                .toList();
+    }
+
+    public long countNewUsersToday() {
+        // Получаем начало и конец текущего дня
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+
+        // Используем нативный запрос или HQL с параметрами
+        try {
+            return userRepository.countNewUsersToday(startOfDay, endOfDay);
+        } catch (Exception e) {
+            logger.warn("Ошибка подсчета новых пользователей за сегодня, возвращаем 0: {}", e.getMessage());
+            return 0;
+        }
     }
 }

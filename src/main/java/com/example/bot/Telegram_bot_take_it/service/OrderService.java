@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -370,5 +371,50 @@ public class OrderService {
     private boolean shouldNotifyUser(Order.OrderStatus newStatus) {
         return (newStatus == Order.OrderStatus.CONFIRMED ||
                 newStatus == Order.OrderStatus.COMPLETED);
+    }
+
+    public long countActiveOrders() {
+        return orderRepository.countByStatusIn(List.of("pending", "confirmed", "preparing", "ready"));
+    }
+
+    public long getTodayRevenue() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
+
+        Long revenue = orderRepository.sumTotalAmountByDateAndStatus(
+                startOfDay, endOfDay, "completed");
+        return revenue != null ? revenue : 0;
+    }
+
+    public List<Order> findAll() {
+        return orderRepository.findAll();
+    }
+
+    public List<Order> findAllWithUser() {
+        return orderRepository.findAllWithUser();
+    }
+
+    public List<Order> findRecentOrders(int i) {
+        return orderRepository.findTop10ByOrderByDateOrderDesc();
+    }
+
+    public Order updateStatus(Long id, String status) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        order.setStatus(Order.OrderStatus.valueOf(status));
+        return orderRepository.save(order);
+    }
+
+    public Order save(Order order) {
+        return orderRepository.save(order);
+    }
+
+    public void deleteById(Long id) {
+        orderRepository.deleteById(id);
+    }
+
+    public Optional<Order> findById(Long id) {
+        return orderRepository.findById(id);
     }
 }
