@@ -451,7 +451,7 @@ public class OrderHandler {
         String cartDescription = cartService.getCartDescription(chatId);
 
         telegramMessageSender.sendEditMessage(chatId, messageId, "❌ Заказ отменен\n\n" + cartDescription,
-                keyboardService.createButtonBackBasket(), false);
+                keyboardService.createButtonBackBasket(), true);
         messageSender.answerCallback(callbackId, "❌ Заказ отменен");
     }
 }

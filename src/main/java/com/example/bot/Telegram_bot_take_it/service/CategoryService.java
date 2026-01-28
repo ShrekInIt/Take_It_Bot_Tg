@@ -1,7 +1,9 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
+import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -90,5 +92,15 @@ public class CategoryService {
 
     public Optional<Category> findById(Long categoryId) {
         return categoryRepository.findById(categoryId);
+    }
+
+    public void find(Long catId, Product product){
+        try {
+            Category category = categoryRepository.findById(catId)
+                    .orElseThrow(() -> new EntityNotFoundException("Category not found with id = " + catId));
+            product.setCategory(category);
+        } catch (Exception ex) {
+            log.warn("Не удалось установить Category relation: {}", ex.getMessage());
+        }
     }
 }

@@ -1,10 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.admin.controller;
 
-import com.example.bot.Telegram_bot_take_it.admin.entity.AdminUser;
-import com.example.bot.Telegram_bot_take_it.admin.service.AdminUserService;
-import com.example.bot.Telegram_bot_take_it.dto.AdminUserRequest;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
@@ -18,7 +14,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @Slf4j
@@ -31,7 +30,6 @@ public class AdminController {
     private final CategoryService categoryService;
     private final ProductService productService;
     private final OrderService orderService;
-    private final AdminUserService adminUserService;
 
     @GetMapping("/auth/check")
     public ResponseEntity<?> checkAuth() {
@@ -136,84 +134,5 @@ public class AdminController {
     @GetMapping("/categories")
     public ResponseEntity<List<Category>> getAllCategories() {
         return ResponseEntity.ok(categoryService.findAll());
-    }
-
-    @GetMapping("/products")
-    public ResponseEntity<List<Map<String, Object>>> getAllProducts() {
-        List<Product> products = productService.findAll();
-
-        List<Map<String, Object>> productList = new ArrayList<>();
-
-        for (Product product : products) {
-            Map<String, Object> productMap = new HashMap<>();
-            productMap.put("id", product.getId());
-            productMap.put("name", product.getName());
-            productMap.put("price", product.getAmount());
-            productMap.put("available", product.getAvailable());
-
-            // Получаем категорию
-            if (product.getCategoryId() != null) {
-                Optional<Category> categoryOpt = categoryService.findById(product.getCategoryId());
-                if (categoryOpt.isPresent()) {
-                    Category category = categoryOpt.get();
-                    Map<String, Object> categoryMap = new HashMap<>();
-                    categoryMap.put("id", category.getId());
-                    categoryMap.put("name", category.getName());
-                    productMap.put("category", categoryMap);
-                }
-            }
-
-            productList.add(productMap);
-        }
-
-        return ResponseEntity.ok(productList);
-    }
-
-    @PostMapping("/admins")
-    public ResponseEntity<?> createAdmin(@RequestBody AdminUserRequest dto) {
-        adminUserService.create(dto);
-        return ResponseEntity.ok().build();
-    }
-
-    @GetMapping("/admins")
-    public ResponseEntity<?> getAllAdmins() {
-        return ResponseEntity.ok(adminUserService.findAll());
-    }
-
-    @GetMapping("/admins/{id}")
-    public ResponseEntity<?> getAdminById(@PathVariable Long id) {
-        return adminUserService.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @GetMapping("/admins/search")
-    public ResponseEntity<?> searchAdmin(@RequestParam String username) {
-        return adminUserService.findByUsername(username)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @DeleteMapping("/admins/{id}")
-    public ResponseEntity<?> deleteAdmin(@PathVariable Long id) {
-        adminUserService.delete(id);
-        return ResponseEntity.ok().build();
-    }
-
-    @PutMapping("/admins/{id}")
-    public ResponseEntity<?> updateAdmin(
-            @PathVariable Long id,
-            @RequestBody AdminUserRequest dto
-    ) {
-        log.info("Обновление администратора ID: {}, данные: {}", id, dto);
-        log.info("Пароль передан: {}", dto.getPassword() != null ? "Да" : "Нет");
-
-        try {
-            AdminUser updated = adminUserService.update(id, dto);
-            return ResponseEntity.ok(updated);
-        } catch (Exception e) {
-            log.error("Ошибка обновления администратора", e);
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
     }
 }

@@ -23,4 +23,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @NotNull
     @Query("SELECT p FROM Product p order by p.id")
     List<Product> findAll();
+
+    List<Product> findByNameContainingIgnoreCase(String name);
 }
