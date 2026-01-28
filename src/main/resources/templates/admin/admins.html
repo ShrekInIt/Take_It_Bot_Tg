@@ -7,22 +7,28 @@
         </button>
     </div>
 
-    <div class="mb-3 d-flex gap-2">
-        <input id="adminSearchInput" type="search" class="form-control" placeholder="Поиск по логину" />
+    <div class="mb-3 d-flex gap-2 align-items-end">
+        <div class="flex-grow-1">
+            <label for="adminSearchInput" class="visually-hidden">
+                Поиск по логину администратора
+            </label>
+            <input id="adminSearchInput"
+                   type="search"
+                   class="form-control"
+                   placeholder="Поиск по логину" />
+        </div>
+
         <button class="btn btn-outline-secondary" onclick="searchAdmin()">
             <i class="bi bi-search"></i> Найти
         </button>
+
         <button class="btn btn-outline-primary" onclick="loadAdmins()">
             <i class="bi bi-arrow-clockwise"></i> Сброс
         </button>
     </div>
 
-
-
     <!-- Toast container -->
     <div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
-
-
 
     <div class="card">
         <div class="card-body">

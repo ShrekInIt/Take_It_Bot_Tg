@@ -4,7 +4,6 @@ import com.example.bot.Telegram_bot_take_it.admin.entity.AdminUser;
 import com.example.bot.Telegram_bot_take_it.admin.service.AdminUserService;
 import com.example.bot.Telegram_bot_take_it.dto.AdminUserRequest;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
-import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
@@ -170,48 +169,6 @@ public class AdminController {
         return ResponseEntity.ok(productList);
     }
 
-    @GetMapping("/orders")
-    public ResponseEntity<List<Map<String, Object>>> getAllOrders() {
-        List<Order> orders = orderService.findAll();
-
-        List<Map<String, Object>> orderList = new ArrayList<>();
-
-        for (Order order : orders) {
-            Map<String, Object> orderMap = new HashMap<>();
-            orderMap.put("id", order.getId());
-            orderMap.put("totalAmount", order.getTotalAmount());
-            orderMap.put("status", order.getStatus());
-            orderMap.put("createdAt", order.getCreatedAt());
-
-            if (order.getUserId() != null) {
-                Optional<User> userOpt = userService.findById(order.getUserId());
-                if (userOpt.isPresent()) {
-                    User user = userOpt.get();
-                    Map<String, Object> userMap = new HashMap<>();
-                    userMap.put("id", user.getId());
-                    userMap.put("username", user.getName());
-                    orderMap.put("user", userMap);
-                }
-            }
-
-            orderList.add(orderMap);
-        }
-
-        return ResponseEntity.ok(orderList);
-    }
-
-    @GetMapping("/orders/recent")
-    public ResponseEntity<List<Order>> getRecentOrders() {
-        return ResponseEntity.ok(orderService.findRecentOrders());
-    }
-
-    @PutMapping("/orders/{id}/status")
-    public ResponseEntity<Order> updateOrderStatus(@PathVariable Long id,
-                                                   @RequestBody Map<String, String> request) {
-        String status = request.get("status");
-        return ResponseEntity.ok(orderService.updateStatus(id, status));
-    }
-
     @PostMapping("/admins")
     public ResponseEntity<?> createAdmin(@RequestBody AdminUserRequest dto) {
         adminUserService.create(dto);
@@ -259,6 +216,4 @@ public class AdminController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-
-
 }

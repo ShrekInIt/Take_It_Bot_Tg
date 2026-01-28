@@ -1,5 +1,27 @@
 <div class="container-fluid">
-    <h1 class="h3 mb-4">Заказы</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Заказы</h1>
+    </div>
+
+    <div class="mb-3 d-flex gap-2 align-items-end">
+        <div class="flex-grow-1">
+            <label for="orderSearchInput" class="form-label">
+                Поиск по имени пользователя
+            </label>
+            <input id="orderSearchInput"
+                   type="search"
+                   class="form-control"
+                   placeholder="Введите имя пользователя" />
+        </div>
+
+        <button class="btn btn-outline-secondary" onclick="searchOrders()">
+            <i class="bi bi-search"></i> Найти
+        </button>
+
+        <button class="btn btn-outline-primary" onclick="loadOrders()">
+            <i class="bi bi-arrow-clockwise"></i> Сброс
+        </button>
+    </div>
 
     <div class="card">
         <div class="card-body">

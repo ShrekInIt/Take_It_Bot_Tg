@@ -85,6 +85,10 @@ function showCreateAdminUserModal() {
     // Удаляем старую модалку, если она есть
     const oldModal = document.getElementById('createAdminUserModal');
     if (oldModal) {
+        const instance = bootstrap.Modal.getInstance(oldModal);
+        if (instance) {
+            instance.dispose();
+        }
         oldModal.remove();
     }
 

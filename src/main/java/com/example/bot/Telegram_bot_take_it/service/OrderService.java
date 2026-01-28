@@ -1,5 +1,8 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
+import com.example.bot.Telegram_bot_take_it.admin.dto.*;
+import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
+import com.example.bot.Telegram_bot_take_it.dto.AdminOrderDto;
 import com.example.bot.Telegram_bot_take_it.dto.OrderData;
 import com.example.bot.Telegram_bot_take_it.dto.OrderRequest;
 import com.example.bot.Telegram_bot_take_it.entity.*;
@@ -8,6 +11,8 @@ import com.example.bot.Telegram_bot_take_it.repository.OrderItemRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
 import com.example.bot.Telegram_bot_take_it.utils.ConfectioneryBotClient;
 import com.example.bot.Telegram_bot_take_it.utils.OrderStatusNotifier;
+import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,6 +22,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 @Service
 @Slf4j
@@ -31,6 +38,8 @@ public class OrderService {
     private final ProductService productService;
     private final ConfectioneryBotClient confectioneryBotClient;
     private final OrderStatusNotifier orderStatusNotifier;
+    private final OrderMapper orderMapper;
+    private final TelegramMessageSender telegramMessageSender;
 
     /**
      * Получить все заказы пользователя с загруженными items
@@ -43,22 +52,19 @@ public class OrderService {
             List<Order> orders = orderRepository.findByUserWithItems(user);
 
             for (Order order : orders) {
-                List<OrderItem> itemsWithAddons = orderRepository.findOrderItemsWithAddons(order.getId());
-                Map<Long, OrderItem> itemsMap = itemsWithAddons.stream()
-                        .collect(Collectors.toMap(OrderItem::getId, item -> item));
-
-                order.getItems().forEach(item -> {
-                    OrderItem itemWithAddons = itemsMap.get(item.getId());
-                    if (itemWithAddons != null) {
-                        item.setAddons(itemWithAddons.getAddons());
-                    }
-                });
+                loadAddonsForOrder(order);
             }
             return orders;
         } catch (Exception e) {
             log.error("Ошибка при получении заказов пользователя: {}", e.getMessage(), e);
             return Collections.emptyList();
         }
+    }
+
+    public Long getChatIdByOrderId(Long orderId) {
+        User user = orderRepository.findUserIdByOrderId(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+        return user.getChatId();
     }
 
     /**
@@ -265,7 +271,7 @@ public class OrderService {
                     addons = firstItem.getAddons().stream()
                             .map(addon -> addon.getAddonProductName() != null ?
                                     addon.getAddonProductName() : "Добавка")
-                            .collect(Collectors.toList());
+                            .collect(toList());
                 }
 
                 OrderRequest.OrderItemDto itemDto = new OrderRequest.OrderItemDto(
@@ -404,5 +410,120 @@ public class OrderService {
 
     public Order save(Order order) {
         return orderRepository.save(order);
+    }
+
+    public List<AdminOrderDto> getOrdersByUsername(String username) {
+        List<Order> orders = orderRepository.findByUsername(username.trim().toLowerCase());
+
+        return orders.stream().map(o -> AdminOrderDto.builder()
+                .id(o.getId())
+                .orderNumber(o.getOrderNumber())
+                .totalAmount(o.getTotalAmount())
+                .status(o.getStatus())
+                .deliveryType(o.getDeliveryType())
+                .userName(o.getUser().getName())
+                .phoneNumber(o.getPhoneNumber())
+                .address(o.getAddress())
+                .comments(o.getComments())
+                .createdAt(o.getCreatedAt())
+                .build()
+        ).collect(toList());
+
+    }
+
+    @Transactional(readOnly = true)
+    public OrderDto getById(Long id) {
+
+        OrderDto order = orderRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + id));
+
+        List<OrderItem> orderItems = orderItemRepository.findItemsByOrderId(id);
+
+        List<OrderItemDto> items = orderItems.stream()
+                .map(i -> new OrderItemDto(
+                        i.getId(),
+                        new ProductDto(i.getProduct().getId(), i.getProduct().getName()),
+                        i.getQuantity(),
+                        i.getPriceAtOrder()
+                ))
+                .toList();
+
+        items.forEach(item -> {
+            List<OrderItemAddonDto> addons =
+                    orderItemAddonRepository.findByOrderItemId(item.getId());
+            item.setAddons(addons);
+        });
+
+        order.setItems(items);
+
+        return order;
+    }
+
+    @Transactional
+    public void removeOrderItem(Long orderId, Long itemId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        Optional<OrderItem> maybeItem = order.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst();
+
+        if (maybeItem.isEmpty()) {
+            throw new ResourceNotFoundException("Order item not found: " + itemId);
+        }
+
+        OrderItem item = maybeItem.get();
+        order.getItems().remove(item);
+        orderItemRepository.delete(item);
+
+        loadAddonsForOrder(order);
+
+        int total = order.getItems().stream()
+                .mapToInt(i -> {
+                    int itemSum = (i.getPriceAtOrder() == null ? 0 : i.getPriceAtOrder()) * (i.getQuantity() == null ? 1 : i.getQuantity());
+                    int addonsSum = 0;
+                    if (i.getAddons() != null) {
+                        addonsSum = i.getAddons().stream()
+                                .mapToInt(a -> (a.getPriceAtOrder() == null ? 0 : a.getPriceAtOrder()) * (a.getQuantity() == null ? 1 : a.getQuantity()))
+                                .sum();
+                    }
+                    return itemSum + addonsSum;
+                })
+                .sum();
+        order.setTotalAmount(total);
+
+        orderRepository.save(order);
+    }
+
+    /**
+     * Обновляет поля заказа (в этом примере — статус) и возвращает обновлённый DTO.
+     * Валидация статуса должна соответствовать enum'у в Order (Order.OrderStatus).
+     */
+    @Transactional
+    public OrderDto updateOrderStatusAdmin(Long orderId, String statusStr) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        if (statusStr == null || statusStr.isBlank()) {
+            throw new IllegalArgumentException("Status is required");
+        }
+
+        try {
+            Order.OrderStatus statusEnum = Order.OrderStatus.valueOf(statusStr.toUpperCase());
+            if(Objects.equals(statusEnum.getDescription(), "Подтвержден") && !order.getStatus().equals(statusEnum)) {
+                Long chatId = getChatIdByOrderId(orderId);
+                telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ подтверждён!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.");
+            }
+            if(Objects.equals(statusEnum.getDescription(), "Завершен") && !order.getStatus().equals(statusEnum)){
+                Long chatId = getChatIdByOrderId(orderId);
+                telegramMessageSender.sendMessageHtml(chatId, "*Заказ завершён!*\n\nСпасибо за заказ! Надеемся, вам понравилось! 😊");
+            }
+            order.setStatus(statusEnum);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unknown status: " + statusStr);
+        }
+
+        orderRepository.save(order);
+        return orderMapper.toDto(order);
     }
 }

@@ -1,9 +1,11 @@
 package com.example.bot.Telegram_bot_take_it.repository;
 
+import com.example.bot.Telegram_bot_take_it.admin.dto.OrderDto;
 import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.OrderItem;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -38,7 +40,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdAndUserWithItems(@Param("orderId") Long orderId, @Param("user") User user);
 
     @NotNull
-    @Query("SELECT o FROM Order o ORDER BY o.id")
+    @Query("SELECT o FROM Order o JOIN FETCH o.user ORDER BY o.createdAt DESC")
     List<Order> findAll();
 
     long countByStatusIn(Collection<Order.OrderStatus> status);
@@ -53,4 +55,44 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Long sumTotalAmountByDateAndStatus(@Param("startDate") LocalDateTime startDate,
                                        @Param("endDate") LocalDateTime endDate,
                                        @Param("status") String status);
+
+    @Query("""
+    SELECT o
+    FROM Order o
+    join fetch o.user u
+    WHERE LOWER(o.user.name) LIKE CONCAT('%', :username, '%')
+    order by o.createdAt DESC
+""")
+    List<Order> findByUsername(String username);
+
+    @Query("""
+    select new com.example.bot.Telegram_bot_take_it.admin.dto.OrderDto(
+        o.id,
+        o.status,
+        o.totalAmount,
+        o.user.name,
+        o.user.phoneNumber,
+        o.deliveryType,
+        o.createdAt,
+        o.comments
+    )
+    from Order o
+    where o.id = :id
+""")
+    Optional<OrderDto> findByIdWithDetails(@Param("id") Long id);
+
+    /**
+     * Загружаем заказ вместе с items, product, addons, user — чтобы не столкнуться с LazyInitializationException.
+     */
+    @NotNull
+    @EntityGraph(attributePaths = {
+            "items",
+            "items.product",
+            "items.addons",
+            "user"
+    })
+    Optional<Order> findById(@NotNull Long id);
+
+    @Query("select o.user from Order o where o.id = :orderId")
+    Optional<User> findUserIdByOrderId(@Param("orderId") Long orderId);
 }

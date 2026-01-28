@@ -12,35 +12,35 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class BotInitializer {
-    private static final Logger logger = LoggerFactory.getLogger(BotInitializer.class);
+    private static final Logger log = LoggerFactory.getLogger(BotInitializer.class);
 
     private final TelegramBot bot;
     private final BotController botController;
 
 
     @PostConstruct
-    public void init() throws InterruptedException {
-        logger.info("=== STARTING TELEGRAM BOT ===");
+    public void init() {
+        log.warn("🚀 Telegram Bot STARTED: {}", this);
 
-        Thread.sleep(2000);
         bot.setUpdatesListener(updates -> {
-            updates.forEach(update -> {
+            for (var update : updates) {
                 try {
                     botController.handleUpdate(update);
                 } catch (Exception e) {
-                    logger.error("Error processing update", e);
+                    log.error("Error processing update {}", update.updateId(), e);
                 }
-            });
+            }
             return UpdatesListener.CONFIRMED_UPDATES_ALL;
         }, e -> {
             if (e.response() != null) {
-                logger.error("Telegram API error: {} - {}",
-                        e.response().errorCode(), e.response().description());
+                log.error("Telegram API error {}: {}",
+                        e.response().errorCode(),
+                        e.response().description());
             } else {
-                logger.error("Network error", e);
+                log.error("Telegram network error", e);
             }
         });
 
-        logger.info("✅ Telegram bot is ready and listening for messages!");
+        log.info("✅ Telegram bot is listening");
     }
 }

@@ -29,6 +29,15 @@ public class TelegramMessageSender {
     }
 
     /**
+     * Отправить простое текстовое сообщение с разметкой
+     */
+    public void sendMessageHtml(Long chatId, String text) {
+        SendMessage request = new SendMessage(chatId.toString(), text);
+        request.parseMode(ParseMode.Markdown);
+        executeRequest(request, chatId);
+    }
+
+    /**
      * Отправить сообщение с Inline клавиатурой
      */
     public void sendMessageWithInlineKeyboard(Long chatId, String text, InlineKeyboardMarkup keyboard, boolean parseMode) {
@@ -55,7 +64,6 @@ public class TelegramMessageSender {
 
         executeRequest(request, chatId);
     }
-
 
     /**
      * Отправить сообщение с Reply клавиатурой
