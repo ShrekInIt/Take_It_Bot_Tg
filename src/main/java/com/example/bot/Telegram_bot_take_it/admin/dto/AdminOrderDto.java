@@ -1,4 +1,4 @@
-package com.example.bot.Telegram_bot_take_it.dto;
+package com.example.bot.Telegram_bot_take_it.admin.dto;
 
 import com.example.bot.Telegram_bot_take_it.entity.Order;
 import lombok.AllArgsConstructor;

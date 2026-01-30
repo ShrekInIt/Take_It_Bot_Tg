@@ -1,7 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.admin.controller;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.OrderDto;
-import com.example.bot.Telegram_bot_take_it.dto.AdminOrderDto;
+import com.example.bot.Telegram_bot_take_it.admin.dto.AdminOrderDto;
 import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -44,10 +44,7 @@ public class AdminOrderController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/orders/recent")
-    public ResponseEntity<List<Order>> getRecentOrders() {
-        return ResponseEntity.ok(orderService.findRecentOrders());
-    }
+
 
     @PutMapping("/orders/{id}/status")
     public ResponseEntity<Order> updateOrderStatus(@PathVariable Long id,

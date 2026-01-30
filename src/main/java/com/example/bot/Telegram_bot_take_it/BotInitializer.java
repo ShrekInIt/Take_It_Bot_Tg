@@ -4,6 +4,7 @@ import com.example.bot.Telegram_bot_take_it.controller.BotController;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.UpdatesListener;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,10 +18,9 @@ public class BotInitializer {
     private final TelegramBot bot;
     private final BotController botController;
 
-
     @PostConstruct
     public void init() {
-        log.warn("🚀 Telegram Bot STARTED: {}", this);
+        log.info("🚀 Telegram Bot STARTED");
 
         bot.setUpdatesListener(updates -> {
             for (var update : updates) {
@@ -31,14 +31,6 @@ public class BotInitializer {
                 }
             }
             return UpdatesListener.CONFIRMED_UPDATES_ALL;
-        }, e -> {
-            if (e.response() != null) {
-                log.error("Telegram API error {}: {}",
-                        e.response().errorCode(),
-                        e.response().description());
-            } else {
-                log.error("Telegram network error", e);
-            }
         });
 
         log.info("✅ Telegram bot is listening");

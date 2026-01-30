@@ -3,6 +3,28 @@
         <h1 class="h3">Пользователи</h1>
     </div>
 
+    <div class="d-flex gap-2 align-items-end mb-3">
+        <div class="flex-grow-1">
+            <label for="userSearchInput" class="form-label">Поиск по имени пользователя</label>
+            <input
+                    id="userSearchInput"
+                    type="search"
+                    class="form-control"
+                    placeholder="Введите имя пользователя"
+            />
+        </div>
+
+        <button class="btn btn-outline-secondary" id="searchUserBtn">
+            <i class="bi bi-search"></i> Найти
+        </button>
+
+        <button class="btn btn-outline-primary" id="resetUserBtn">
+            <i class="bi bi-arrow-clockwise"></i> Сброс
+        </button>
+    </div>
+
+
+
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
@@ -14,6 +36,7 @@
                         <th>Telegram ID</th>
                         <th>Телефон</th>
                         <th>Статус</th>
+                        <th>Пользователь</th>
                         <th>Дата регистрации</th>
                         <th>Действия</th>
                     </tr>

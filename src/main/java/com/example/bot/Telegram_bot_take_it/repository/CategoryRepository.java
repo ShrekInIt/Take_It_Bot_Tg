@@ -34,4 +34,20 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     @NotNull
     @Query("SELECT c FROM Category c ORDER BY c.id")
     List<Category> findAll();
+
+    @Query("""
+    select c from Category c
+    left join fetch c.parent
+    where lower(c.name) like lower(concat('%', :name, '%'))
+""")
+    List<Category> findByNameContainingIgnoreCase(@Param("name") String name);
+
+    Optional<Category> findByNameIgnoreCase(String name);
+
+    @Query("""
+    select c from Category c
+    left join fetch c.parent
+    left join fetch c.categoryType
+""")
+    List<Category> findAllWithRelations();
 }

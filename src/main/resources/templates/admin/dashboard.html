@@ -1,71 +1,75 @@
 <div class="row mb-4">
-    <div class="col-md-12">
+    <div class="col-12">
         <h2>Дашборд</h2>
         <p class="text-muted">Общая статистика и основные показатели</p>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-primary text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title">Пользователи</h5>
-                        <h2 id="totalUsers">0</h2>
-                    </div>
-                    <i class="bi bi-people-fill" style="font-size: 2rem;"></i>
-                </div>
-                <p class="card-text mb-0" id="newUsersToday">+0 сегодня</p>
+<!-- Статистика: все карточки в одну строку -->
+<div class="d-flex flex-wrap justify-content-between mb-4">
+    <!-- Пользователи -->
+    <div class="card text-white bg-primary flex-grow-1 me-3 mb-3" style="min-width: 180px;">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Пользователи</h5>
+                <h2 id="totalUsers">0</h2>
+                <p class="mb-0" id="newUsersToday">+0 сегодня</p>
             </div>
+            <i class="bi bi-people-fill" style="font-size: 2.5rem;"></i>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title">Заказы</h5>
-                        <h2 id="totalOrders">0</h2>
-                    </div>
-                    <i class="bi bi-cart-check-fill" style="font-size: 2rem;"></i>
-                </div>
-                <p class="card-text mb-0">Активные заказы</p>
+
+    <!-- Активные заказы -->
+    <div class="card text-white bg-success flex-grow-1 me-3 mb-3" style="min-width: 180px;">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Заказы</h5>
+                <h2 id="totalOrders">0</h2>
+                <p class="mb-0">Активные</p>
             </div>
+            <i class="bi bi-cart-check-fill" style="font-size: 2.5rem;"></i>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-warning text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title">Продукты</h5>
-                        <h2 id="totalProducts">0</h2>
-                    </div>
-                    <i class="bi bi-cup-fill" style="font-size: 2rem;"></i>
-                </div>
-                <p class="card-text mb-0">В наличии</p>
+
+    <!-- Заказы сегодня -->
+    <div class="card text-white bg-secondary flex-grow-1 me-3 mb-3" style="min-width: 180px;">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Заказы сегодня</h5>
+                <h2 id="ordersToday">0</h2>
             </div>
+            <i class="bi bi-calendar-check-fill" style="font-size: 2.5rem;"></i>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title">Доход</h5>
-                        <h2 id="todayRevenue">0 ₽</h2>
-                    </div>
-                    <i class="bi bi-currency-exchange" style="font-size: 2rem;"></i>
-                </div>
-                <p class="card-text mb-0">За сегодня</p>
+
+    <!-- Продукты -->
+    <div class="card text-white bg-warning flex-grow-1 me-3 mb-3" style="min-width: 180px;">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Продукты</h5>
+                <h2 id="totalProducts">0</h2>
+                <p class="mb-0">В наличии</p>
             </div>
+            <i class="bi bi-cup-fill" style="font-size: 2.5rem;"></i>
+        </div>
+    </div>
+
+    <!-- Доход -->
+    <div class="card text-white bg-info flex-grow-1 mb-3" style="min-width: 180px;">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title">Доход</h5>
+                <h2 id="todayRevenue">0 ₽</h2>
+                <p class="mb-0">За сегодня</p>
+            </div>
+            <i class="bi bi-currency-exchange" style="font-size: 2.5rem;"></i>
         </div>
     </div>
 </div>
 
+<!-- Таблицы последних заказов и пользователей -->
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-lg-6 mb-3">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">Последние заказы</h5>
@@ -82,7 +86,6 @@
                         </tr>
                         </thead>
                         <tbody id="recentOrdersBody">
-                        <!-- Данные будут загружены через JavaScript -->
                         </tbody>
                     </table>
                 </div>
@@ -90,7 +93,7 @@
         </div>
     </div>
 
-    <div class="col-md-6">
+    <div class="col-lg-6 mb-3">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">Новые пользователи</h5>
@@ -107,7 +110,6 @@
                         </tr>
                         </thead>
                         <tbody id="recentUsersBody">
-                        <!-- Данные будут загружены через JavaScript -->
                         </tbody>
                     </table>
                 </div>
@@ -117,87 +119,70 @@
 </div>
 
 <script>
-    // Загрузка данных для дашборда
-    document.addEventListener('DOMContentLoaded', function() {
-        loadDashboardData();
-    });
+    document.addEventListener('DOMContentLoaded', loadDashboardData);
 
     async function loadDashboardData() {
         try {
-            // Загружаем статистику
             const statsResponse = await axios.get('/api/admin/stats');
             const stats = statsResponse.data;
 
             document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
             document.getElementById('totalOrders').textContent = stats.activeOrders || 0;
+            document.getElementById('ordersToday').textContent = stats.ordersToday || 0;
             document.getElementById('totalProducts').textContent = stats.totalProducts || 0;
             document.getElementById('todayRevenue').textContent = (stats.todayRevenue || 0) + ' ₽';
-
             if (stats.newUsersToday) {
                 document.getElementById('newUsersToday').textContent = `+${stats.newUsersToday} сегодня`;
             }
 
-            // Загрузка последних заказов
-            const ordersResponse = await axios.get('/api/admin/orders/recent');
-            const orders = ordersResponse.data;
-            const ordersBody = document.getElementById('recentOrdersBody');
-
-            ordersBody.innerHTML = '';
-            if (orders && orders.length > 0) {
-                orders.forEach(order => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>#${order.id}</td>
-                        <td>${order.user?.username || order.user?.firstName || 'Неизвестно'}</td>
-                        <td>${order.totalAmount || 0} ₽</td>
-                        <td>
-                            <span class="badge bg-${getStatusColor(order.status)}">
-                                ${getStatusText(order.status)}
-                            </span>
-                        </td>
-                    `;
-                    ordersBody.appendChild(row);
-                });
-            } else {
-                ordersBody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">
-                            Нет заказов
-                        </td>
-                    </tr>
-                `;
-            }
-
-            // Загрузка последних пользователей
-            const usersResponse = await axios.get('/api/admin/users/recent');
-            const users = usersResponse.data;
-            const usersBody = document.getElementById('recentUsersBody');
-
-            usersBody.innerHTML = '';
-            if (users && users.length > 0) {
-                users.forEach(user => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${user.id}</td>
-                        <td>${user.firstName || user.username || 'Без имени'}</td>
-                        <td>${user.telegramId ? `@${user.username || 'user'}` : '-'}</td>
-                        <td>${new Date(user.createdAt).toLocaleDateString()}</td>
-                    `;
-                    usersBody.appendChild(row);
-                });
-            } else {
-                usersBody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">
-                            Нет пользователей
-                        </td>
-                    </tr>
-                `;
-            }
-
+            await loadRecentOrders();
+            await loadRecentUsers();
         } catch (error) {
             console.error('Error loading dashboard data:', error);
-            showError('Ошибка загрузки данных дашборда');
+        }
+    }
+
+    async function loadRecentOrders() {
+        const ordersResponse = await axios.get('/api/admin/orders/recent');
+        const orders = ordersResponse.data;
+        const ordersBody = document.getElementById('recentOrdersBody');
+
+        ordersBody.innerHTML = '';
+        if (orders.length > 0) {
+            orders.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>#${order.id}</td>
+                    <td>${order.user?.username || order.user?.firstName || 'Неизвестно'}</td>
+                    <td>${order.totalAmount || 0} ₽</td>
+                    <td><span class="badge bg-${getStatusColor(order.status)}">${getStatusText(order.status)}</span></td>
+                `;
+                ordersBody.appendChild(row);
+            });
+        } else {
+            ordersBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Нет заказов</td></tr>`;
+        }
+    }
+
+    async function loadRecentUsers() {
+        const usersResponse = await axios.get('/api/admin/users/recent');
+        const users = usersResponse.data;
+        const usersBody = document.getElementById('recentUsersBody');
+
+        usersBody.innerHTML = '';
+        if (users.length > 0) {
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>${user.firstName || user.username || 'Без имени'}</td>
+                    <td>${user.telegramId ? `@${user.username || 'user'}` : '-'}</td>
+                    <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+                `;
+                usersBody.appendChild(row);
+            });
+        } else {
+            usersBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Нет пользователей</td></tr>`;
         }
     }
 
@@ -225,16 +210,5 @@
             case 'cancelled': return 'Отменен';
             default: return status;
         }
-    }
-
-    function showError(message) {
-        // Показываем ошибку пользователю
-        const alert = document.createElement('div');
-        alert.className = 'alert alert-danger alert-dismissible fade show';
-        alert.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.querySelector('.main-content').prepend(alert);
     }
 </script>

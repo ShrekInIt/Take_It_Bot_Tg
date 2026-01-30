@@ -102,6 +102,10 @@ public class Order {
         OrderStatus(String description) {
             this.description = description;
         }
+
+        public static List<OrderStatus> activeStatuses() {
+            return List.of(PENDING, CONFIRMED);
+        }
     }
 
     @Getter

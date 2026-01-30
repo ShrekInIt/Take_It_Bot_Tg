@@ -3,7 +3,7 @@ package com.example.bot.Telegram_bot_take_it.service;
 import com.example.bot.Telegram_bot_take_it.admin.dto.*;
 import com.example.bot.Telegram_bot_take_it.admin.exception.ResourceNotFoundException;
 import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
-import com.example.bot.Telegram_bot_take_it.dto.AdminOrderDto;
+import com.example.bot.Telegram_bot_take_it.admin.dto.AdminOrderDto;
 import com.example.bot.Telegram_bot_take_it.dto.OrderData;
 import com.example.bot.Telegram_bot_take_it.dto.OrderRequest;
 import com.example.bot.Telegram_bot_take_it.entity.*;
@@ -16,8 +16,11 @@ import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -381,7 +384,7 @@ public class OrderService {
     }
 
     public long countActiveOrders() {
-        return orderRepository.countByStatusIn(List.of());
+        return orderRepository.countByStatusIn(Order.OrderStatus.activeStatuses());
     }
 
     public long getTodayRevenue() {
@@ -526,5 +529,42 @@ public class OrderService {
 
         orderRepository.save(order);
         return orderMapper.toDto(order);
+    }
+
+    // Доход за сегодня
+    public Integer calculateTodayRevenue() {
+        LocalDateTime start = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime end = start.plusDays(1);
+        Integer revenue = orderRepository.sumTotalAmountByDateOrderBetween(start, end);
+        return revenue != null ? revenue : 0;
+    }
+
+    public Integer countOrdersToday() {
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = LocalDateTime.now(); // или LocalDate.now().plusDays(1).atStartOfDay() для точного конца дня
+        return orderRepository.countByCreatedAtBetween(startOfDay, endOfDay);
+    }
+
+    /**
+     * Возвращает последние N заказов, user уже будет инициализирован (EntityGraph).
+     */
+    @Transactional(readOnly = true)
+    public List<AdminOrderDto> getRecentOrders(int limit) {
+        Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return orderRepository.findAllByOrderByCreatedAtDesc(pageable)
+                .stream()
+                .map(order -> AdminOrderDto.builder()
+                        .id(order.getId())
+                        .orderNumber(order.getOrderNumber())
+                        .totalAmount(order.getTotalAmount())
+                        .status(order.getStatus())
+                        .deliveryType(order.getDeliveryType())
+                        .userName(order.getUser() != null ? order.getUser().getName() : null)
+                        .phoneNumber(order.getPhoneNumber())
+                        .address(order.getAddress())
+                        .comments(order.getComments())
+                        .createdAt(order.getCreatedAt()) // или createdAt в зависимости от поля
+                        .build())
+                .collect(Collectors.toList());
     }
 }

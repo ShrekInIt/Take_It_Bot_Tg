@@ -3,6 +3,7 @@ package com.example.bot.Telegram_bot_take_it.service;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
+import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -18,6 +20,7 @@ import java.util.Optional;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
     /**
      * Получить категорию по ID с загрузкой необходимых полей
@@ -83,7 +86,7 @@ public class CategoryService {
     }
 
     public List<Category> findAll() {
-        return categoryRepository.findAll();
+        return categoryRepository.findAllWithRelations();
     }
 
     public Category save(Category category) {
@@ -102,5 +105,137 @@ public class CategoryService {
         } catch (Exception ex) {
             log.warn("Не удалось установить Category relation: {}", ex.getMessage());
         }
+    }
+
+    public Category getById(Long id) {
+        return categoryRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Категория не найдена: " + id));
+    }
+
+    @Transactional
+    public Category create(Map<String, Object> req) {
+        String name = getString(req, "name");
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Название категории обязательно");
+        }
+
+        Category category = new Category();
+        category.setName(name);
+        category.setDescription(getString(req, "description"));
+        category.setSortOrder(getInt(req, "sortOrder", 0));
+        category.setActive(getBoolean(req, "isActive", true));
+
+        Long parentId = getLong(req, "parentId");
+        if (parentId != null) {
+            Category parent = getById(parentId);
+            category.setParent(parent);
+        }
+
+        return categoryRepository.save(category);
+    }
+
+    /* =========================
+       UPDATE
+     ========================= */
+
+    @Transactional
+    public Category update(Long id, Map<String, Object> req) {
+        Category category = getById(id);
+
+        if (req.containsKey("name")) {
+            String name = getString(req, "name");
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Название категории не может быть пустым");
+            }
+            category.setName(name);
+        }
+
+        if (req.containsKey("description")) {
+            category.setDescription(getString(req, "description"));
+        }
+
+        if (req.containsKey("sortOrder")) {
+            category.setSortOrder(getInt(req, "sortOrder", 0));
+        }
+
+        if (req.containsKey("isActive")) {
+            category.setActive(getBoolean(req, "isActive", true));
+        }
+
+        if (req.containsKey("parentId")) {
+            Long parentId = getLong(req, "parentId");
+            if (parentId == null) {
+                category.setParent(null);
+            } else {
+                category.setParent(getById(parentId));
+            }
+        }
+
+        return categoryRepository.save(category);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Category> searchByName(String name) {
+        return categoryRepository.findByNameContainingIgnoreCase(name);
+    }
+
+    /* =========================
+       DELETE (SAFE)
+     ========================= */
+
+    @Transactional
+    public void delete(Long id) {
+        Category category = getById(id);
+
+        // 1️⃣ Получаем / создаём категорию "Uncategorized"
+        Category fallback = getOrCreateUncategorized();
+
+        // 2️⃣ Переносим товары
+        productRepository.moveProductsToAnotherCategory(category.getId(), fallback.getId());
+
+        // 3️⃣ Удаляем категорию
+        categoryRepository.delete(category);
+    }
+
+    /* =========================
+       HELPERS
+     ========================= */
+
+    private Category getOrCreateUncategorized() {
+        return categoryRepository.findByNameIgnoreCase("Uncategorized")
+                .orElseGet(() -> {
+                    Category c = new Category();
+                    c.setName("Uncategorized");
+                    c.setDescription("Системная категория");
+                    c.setSortOrder(0);
+                    c.setActive(true);
+                    return categoryRepository.save(c);
+                });
+    }
+
+    private String getString(Map<String, Object> req, String key) {
+        Object v = req.get(key);
+        return v != null ? v.toString() : null;
+    }
+
+    private Integer getInt(Map<String, Object> req, String key, Integer def) {
+        Object v = req.get(key);
+        if (v instanceof Number n) return n.intValue();
+        if (v instanceof String s) return Integer.parseInt(s);
+        return def;
+    }
+
+    private Boolean getBoolean(Map<String, Object> req, String key, Boolean def) {
+        Object v = req.get(key);
+        if (v instanceof Boolean b) return b;
+        if (v instanceof String s) return Boolean.parseBoolean(s);
+        return def;
+    }
+
+    private Long getLong(Map<String, Object> req, String key) {
+        Object v = req.get(key);
+        if (v instanceof Number n) return n.longValue();
+        if (v instanceof String s && !s.isBlank()) return Long.parseLong(s);
+        return null;
     }
 }
