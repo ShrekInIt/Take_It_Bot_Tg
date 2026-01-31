@@ -1,5 +1,6 @@
 class CategoryManager {
     static API_BASE = `${new AuthManager().API_BASE}/categories`;
+    static API_ROOT = new AuthManager().API_BASE;
     static _inited = false;
 
     static init() {
@@ -148,11 +149,20 @@ class CategoryManager {
             parents = Array.isArray(r.data) ? r.data : [];
         } catch (e) { console.warn('Не удалось загрузить список родителей', e); }
 
+        // загрузим список типов категорий
+        let types = [];
+        try {
+            const t = await axios.get(`${this.API_ROOT}/category-types`);
+            types = Array.isArray(t.data) ? t.data : [];
+        } catch (e) { console.warn('Не удалось загрузить список типов категорий', e); }
+
         if (mode === 'create') {
-            category = { name: '', description: '', sortOrder: 0, parentId: null, isActive: true };
+            category = { name: '', description: '', sortOrder: 0, parentId: null, isActive: true, categoryTypeId: null };
         }
 
         const parentOptions = parents.map(p => `<option value="${p.id}" ${((category.parentId === p.id) || (category.parent?.id === p.id)) ? 'selected' : ''}>${CategoryManager.escapeHtml(p.name)}</option>`).join('');
+
+        const typeOptions = types.map(t => `<option value="${t.id}" ${((category.categoryTypeId === t.id) || (category.categoryType?.id === t.id) || (category.categoryTypeId && Number(category.categoryTypeId) === t.id)) ? 'selected' : ''}>${CategoryManager.escapeHtml(t.name)}</option>`).join('');
 
         const modalHtml = `
       <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
@@ -179,8 +189,11 @@ class CategoryManager {
                 <label class="form-label">Родитель</label>
                 ${mode === 'view' ? `<p>${CategoryManager.escapeHtml(category.parentName ?? category.parent?.name ?? '—')}</p>` : `<select id="categoryParent" class="form-select"><option value="">-- Нет родителя --</option>${parentOptions}</select>`}
               </div>
-              
-          
+
+              <div class="mb-3">
+                <label class="form-label">Тип категории</label>
+                ${mode === 'view' ? `<p>${CategoryManager.escapeHtml(category.categoryTypeName ?? category.categoryType?.name ?? '—')}</p>` : `<select id="categoryType" class="form-select"><option value="">-- Нет типа --</option>${typeOptions}</select>`}
+              </div>
 
               <div class="mb-3">
                 <label class="form-label">Порядок</label>
@@ -239,6 +252,8 @@ class CategoryManager {
         const sortOrder = Number(document.getElementById('categorySortOrder')?.value || 0);
         const parentVal = document.getElementById('categoryParent')?.value;
         const parentId = parentVal && !isNaN(Number(parentVal)) ? Number(parentVal) : null;
+        const typeVal = document.getElementById('categoryType')?.value;
+        const categoryTypeId = typeVal && !isNaN(Number(typeVal)) ? Number(typeVal) : null;
         const isActive = !!document.getElementById('categoryIsActive')?.checked;
 
         if (!name) {
@@ -246,7 +261,7 @@ class CategoryManager {
             return;
         }
 
-        const payload = { name, description, sortOrder, parentId, isActive };
+        const payload = { name, description, sortOrder, parentId, categoryTypeId, isActive };
 
         try {
             const res = await axios.post(this.API_BASE, payload);
@@ -272,6 +287,8 @@ class CategoryManager {
         const sortOrder = Number(document.getElementById('categorySortOrder')?.value || 0);
         const parentVal = document.getElementById('categoryParent')?.value;
         const parentId = parentVal && !isNaN(Number(parentVal)) ? Number(parentVal) : null;
+        const typeVal = document.getElementById('categoryType')?.value;
+        const categoryTypeId = typeVal && !isNaN(Number(typeVal)) ? Number(typeVal) : null;
         const isActive = !!document.getElementById('categoryIsActive')?.checked;
 
         if (!name) {
@@ -279,7 +296,7 @@ class CategoryManager {
             return;
         }
 
-        const payload = { name, description, sortOrder, parentId, isActive };
+        const payload = { name, description, sortOrder, parentId, categoryTypeId, isActive };
 
         try {
             const res = await axios.put(`${this.API_BASE}/${id}`, payload);

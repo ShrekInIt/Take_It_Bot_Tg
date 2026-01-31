@@ -1,5 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
+import com.example.bot.Telegram_bot_take_it.admin.service.FileStorageService;
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
@@ -13,12 +14,15 @@ import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.LazyInitializationException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +38,7 @@ public class KeyboardService {
     private final CartService cartService;
     private final SyrupPriceService syrupPriceService;
     private final CartItemAddonService cartItemAddonService;
+    private final FileStorageService fileStorageService;
 
     private static final DateTimeFormatter DATE_FORMATTER_SHORT = DateTimeFormatter.ofPattern("dd.MM HH:mm");
 
@@ -80,12 +85,12 @@ public class KeyboardService {
      */
     private Long getProductCategoryIdSafely(Product product) {
         try {
-            return product.getCategoryId();
+            return product.getCategory().getId();
         } catch (LazyInitializationException e) {
             log.debug("Продукт detached, загружаем заново: {}", product.getId());
             Product freshProduct = productService.getProductById(product.getId())
                     .orElseThrow(() -> new IllegalArgumentException("Продукт не найден"));
-            return freshProduct.getCategoryId();
+            return freshProduct.getCategory().getId();
         }
     }
 
@@ -335,46 +340,56 @@ public class KeyboardService {
         return text.toString();
     }
 
-    /**
-     * Прочитать файл из пути в поле photo
-     */
     public byte[] readPhotoFile(String photoPath) {
         if (photoPath == null || photoPath.isEmpty()) {
+            log.warn("Пустой путь к фото");
             return null;
         }
 
-        if (photoCache.containsKey(photoPath)) {
-            log.debug("Фото из кэша: {}", photoPath);
-            return photoCache.get(photoPath);
-        }
+        photoPath = photoPath.trim();
+        while (photoPath.startsWith("/")) photoPath = photoPath.substring(1);
+        if (photoPath.startsWith("uploads/")) photoPath = photoPath.substring("uploads/".length());
 
-        try {
-            byte[] photoBytes = null;
+        // возможные варианты, которые попробуем
+        List<Path> candidates = new ArrayList<>();
+        candidates.add(fileStorageService.getRoot().resolve(photoPath)); // e.g. uploads/products/...
+        candidates.add(fileStorageService.getRoot().resolve("products").resolve(photoPath)); // если передали product-7/.. без products
+        // если передали products/product-7/name.jpg, в candidates[0] уже правильно
 
-            java.io.File file = new java.io.File(photoPath);
-            if (file.exists() && file.isFile()) {
-                photoBytes = Files.readAllBytes(file.toPath());
-                log.debug("Фото загружено с диска: {} ({} байт)", photoPath, photoBytes.length);
-            }
-            else {
-                String resourcePath = photoPath.replace("src/main/resources/", "");
-                try (InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
-                    if (stream != null) {
-                        photoBytes = stream.readAllBytes();
-                        log.debug("Фото загружено из ресурсов: {} ({} байт)", resourcePath, photoBytes.length);
-                    }
+        for (Path p : candidates) {
+            try {
+                File file = p.toFile();
+                if (file.exists() && file.isFile()) {
+                    byte[] bytes = Files.readAllBytes(p);
+                    log.debug("Фото загружено: {} ({} байт)", p.toAbsolutePath(), bytes.length);
+                    photoCache.put(photoPath, bytes);
+                    return bytes;
                 }
+            } catch (Exception ex) {
+                log.warn("Ошибка чтения кандидата {}: {}", p, ex.toString());
             }
-
-            photoCache.put(photoPath, photoBytes);
-            return photoBytes;
-
-        } catch (Exception e) {
-            log.error("Ошибка чтения фото: {}", e.getMessage());
-            photoCache.put(photoPath, null);
-            return null;
         }
+
+        // fallback classpath
+        String resourcePath = "static/images/" + photoPath;
+        try (InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+            if (stream != null) {
+                byte[] photoBytes = stream.readAllBytes();
+                log.debug("Фото загружено из ресурсов: {} ({} байт)", resourcePath, photoBytes.length);
+                photoCache.put(photoPath, photoBytes);
+                return photoBytes;
+            }
+        } catch (Exception e) {
+            log.warn("Ошибка чтения ресурса {}: {}", resourcePath, e.toString());
+        }
+
+        log.error("Фото не найдено: tried paths: {} , resource={}", candidates, resourcePath);
+        photoCache.put(photoPath, null);
+        return null;
     }
+
+
+
 
     /**
      * Создать клавиатуру с категориями для указанного родителя

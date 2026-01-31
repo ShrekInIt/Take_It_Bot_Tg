@@ -1,53 +1,28 @@
 class ProductManager {
     static API_BASE() { return `${new AuthManager().API_BASE}/products`; }
-
-    // внутренний флаг, чтобы навесить делегированые обработчики только один раз
     static _inited = false;
 
-    // ----------------- Init (вешаем делегирование один раз) -----------------
     static init() {
         if (this._inited) return;
         this._inited = true;
 
-        // Делегирование кликов по таблице продуктов
         document.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.js-edit-product');
-            if (editBtn) {
-                const id = editBtn.dataset.id;
-                if (id) ProductManager.showProductModalById(Number(id), 'edit');
-                return;
-            }
+            if (editBtn) return ProductManager.showProductModalById(Number(editBtn.dataset.id), 'edit');
 
             const deleteBtn = e.target.closest('.js-delete-product');
-            if (deleteBtn) {
-                const id = deleteBtn.dataset.id;
-                if (id) ProductManager.deleteProduct(Number(id));
-                return;
-            }
+            if (deleteBtn) return ProductManager.deleteProduct(Number(deleteBtn.dataset.id));
 
-            // кнопка создания (если у тебя есть кнопка с id openCreateProductModal)
             const createOpen = e.target.closest('#openCreateProductModal') || e.target.closest('[data-action="open-create-product"]');
-            if (createOpen) {
-                ProductManager.showProductModal({}, 'create');
-                return;
-            }
+            if (createOpen) return ProductManager.showProductModal({}, 'create');
 
-            // кнопка поиска (если есть id searchProductBtn)
             const searchBtn = e.target.closest('#searchProductBtn') || e.target.closest('[data-action="search-products"]');
-            if (searchBtn) {
-                ProductManager.searchProducts();
-                return;
-            }
+            if (searchBtn) return ProductManager.searchProducts();
 
-            // кнопка ресета
             const resetBtn = e.target.closest('#resetProductBtn') || e.target.closest('[data-action="reset-products"]');
-            if (resetBtn) {
-                ProductManager.loadProducts();
-
-            }
+            if (resetBtn) return ProductManager.loadProducts();
         });
 
-        // если таблица уже присутствует, можно навесить клавишу Enter на поле поиска
         const searchInput = document.getElementById('productSearchInput');
         if (searchInput) {
             searchInput.addEventListener('keydown', (ev) => {
@@ -84,7 +59,6 @@ class ProductManager {
         const tr = document.createElement('tr');
         tr.setAttribute('data-product-id', product.id);
 
-        // берём categoryName или вложенный объект category.name — на бэке может быть по-разному
         const categoryDisplay = product.categoryName ?? (product.category?.name) ?? '—';
         const amount = product.amount != null ? product.amount : (product.price != null ? product.price : 0);
 
@@ -119,197 +93,223 @@ class ProductManager {
         else tbody.prepend(newRow);
     }
 
-    // ----------------- Search -----------------
-    static async searchProducts() {
-        const searchInput = document.getElementById('productSearchInput');
-        if (!searchInput) return;
-        const query = searchInput.value.trim();
-        const tbody = document.getElementById('productsTableBody');
-        if (!tbody) return;
-        if (!query) {
-            await ProductManager.loadProducts();
-            return;
-        }
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Поиск...</td></tr>';
+    // ----------------- Modal -----------------
+    static async showProductModalById(productId, mode = 'edit') {
         try {
-            const response = await axios.get(`${new AuthManager().API_BASE}/products/search`, { params: { name: query } });
-            const result = response.data;
-            tbody.innerHTML = '';
-            if (!result || (Array.isArray(result) && result.length === 0)) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Ничего не найдено</td></tr>';
-                return;
-            }
-            (Array.isArray(result) ? result : [result]).forEach(p => tbody.appendChild(ProductManager.createProductRowElement(p)));
-            ToastManager.showToast(`Найдено: ${Array.isArray(result) ? result.length : 1}`, 'info');
+            const response = await axios.get(`${ProductManager.API_BASE()}/${productId}`);
+            const product = response.data;
+            await ProductManager.showProductModal(product, mode);
         } catch (e) {
-            console.error('Ошибка поиска продуктов:', e);
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Ошибка при поиске</td></tr>';
-            ToastManager.showToast('Ошибка при поиске', 'danger');
+            console.error('Не удалось загрузить продукт:', e);
+            ToastManager.showToast('Не удалось загрузить продукт', 'danger');
         }
     }
 
-    // ----------------- Modal (create / edit / view) -----------------
-    // product: объект продукта или {} при create
-    // mode: 'view' | 'edit' | 'create'
     static async showProductModal(product = {}, mode = 'view') {
-        // Дождёмся удаления старой модалки, если есть
         const oldModal = document.getElementById('productModal');
         if (oldModal) {
-            await new Promise(resolve => {
-                const inst = bootstrap.Modal.getInstance(oldModal);
-                if (inst) inst.hide();
-                oldModal.addEventListener('hidden.bs.modal', () => {
-                    try { oldModal.remove(); } catch (e) {}
-                    resolve();
-                }, { once: true });
-                // На случай, если инстанса нет, все равно удаляем сразу
-                setTimeout(() => {
-                    if (!document.getElementById('productModal')) resolve();
-                }, 300);
-            });
+            const inst = bootstrap.Modal.getInstance(oldModal);
+            if (inst) inst.hide();
+            oldModal.remove();
+        }
+        if (mode === 'create') {
+            product = { name:'', amount:0, size:'', count:0, categoryId:null, available:false, photo:'', description:'' };
         }
 
-        // Получаем категории (если есть), но не падаем если нет
+        // Загружаем категории
         let categories = [];
         try {
-            const res = await axios.get(`${new AuthManager().API_BASE.replace('/products', '')}/categories`);
+            const res = await axios.get(`${new AuthManager().API_BASE.replace('/products','')}/categories`);
             categories = Array.isArray(res.data) ? res.data : [];
-        } catch (e) {
-            // просто логируем и продолжаем — категории необязательны
-            console.warn('Не удалось загрузить категории:', e);
-        }
-
-        // При создании — гарантируем пустую модель
-        if (mode === 'create') {
-            product = {
-                name: '',
-                amount: 0,
-                size: '',
-                count: 0,
-                categoryId: null,
-                available: false,
-                photo: '',
-                description: ''
-            };
-        }
+        } catch (e) { console.warn(e); }
 
         const categoryOptions = categories.map(c =>
-            `<option value="${c.id}" ${((product.categoryId === c.id) || (product.category?.id === c.id) || (product.categoryName === c.name)) ? 'selected' : ''}>${ProductManager.escapeHtml(c.name)}</option>`
+            `<option value="${c.id}" ${Number(product.categoryId) === Number(c.id) ? 'selected' : ''}>
+    ${ProductManager.escapeHtml(c.name)}
+   </option>`
         ).join('');
 
-        const amountValue = (product.amount != null) ? product.amount : (product.price != null ? product.price : 0);
+
         const modalHtml = `
-      <div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">${mode === 'create' ? 'Создать продукт' : mode === 'edit' ? 'Редактировать продукт' : 'Просмотр продукта'} ${product.id ? '#' + product.id : ''}</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-              <div id="productError" class="alert alert-danger d-none"></div>
-
-              <div class="mb-3">
-                <label class="form-label">Название</label>
-                ${mode === 'view' ? `<p>${ProductManager.escapeHtml(product.name || '—')}</p>` : `<input id="productName" class="form-control" value="${ProductManager.escapeHtml(product.name || '')}">`}
-              </div>
-
-              <div class="row">
-                <div class="col-md-4 mb-3">
-                  <label class="form-label">Цена (amount, ₽)</label>
-                  ${mode === 'view' ? `<p>${amountValue} ₽</p>` : `<input id="productAmount" type="number" class="form-control" value="${amountValue}">`}
-                </div>
-
-                <div class="col-md-4 mb-3">
-                  <label class="form-label">Размер (size)</label>
-                  ${mode === 'view' ? `<p>${ProductManager.escapeHtml(product.size || '—')}</p>` : `<input id="productSize" class="form-control" value="${ProductManager.escapeHtml(product.size || '')}">`}
-                </div>
-
-                <div class="col-md-4 mb-3">
-                  <label class="form-label">Кол-во на складе (count)</label>
-                  ${mode === 'view' ? `<p>${product.count ?? 0}</p>` : `<input id="productCount" type="number" class="form-control" value="${product.count ?? 0}">`}
-                </div>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Категория</label>
-                ${mode === 'view' ? `<p>${ProductManager.escapeHtml(product.categoryName ?? product.category?.name ?? '—')}</p>` : `<select id="productCategory" class="form-select"><option value="">Без категории</option>${categoryOptions}</select>`}
-              </div>
-
-              <div class="mb-3 form-check">
-                ${mode === 'view' ? `<p>В наличии: ${product.available ? 'Да' : 'Нет'}</p>` : `<input id="productAvailable" type="checkbox" class="form-check-input" ${product.available ? 'checked' : ''}><label class="form-check-label ms-2">В наличии</label>`}
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Фото (URL)</label>
-                ${mode === 'view' ? `<p>${ProductManager.escapeHtml(product.photo || '—')}</p>` : `<input id="productPhoto" class="form-control" value="${ProductManager.escapeHtml(product.photo || '')}">`}
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Описание</label>
-                ${mode === 'view' ? `<p>${ProductManager.escapeHtml(product.description || '—')}</p>` : `<textarea id="productDescription" class="form-control" rows="4">${ProductManager.escapeHtml(product.description || '')}</textarea>`}
-              </div>
-            </div>
-
-            <div class="modal-footer">
-              <button class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-              ${mode === 'edit' ? `<button class="btn btn-primary" id="productSaveBtn">Сохранить</button>` : ''}
-              ${mode === 'create' ? `<button class="btn btn-primary" id="productCreateBtn">Создать</button>` : ''}
-            </div>
-
+<div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">${mode==='create'?'Создать продукт':mode==='edit'?'Редактировать продукт':'Просмотр продукта'} ${product.id?('#'+product.id):''}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="productError" class="alert alert-danger d-none"></div>
+        <div class="mb-3">
+          <label class="form-label">Название</label>
+          ${mode==='view'?`<p>${ProductManager.escapeHtml(product.name||'—')}</p>`:`<input id="productName" class="form-control" value="${ProductManager.escapeHtml(product.name||'')}">`}
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label">Цена</label>
+            ${mode==='view'?`<p>${product.amount||0} ₽</p>`:`<input id="productAmount" type="number" class="form-control" value="${product.amount||0}">`}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Размер</label>
+            ${mode==='view'?`<p>${ProductManager.escapeHtml(product.size||'—')}</p>`:`<input id="productSize" class="form-control" value="${ProductManager.escapeHtml(product.size||'')}">`}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Кол-во</label>
+            ${mode==='view'?`<p>${product.count||0}</p>`:`<input id="productCount" type="number" class="form-control" value="${product.count||0}">`}
           </div>
         </div>
+        <div class="mb-3">
+          <label class="form-label">Категория</label>
+          ${mode==='view'?`<p>${ProductManager.escapeHtml(product.categoryName??product.category?.name??'—')}</p>`:`<select id="productCategory" class="form-select"><option value="">Без категории</option>${categoryOptions}</select>`}
+        </div>
+        <div class="mb-3 form-check">
+          ${mode==='view'?`<p>В наличии: ${product.available?'Да':'Нет'}</p>`:`<input id="productAvailable" type="checkbox" class="form-check-input" ${product.available?'checked':''}><label class="form-check-label ms-2">В наличии</label>`}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Фото (URL)</label>
+          ${mode==='view'?`<p>${ProductManager.escapeHtml(product.photo||'—')}</p>`:`<input id="productPhoto" class="form-control" value="${ProductManager.escapeHtml(product.photo||'')}">`}
+        </div>
+
+        ${mode!=='view' && product.id?`
+<hr>
+<h6>Фотографии продукта</h6>
+<div class="input-group input-group-sm mb-2">
+  <select id="imageFolderSelect" class="form-select form-select-sm"></select>
+  <input id="imageFolderInput" class="form-control form-control-sm" placeholder="Новая папка (опционально)">
+  <button id="imageFolderUseBtn" class="btn btn-sm btn-outline-secondary">Использовать</button>
+</div>
+<div id="imageDropZone" class="border border-2 border-dashed rounded p-3 text-center text-muted mb-2">
+  Перетащите изображение сюда или кликните
+  <input type="file" id="imageFileInput" accept="image/*" hidden>
+</div>
+<div id="imageGallery" class="d-flex flex-wrap gap-2"></div>
+` : ''}
+
+        <div class="mb-3">
+          <label class="form-label">Описание</label>
+          ${mode==='view'?`<p>${ProductManager.escapeHtml(product.description||'—')}</p>`:`<textarea id="productDescription" class="form-control" rows="4">${ProductManager.escapeHtml(product.description||'')}</textarea>`}
+        </div>
       </div>
-    `;
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+        ${mode==='edit'?`<button class="btn btn-primary" id="productSaveBtn">Сохранить</button>`:''}
+        ${mode==='create'?`<button class="btn btn-primary" id="productCreateBtn">Создать</button>`:''}
+      </div>
+    </div>
+  </div>
+</div>
+`;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
-
         const modalEl = document.getElementById('productModal');
         const bsModal = new bootstrap.Modal(modalEl);
 
-        // Навешиваем обработчики для кнопок модалки (и снимаем после закрытия)
-        const cleanup = () => {
-            try {
-                const createBtn = document.getElementById('productCreateBtn');
-                if (createBtn) createBtn.removeEventListener('click', ProductManager._boundCreateHandler);
-                const saveBtn = document.getElementById('productSaveBtn');
-                if (saveBtn) saveBtn.removeEventListener('click', ProductManager._boundSaveHandler);
-            } catch (e) {}
-        };
-
-        // Создаём и запоминаем функции-обработчики, чтобы можно было снять их позже
-        ProductManager._boundCreateHandler = async () => {
-            await ProductManager.createProduct();
-        };
-        ProductManager._boundSaveHandler = async () => {
-            // product.id может быть undefined for create; for edit productId passed through showProductModalById
-            const id = product.id;
-            if (id) await ProductManager.updateProduct(id);
-        };
-
-        // Навешиваем только если кнопка существует
-        const createBtnEl = document.getElementById('productCreateBtn');
-        if (createBtnEl) createBtnEl.addEventListener('click', ProductManager._boundCreateHandler);
-
-        const saveBtnEl = document.getElementById('productSaveBtn');
-        if (saveBtnEl) saveBtnEl.addEventListener('click', ProductManager._boundSaveHandler);
-
-        // Когда модалка скрыта — удаляем DOM и снимаем обработчики
-        modalEl.addEventListener('hidden.bs.modal', () => {
-            cleanup();
-            try { modalEl.remove(); } catch (e) {}
-        }, { once: true });
-
-        // Ставим фокус на первый контрол и показываем модалку
-        modalEl.addEventListener('shown.bs.modal', () => {
-            const focusable = modalEl.querySelector('input, textarea, select, button');
-            if (focusable) focusable.focus();
-        }, { once: true });
+        // Привязка кнопок
+        if (mode==='create') document.getElementById('productCreateBtn').addEventListener('click',()=>ProductManager.createProduct());
+        if (mode==='edit') document.getElementById('productSaveBtn').addEventListener('click',()=>ProductManager.updateProduct(product.id));
 
         bsModal.show();
+
+        if (mode !== 'view' && product.categoryId != null) {
+            const categorySelect = document.getElementById('productCategory');
+            if (categorySelect) {
+                categorySelect.value = String(product.categoryId);
+            }
+        }
+
+        if (product.id && mode!=='view') ProductManager.initImageUpload(product.id);
     }
 
-    // ----------------- Helpers: create / update / delete -----------------
+    static initImageUpload(productId) {
+        const drop = document.getElementById('imageDropZone');
+        const input = document.getElementById('imageFileInput');
+        const folderSelect = document.getElementById('imageFolderSelect');
+        const folderInput = document.getElementById('imageFolderInput');
+        const useBtn = document.getElementById('imageFolderUseBtn');
+
+        // drag & drop
+        drop.addEventListener('click',()=>input.click());
+        drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('bg-light');});
+        drop.addEventListener('dragleave',()=>drop.classList.remove('bg-light'));
+        drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('bg-light'); ProductManager.uploadImage(e.dataTransfer.files[0], folderSelect.value, productId);});
+        input.addEventListener('change',()=>{ProductManager.uploadImage(input.files[0], folderSelect.value, productId); input.value='';});
+
+        // Загрузка папок
+        ProductManager.loadImageFolders(productId);
+
+        // Создание новой папки
+        useBtn.addEventListener('click', async ()=>{
+            const val = folderInput.value.trim();
+            if(!val) return;
+            const safe = val.replace(/\s+/g,'_').replace(/[\/\\]/g,'');
+            try {
+                await axios.post('/api/admin/products/images/folders', null, { params:{ folder: safe } });
+                if(![...folderSelect.options].some(o=>o.value===safe)) folderSelect.insertAdjacentHTML('beforeend',`<option value="${safe}">${safe}</option>`);
+                folderSelect.value = safe;
+                await ProductManager.loadImages(folderSelect.value, productId);
+            } catch(err){ console.error(err); ToastManager.showToast('Не удалось создать папку','danger'); }
+        });
+    }
+
+    static async loadImageFolders(productId) {
+        const select = document.getElementById('imageFolderSelect');
+        if(!select) return;
+        try{
+            const res = await axios.get('/api/admin/products/images/folders', {
+                params: { scope: 'products' }
+            })
+            select.innerHTML = res.data.map(f=>`<option value="${f}">${f}</option>`).join('');
+            if(res.data.length>0){
+                select.value = res.data[0];
+                await ProductManager.loadImages(select.value, productId);
+            }
+            select.addEventListener('change',()=>ProductManager.loadImages(select.value, productId));
+        }catch(err){ console.error(err); }
+    }
+
+    static async loadImages(folder, productId){
+        const gallery = document.getElementById('imageGallery');
+        gallery.innerHTML='Загрузка...';
+        try{
+            const res = await axios.get('/api/admin/products/images',{ params:{ folder } });
+            gallery.innerHTML='';
+            if(!res.data || res.data.length===0){ gallery.innerHTML='<p class="text-muted">Нет фотографий в этой папке</p>'; return; }
+            res.data.forEach(name=>{
+                const url=`/uploads/products/${folder}/${name}`;
+                gallery.insertAdjacentHTML('beforeend',`
+<div class="border rounded p-1">
+<img src="${url}" style="width:90px;height:90px;object-fit:cover;cursor:pointer"
+title="Сделать фото продукта"
+onclick="ProductManager.setProductPhoto(${productId},'${url}')">
+</div>`);
+            });
+        }catch(err){ console.error(err); gallery.innerHTML='<p class="text-danger">Ошибка загрузки фото</p>'; }
+    }
+
+    static async uploadImage(file, folder, productId){
+        if(!file) return;
+        const fd = new FormData();
+        fd.append('file',file);
+        fd.append('folder',folder);
+        try{
+            const res = await axios.post('/api/admin/products/images/upload', fd, { headers:{ 'Content-Type':'multipart/form-data' } });
+            ToastManager.showToast('Фото загружено','success');
+            await ProductManager.loadImages(folder, productId);
+            if(res.data.url) ProductManager.setProductPhoto(productId,res.data.url);
+        }catch(err){ console.error(err); ToastManager.showToast('Ошибка загрузки','danger'); }
+    }
+
+    static async setProductPhoto(productId, url){
+        try{
+            await axios.put(`/api/admin/products/images/${productId}/photo`,{ photo: url });
+            document.getElementById('productPhoto').value=url;
+            ToastManager.showToast('Фото установлено','success');
+        }catch(err){ console.error(err); ToastManager.showToast('Не удалось установить фото','danger'); }
+    }
+
+
+
+// ----------------- Helpers: create / update / delete -----------------
     static escapeHtml(str) {
         return String(str ?? '')
             .replaceAll('&', '&amp;')
@@ -416,17 +416,32 @@ class ProductManager {
         }
     }
 
-    // ----------------- helper: load product by id and open modal -----------------
-    static async showProductModalById(productId, mode = 'edit') {
+    static async searchProducts() {
+        const query = document.getElementById('productSearchInput')?.value?.trim() || '';
+        if (!query) {
+            return this.loadProducts(); // если пустой запрос, грузим все
+        }
+
         try {
-            const response = await axios.get(`${ProductManager.API_BASE()}/${productId}`);
-            const product = response.data;
-            await ProductManager.showProductModal(product, mode);
+            const response = await axios.get(`${this.API_BASE()}/search`, { params: { name: query } });
+            const products = response.data;
+            const tbody = document.getElementById('productsTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (!products || products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Нет продуктов</td></tr>';
+                return;
+            }
+            products.forEach(p => tbody.appendChild(this.createProductRowElement(p)));
         } catch (e) {
-            console.error('Не удалось загрузить продукт:', e);
-            ToastManager.showToast('Не удалось загрузить продукт', 'danger');
+            console.error('Ошибка поиска продуктов:', e);
+            ToastManager.showToast('Ошибка поиска продуктов', 'danger');
         }
     }
+
+
+    // ----------------- helper: load product by id and open modal -----------------
+
 }
 
 // ----------------- expose small compatibility globals (если где-то они используются) -----------------
@@ -440,3 +455,4 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.getElementById('productsTableBody');
     if (tbody) ProductManager.loadProducts();
 });
+

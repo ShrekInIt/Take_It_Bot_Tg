@@ -248,7 +248,7 @@ public class CartService {
         Cart cart = getCartByUser(user);
         List<CartItem> createdItems = new ArrayList<>();
 
-        boolean isCoffee = categoryService.isCoffeeCategoryById(product.getCategoryId());
+        boolean isCoffee = categoryService.isCoffeeCategoryById(product.getCategory().getId());
 
         if (!isCoffee) {
             List<CartItem> existingItems = cartItemRepository.findByCartAndProduct(cart, product);

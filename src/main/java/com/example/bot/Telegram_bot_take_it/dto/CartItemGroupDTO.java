@@ -44,6 +44,6 @@ public class CartItemGroupDTO {
         if (product == null) {
             return false;
         }
-        return product.getCategoryId() == 3L;
+        return product.getCategory().getId() == 3L;
     }
 }

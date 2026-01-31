@@ -1,14 +1,17 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
+import com.example.bot.Telegram_bot_take_it.admin.service.FileStorageService;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,6 +24,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryService categoryService;
+    private final FileStorageService storage;
 
     /**
      * Получить доступные продукты в категории с количеством > 0
@@ -68,7 +72,7 @@ public class ProductService {
         try {
             Product product = getProductById(productId)
                     .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
-            return product.getCategoryId() == 3L;
+            return product.getCategory().getId() == 3L;
         } catch (Exception e) {
             log.error("Ошибка при проверке типа товара: {}", e.getMessage());
             return false;
@@ -97,7 +101,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Product getById(Long id) {
-        return productRepository.findById(id)
+        return productRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new EntityNotFoundException("Product not found with id = " + id));
     }
 
@@ -125,7 +129,7 @@ public class ProductService {
         Product product = new Product();
         applyFieldsFromMap(product, request);
 
-        if (product.getCategoryId() == null) {
+        if (product.getCategory().getId() == null) {
             throw new BadRequestException("categoryId must be a number and not null");
         }
 
@@ -209,24 +213,39 @@ public class ProductService {
 
         if (request.containsKey("categoryId")) {
             Object catObj = request.get("categoryId");
-            Long catId = null;
-            if (catObj instanceof Number) catId = ((Number) catObj).longValue();
-            else if (catObj != null && !catObj.toString().isBlank()) {
-                try { catId = Long.parseLong(catObj.toString()); }
-                catch (NumberFormatException e) { log.warn("Не парсится categoryId: {}", catObj); }
+            Long catIdTemp = null;
+
+            if (catObj instanceof Number) {
+                catIdTemp = ((Number) catObj).longValue();
+            } else if (catObj != null && !catObj.toString().isBlank()) {
+                try {
+                    catIdTemp = Long.parseLong(catObj.toString());
+                } catch (NumberFormatException e) {
+                    log.warn("Не парсится categoryId: {}", catObj);
+                }
             }
 
+            final Long catId = catIdTemp; // вот теперь она effectively final
+
             if (catId != null) {
-                product.setCategoryId(catId);
-                try {
-                    categoryService.findById(catId).ifPresent(product::setCategory);
-                } catch (Exception ex) {
-                    log.warn("Не удалось загрузить категорию {}: {}", catId, ex.getMessage());
-                }
+                categoryService.findById(catId).ifPresentOrElse(
+                        product::setCategory,
+                        () -> log.warn("Категория с id={} не найдена", catId)
+                );
             } else {
-                product.setCategoryId(null);
                 product.setCategory(null);
             }
         }
+
+    }
+
+    @Transactional
+    public Product setPhoto(Long productId, String photoUrl) {
+        Product p = productRepository.findByIdWithCategory(productId)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found"));
+        p.setPhoto(photoUrl);
+
+
+        return productRepository.save(p);
     }
 }

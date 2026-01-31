@@ -1,8 +1,10 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
+import com.example.bot.Telegram_bot_take_it.entity.CategoryType;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
+import com.example.bot.Telegram_bot_take_it.repository.CategoryTypeRepository;
 import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+    private final CategoryTypeRepository categoryTypeRepository;
 
     /**
      * Получить категорию по ID с загрузкой необходимых полей
@@ -108,7 +111,7 @@ public class CategoryService {
     }
 
     public Category getById(Long id) {
-        return categoryRepository.findById(id)
+        return categoryRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> new EntityNotFoundException("Категория не найдена: " + id));
     }
 
@@ -125,10 +128,17 @@ public class CategoryService {
         category.setSortOrder(getInt(req));
         category.setActive(getBoolean(req));
 
-        Long parentId = getLong(req);
+        Long parentId = getLongByKey(req, "parentId");
         if (parentId != null) {
             Category parent = getById(parentId);
             category.setParent(parent);
+        }
+
+        Long categoryTypeId = getLongByKey(req, "categoryTypeId");
+        if (categoryTypeId != null) {
+            CategoryType ct = categoryTypeRepository.findById(categoryTypeId)
+                    .orElseThrow(() -> new EntityNotFoundException("CategoryType not found: " + categoryTypeId));
+            category.setCategoryType(ct);
         }
 
         return categoryRepository.save(category);
@@ -159,11 +169,23 @@ public class CategoryService {
         }
 
         if (req.containsKey("parentId")) {
-            Long parentId = getLong(req);
+            Long parentId = getLongByKey(req, "parentId");
             if (parentId == null) {
                 category.setParent(null);
             } else {
                 category.setParent(getById(parentId));
+            }
+        }
+
+        // обработка типа категории
+        if (req.containsKey("categoryTypeId")) {
+            Long ctId = getLongByKey(req, "categoryTypeId");
+            if (ctId == null) {
+                category.setCategoryType(null);
+            } else {
+                CategoryType ct = categoryTypeRepository.findById(ctId)
+                        .orElseThrow(() -> new EntityNotFoundException("CategoryType not found: " + ctId));
+                category.setCategoryType(ct);
             }
         }
 
@@ -182,7 +204,7 @@ public class CategoryService {
 
         Category fallback = getOrCreateUncategorized();
 
-        productRepository.moveProductsToAnotherCategory(category.getId(), fallback.getId());
+        productRepository.moveProductsToAnotherCategory(category.getId(), fallback);
 
         categoryRepository.delete(category);
     }
@@ -194,7 +216,7 @@ public class CategoryService {
                     c.setName("Uncategorized");
                     c.setDescription("Системная категория");
                     c.setSortOrder(0);
-                    c.setActive(true);
+                    c.setActive(false);
                     return categoryRepository.save(c);
                 });
     }
@@ -218,8 +240,8 @@ public class CategoryService {
         return true;
     }
 
-    private Long getLong(Map<String, Object> req) {
-        Object v = req.get("parentId");
+    private Long getLongByKey(Map<String, Object> req, String key) {
+        Object v = req.get(key);
         if (v instanceof Number n) return n.longValue();
         if (v instanceof String s && !s.isBlank()) return Long.parseLong(s);
         return null;

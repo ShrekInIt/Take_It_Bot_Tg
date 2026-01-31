@@ -45,9 +45,18 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     Optional<Category> findByNameIgnoreCase(String name);
 
     @Query("""
-    select c from Category c
-    left join fetch c.parent
-    left join fetch c.categoryType
-""")
+    SELECT c FROM Category c
+    LEFT JOIN FETCH c.parent
+    LEFT JOIN FETCH c.categoryType
+    """)
     List<Category> findAllWithRelations();
+
+    @Query("""
+    SELECT c FROM Category c
+    LEFT JOIN FETCH c.parent
+    LEFT JOIN FETCH c.categoryType
+    WHERE c.id = :id
+""")
+    Optional<Category> findByIdWithRelations(@Param("id") Long id);
+
 }
