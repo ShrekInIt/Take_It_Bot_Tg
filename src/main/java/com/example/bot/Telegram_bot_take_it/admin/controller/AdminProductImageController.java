@@ -1,11 +1,9 @@
 package com.example.bot.Telegram_bot_take_it.admin.controller;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminProductDto;
-import com.example.bot.Telegram_bot_take_it.admin.dto.ProductDto;
 import com.example.bot.Telegram_bot_take_it.admin.service.FileStorageService;
 import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

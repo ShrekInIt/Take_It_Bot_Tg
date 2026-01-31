@@ -1,17 +1,14 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
-import com.example.bot.Telegram_bot_take_it.admin.service.FileStorageService;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
-import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +21,6 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryService categoryService;
-    private final FileStorageService storage;
 
     /**
      * Получить доступные продукты в категории с количеством > 0
