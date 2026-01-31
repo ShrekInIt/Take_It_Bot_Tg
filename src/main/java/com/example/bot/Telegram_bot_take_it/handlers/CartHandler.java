@@ -47,7 +47,7 @@ public class CartHandler {
             handleClearCart(chatId, callbackId, messageId);
         }
         else if (data.startsWith("cart_back_edit")) {
-            log.info("Возврат в корзину...");
+            log.info("Возврат в корзину в cart_back_edit...");
             handleBackToCart(chatId, messageId);
         }
         else if (data.startsWith("cart_back")) {
@@ -452,18 +452,7 @@ public class CartHandler {
                 }
             }
 
-            String message;
-            if (deletedCount == totalInGroup) {
-                message = String.format(
-                        "✅ *Товар удален*\n\n🗑️ *%s* x%d\n✅ Удалено полностью из корзины.",
-                        product.getName(), deletedCount
-                );
-            } else {
-                message = String.format(
-                        "✅ *Товар удален*\n\n🗑️ *%s*\n📦 Удалено: %d шт., осталось: %d шт.",
-                        product.getName(), deletedCount, totalInGroup - deletedCount
-                );
-            }
+            String message = getString(deletedCount, totalInGroup, product);
 
             messageSender.sendMessage(chatId, message);
             handleDeleteSomeProduct(chatId, messageId);
@@ -472,6 +461,23 @@ public class CartHandler {
             log.error("Ошибка при удалении товара: {}", e.getMessage(), e);
             messageSender.sendMessage(chatId, "❌ Ошибка при удалении товара");
         }
+    }
+
+    @NotNull
+    private static String getString(int deletedCount, int totalInGroup, Product product) {
+        String message;
+        if (deletedCount == totalInGroup) {
+            message = String.format(
+                    "✅ *Товар удален*\n\n🗑️ *%s* x%d\n✅ Удалено полностью из корзины.",
+                    product.getName(), deletedCount
+            );
+        } else {
+            message = String.format(
+                    "✅ *Товар удален*\n\n🗑️ *%s*\n📦 Удалено: %d шт., осталось: %d шт.",
+                    product.getName(), deletedCount, totalInGroup - deletedCount
+            );
+        }
+        return message;
     }
 
     /**

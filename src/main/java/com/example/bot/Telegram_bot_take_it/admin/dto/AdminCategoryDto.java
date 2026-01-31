@@ -9,10 +9,10 @@ public class AdminCategoryDto {
     private Long id;
     private String name;
     private String description;
-    private Integer sortOrder;     // corresponds to sort_order
+    private Integer sortOrder;
     private Long parentId;
     private String parentName;
     private Boolean isActive;
-    private Long categoryTypeId;   // если используешь category_type
+    private Long categoryTypeId;
     private String categoryTypeName;
 }

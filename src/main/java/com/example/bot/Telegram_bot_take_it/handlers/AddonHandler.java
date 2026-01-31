@@ -66,11 +66,11 @@ public class AddonHandler {
      */
     private void handleAddonsSelection(Long chatId, String data) {
         try {
-            log.info("Обработка выбора добавок, данные: {}", data);
+            log.info("Обработка выбора добавок, данные в handleAddonsSelection: {}", data);
             String[] parts = data.split("_");
 
             if (parts.length < 3) {
-                log.error("Недостаточно параметров: {}", data);
+                log.error("Недостаточно параметров в handleAddonsSelection: {}", data);
                 messageSender.sendMessage(chatId, "❌ Ошибка в данных добавок");
                 return;
             }
@@ -84,7 +84,7 @@ public class AddonHandler {
                 return;
             }
 
-            log.info("Товар ID: {}, количество: {}", productId, quantity);
+            log.info("Товар ID в handleAddonsSelection: {}, количество: {}", productId, quantity);
 
             productService.getProductById(productId).ifPresent(
                     product -> {

@@ -26,7 +26,6 @@ public class WebSecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        // Временный пользователь для тестирования
         UserDetails admin = User.builder()
                 .username("admin")
                 .password(passwordEncoder().encode("admin123"))
@@ -40,7 +39,6 @@ public class WebSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authz -> authz
-                        // Разрешаем доступ к статическим ресурсам
                         .requestMatchers(
                                 "/",
                                 "/js/**",
@@ -51,7 +49,6 @@ public class WebSecurityConfig {
                                 "/admin/login",
                                 "/admin/static/**"
                         ).permitAll()
-                        // Разрешаем доступ к API для проверки аутентификации без авторизации
                         .requestMatchers("/api/admin/auth/check", "/api/admin/current-user").permitAll()
                         .requestMatchers(
                                 "/admin/dashboard",

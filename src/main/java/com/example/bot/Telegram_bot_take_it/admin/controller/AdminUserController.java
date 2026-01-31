@@ -1,6 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.admin.controller;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminUserDto;
+import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +47,7 @@ public class AdminUserController {
         return ResponseEntity.ok(
                 userService.searchByName(name)
                         .stream()
-                        .map(this::toDto)
+                        .map(OrderMapper::toDtoUser)
                         .toList()
         );
     }
@@ -54,7 +55,7 @@ public class AdminUserController {
     @PutMapping("/users/{id}")
     public ResponseEntity<AdminUserDto> update(@PathVariable Long id, @RequestBody Map<String,Object> req) {
         User updated = userService.update(id, req);
-        return ResponseEntity.ok(toDto(updated));
+        return ResponseEntity.ok(OrderMapper.toDtoUser(updated));
     }
 
     @DeleteMapping("/users/{id}")
@@ -66,20 +67,6 @@ public class AdminUserController {
     @PostMapping("/users")
     public ResponseEntity<AdminUserDto> create(@RequestBody Map<String, Object> req) {
         User created = userService.create(req);
-        return ResponseEntity.ok(toDto(created));
-    }
-
-
-    private AdminUserDto toDto(User c) {
-        return AdminUserDto.builder()
-                .id(c.getId())
-                .name(c.getName())
-                .isActive(c.getIsActive())
-                .telegramId(c.getTelegramId())
-                .isAdmin(c.getIsAdmin())
-                .chatId(c.getChatId())
-                .phoneNumber(c.getPhoneNumber())
-                .createdAt(c.getCreatedAt())
-                .build();
+        return ResponseEntity.ok(OrderMapper.toDtoUser(created));
     }
 }

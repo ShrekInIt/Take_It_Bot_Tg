@@ -545,17 +545,6 @@ class OrderManager {
             existingRow.replaceWith(newRow);
         }
     }
-
-    // Вспомогательные методы для поиска по DOM
-    static findElementByText(element, text) {
-        const elements = element.querySelectorAll('*');
-        for (let el of elements) {
-            if (el.textContent && el.textContent.includes(text)) {
-                return el;
-            }
-        }
-        return null;
-    }
 }
 
 // Глобальные функции для совместимости с HTML

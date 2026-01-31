@@ -122,10 +122,10 @@ public class CategoryService {
         Category category = new Category();
         category.setName(name);
         category.setDescription(getString(req, "description"));
-        category.setSortOrder(getInt(req, "sortOrder", 0));
-        category.setActive(getBoolean(req, "isActive", true));
+        category.setSortOrder(getInt(req));
+        category.setActive(getBoolean(req));
 
-        Long parentId = getLong(req, "parentId");
+        Long parentId = getLong(req);
         if (parentId != null) {
             Category parent = getById(parentId);
             category.setParent(parent);
@@ -133,10 +133,6 @@ public class CategoryService {
 
         return categoryRepository.save(category);
     }
-
-    /* =========================
-       UPDATE
-     ========================= */
 
     @Transactional
     public Category update(Long id, Map<String, Object> req) {
@@ -155,15 +151,15 @@ public class CategoryService {
         }
 
         if (req.containsKey("sortOrder")) {
-            category.setSortOrder(getInt(req, "sortOrder", 0));
+            category.setSortOrder(getInt(req));
         }
 
         if (req.containsKey("isActive")) {
-            category.setActive(getBoolean(req, "isActive", true));
+            category.setActive(getBoolean(req));
         }
 
         if (req.containsKey("parentId")) {
-            Long parentId = getLong(req, "parentId");
+            Long parentId = getLong(req);
             if (parentId == null) {
                 category.setParent(null);
             } else {
@@ -179,27 +175,17 @@ public class CategoryService {
         return categoryRepository.findByNameContainingIgnoreCase(name);
     }
 
-    /* =========================
-       DELETE (SAFE)
-     ========================= */
 
     @Transactional
     public void delete(Long id) {
         Category category = getById(id);
 
-        // 1️⃣ Получаем / создаём категорию "Uncategorized"
         Category fallback = getOrCreateUncategorized();
 
-        // 2️⃣ Переносим товары
         productRepository.moveProductsToAnotherCategory(category.getId(), fallback.getId());
 
-        // 3️⃣ Удаляем категорию
         categoryRepository.delete(category);
     }
-
-    /* =========================
-       HELPERS
-     ========================= */
 
     private Category getOrCreateUncategorized() {
         return categoryRepository.findByNameIgnoreCase("Uncategorized")
@@ -218,22 +204,22 @@ public class CategoryService {
         return v != null ? v.toString() : null;
     }
 
-    private Integer getInt(Map<String, Object> req, String key, Integer def) {
-        Object v = req.get(key);
+    private Integer getInt(Map<String, Object> req) {
+        Object v = req.get("sortOrder");
         if (v instanceof Number n) return n.intValue();
         if (v instanceof String s) return Integer.parseInt(s);
-        return def;
+        return 0;
     }
 
-    private Boolean getBoolean(Map<String, Object> req, String key, Boolean def) {
-        Object v = req.get(key);
+    private Boolean getBoolean(Map<String, Object> req) {
+        Object v = req.get("isActive");
         if (v instanceof Boolean b) return b;
         if (v instanceof String s) return Boolean.parseBoolean(s);
-        return def;
+        return true;
     }
 
-    private Long getLong(Map<String, Object> req, String key) {
-        Object v = req.get(key);
+    private Long getLong(Map<String, Object> req) {
+        Object v = req.get("parentId");
         if (v instanceof Number n) return n.longValue();
         if (v instanceof String s && !s.isBlank()) return Long.parseLong(s);
         return null;

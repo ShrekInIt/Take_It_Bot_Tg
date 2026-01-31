@@ -22,16 +22,5 @@ public class OrderRequest {
     private String deliveryType;
     private String status;
     private LocalDateTime createdAt;
-    private List<OrderItemDto> items;
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class OrderItemDto {
-        private String productName;
-        private Integer quantity;
-        private Integer pricePerItem;
-        private Integer totalPrice;
-        private List<String> addons;
-    }
+    private List<OrderItemDtoBot> items;
 }

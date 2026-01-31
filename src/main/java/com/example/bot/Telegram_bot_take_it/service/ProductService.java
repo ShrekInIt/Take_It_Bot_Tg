@@ -113,12 +113,10 @@ public class ProductService {
      */
     @Transactional
     public Product create(Map<String, Object> request) throws BadRequestException {
-        // базовая валидация
         Object nameObj = request.get("name");
         if (nameObj == null || nameObj.toString().isBlank()) {
             throw new BadRequestException("name is required");
         }
-        // categoryId обязателен, так как столбец NOT NULL
         Object catObj = request.get("categoryId");
         if (catObj == null || catObj.toString().isBlank()) {
             throw new BadRequestException("categoryId is required");
@@ -127,7 +125,6 @@ public class ProductService {
         Product product = new Product();
         applyFieldsFromMap(product, request);
 
-        // дополнительная валидация перед сохранением
         if (product.getCategoryId() == null) {
             throw new BadRequestException("categoryId must be a number and not null");
         }
@@ -137,7 +134,7 @@ public class ProductService {
 
     /**
      * Обновить продукт по id.
-     * request содержит только поля, которые нужно обновить.
+     * Request содержит только поля, которые нужно обновить.
      */
     @Transactional
     public Product update(Long id, Map<String, Object> request) {
@@ -157,9 +154,6 @@ public class ProductService {
         productRepository.deleteById(id);
     }
 
-
-    // ---------------- вспомогательные приватные методы ----------------
-
     /**
      * Универсальный маппер из Map -> Product (для create/update)
      * Поддерживает как поле categoryId (Long), так и связь category (Category).
@@ -169,7 +163,6 @@ public class ProductService {
             product.setName((String) request.get("name"));
         }
 
-        // amount (в БД поле amount)
         if (request.containsKey("amount")) {
             Object amountObj = request.get("amount");
             Integer amount = null;
@@ -214,7 +207,6 @@ public class ProductService {
             product.setPhoto((String) request.get("photo"));
         }
 
-        // categoryId — очень важная часть: БД у тебя NOT NULL, поэтому валидируем
         if (request.containsKey("categoryId")) {
             Object catObj = request.get("categoryId");
             Long catId = null;
@@ -225,16 +217,13 @@ public class ProductService {
             }
 
             if (catId != null) {
-                // ставим categoryId (у тебя есть поле categoryId в сущности)
                 product.setCategoryId(catId);
-                // опционально: подгрузить Category и установить объект
                 try {
                     categoryService.findById(catId).ifPresent(product::setCategory);
                 } catch (Exception ex) {
                     log.warn("Не удалось загрузить категорию {}: {}", catId, ex.getMessage());
                 }
             } else {
-                // Если БД требует NOT NULL — лучше бросить BadRequest выше, но тут просто обнулим
                 product.setCategoryId(null);
                 product.setCategory(null);
             }

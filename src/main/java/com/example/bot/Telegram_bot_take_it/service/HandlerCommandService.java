@@ -78,7 +78,7 @@ public class HandlerCommandService {
            messageSender.sendMediaGroup(chatId, mediaGroup);
 
         } catch (Exception e) {
-            log.error("Ошибка отправки медиагруппы: {}", e.getMessage());
+            log.error("Ошибка отправки медиа группы: {}", e.getMessage());
         }
     }
 

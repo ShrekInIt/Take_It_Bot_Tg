@@ -1,8 +1,5 @@
 package com.example.bot.Telegram_bot_take_it.admin.controller;
 
-import com.example.bot.Telegram_bot_take_it.service.OrderService;
-import com.example.bot.Telegram_bot_take_it.service.ProductService;
-import com.example.bot.Telegram_bot_take_it.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +19,7 @@ import java.util.Map;
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class AdminController {
-
-    private final UserService userService;
-    private final ProductService productService;
-    private final OrderService orderService;
-
+    
     @GetMapping("/auth/check")
     public ResponseEntity<?> checkAuth() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -61,6 +54,4 @@ public class AdminController {
 
         return ResponseEntity.ok(new HashMap<>());
     }
-
-
 }

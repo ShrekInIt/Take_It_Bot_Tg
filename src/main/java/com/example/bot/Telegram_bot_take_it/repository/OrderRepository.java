@@ -5,14 +5,13 @@ import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.OrderItem;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -104,10 +103,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Integer sumTotalAmountByDateOrderBetween(@Param("start") LocalDateTime start,
                                              @Param("end") LocalDateTime end);
 
-    @Query("SELECT o FROM Order o ORDER BY o.createdAt DESC")
-    List<Order> findTopNByOrderByDateOrderDesc(@Param("limit") int limit);
 
-    // Вернёт страницу заказов и подгрузит связанного пользователя (user) в одном запросе
     @EntityGraph(attributePaths = {"user"})
     Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
 

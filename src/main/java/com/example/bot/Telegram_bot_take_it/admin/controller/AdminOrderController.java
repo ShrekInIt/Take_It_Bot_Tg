@@ -44,8 +44,6 @@ public class AdminOrderController {
         return ResponseEntity.ok(result);
     }
 
-
-
     @PutMapping("/orders/{id}/status")
     public ResponseEntity<Order> updateOrderStatus(@PathVariable Long id,
                                                    @RequestBody Map<String, String> request) {

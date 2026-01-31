@@ -1,6 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.admin.controller;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminCategoryDto;
+import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +23,13 @@ public class AdminCategoriesController {
 
     @GetMapping("/categories")
     public ResponseEntity<List<AdminCategoryDto>> getAll() {
-        return ResponseEntity.ok(categoryService.findAll().stream().map(this::toDto).toList());
+        return ResponseEntity.ok(categoryService.findAll().stream().map(OrderMapper::toDtoCategory).toList());
     }
 
     @GetMapping("/categories/{id}")
     public ResponseEntity<AdminCategoryDto> getById(@PathVariable Long id) {
         Category c = categoryService.getById(id);
-        return ResponseEntity.ok(toDto(c));
+        return ResponseEntity.ok(OrderMapper.toDtoCategory(c));
     }
 
     @GetMapping("/categories/search")
@@ -38,41 +39,26 @@ public class AdminCategoriesController {
         return ResponseEntity.ok(
                 categoryService.searchByName(name)
                         .stream()
-                        .map(this::toDto)
+                        .map(OrderMapper::toDtoCategory)
                         .toList()
         );
     }
 
-
     @PostMapping("/categories")
     public ResponseEntity<AdminCategoryDto> create(@RequestBody Map<String,Object> req) {
         Category created = categoryService.create(req);
-        return ResponseEntity.ok(toDto(created));
+        return ResponseEntity.ok(OrderMapper.toDtoCategory(created));
     }
 
     @PutMapping("/categories/{id}")
     public ResponseEntity<AdminCategoryDto> update(@PathVariable Long id, @RequestBody Map<String,Object> req) {
         Category updated = categoryService.update(id, req);
-        return ResponseEntity.ok(toDto(updated));
+        return ResponseEntity.ok(OrderMapper.toDtoCategory(updated));
     }
 
     @DeleteMapping("/categories/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         categoryService.delete(id);
         return ResponseEntity.noContent().build();
-    }
-
-    private AdminCategoryDto toDto(Category c) {
-        return AdminCategoryDto.builder()
-                .id(c.getId())
-                .name(c.getName())
-                .description(c.getDescription())
-                .sortOrder(c.getSortOrder())
-                .isActive(c.getIsActive())
-                .parentId(c.getParent() != null ? c.getParent().getId() : null)
-                .parentName(c.getParent() != null ? c.getParent().getName() : null)
-                .categoryTypeId(c.getCategoryType() != null ? c.getCategoryType().getId() : null)
-                .categoryTypeName(c.getCategoryType() != null ? c.getCategoryType().getName() : null)
-                .build();
     }
 }

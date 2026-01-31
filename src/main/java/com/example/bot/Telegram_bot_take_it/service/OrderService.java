@@ -5,6 +5,7 @@ import com.example.bot.Telegram_bot_take_it.admin.exception.ResourceNotFoundExce
 import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminOrderDto;
 import com.example.bot.Telegram_bot_take_it.dto.OrderData;
+import com.example.bot.Telegram_bot_take_it.dto.OrderItemDtoBot;
 import com.example.bot.Telegram_bot_take_it.dto.OrderRequest;
 import com.example.bot.Telegram_bot_take_it.entity.*;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemAddonRepository;
@@ -258,7 +259,7 @@ public class OrderService {
         orderRequest.setCreatedAt(order.getCreatedAt());
 
         if (order.getItems() != null && !order.getItems().isEmpty()) {
-            List<OrderRequest.OrderItemDto> itemDtos = new ArrayList<>();
+            List<OrderItemDtoBot> itemDtos = new ArrayList<>();
 
             Map<String, List<OrderItem>> groupedItems = groupOrderItems(order.getItems());
 
@@ -278,7 +279,7 @@ public class OrderService {
                             .collect(toList());
                 }
 
-                OrderRequest.OrderItemDto itemDto = new OrderRequest.OrderItemDto(
+                OrderItemDtoBot itemDto = new OrderItemDtoBot(
                         firstItem.getProductName(),
                         totalQuantity,
                         pricePerItem,
@@ -387,22 +388,8 @@ public class OrderService {
         return orderRepository.countByStatusIn(Order.OrderStatus.activeStatuses());
     }
 
-    public long getTodayRevenue() {
-        LocalDate today = LocalDate.now();
-        LocalDateTime startOfDay = today.atStartOfDay();
-        LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
-
-        Long revenue = orderRepository.sumTotalAmountByDateAndStatus(
-                startOfDay, endOfDay, "completed");
-        return revenue != null ? revenue : 0;
-    }
-
     public List<Order> findAll() {
         return orderRepository.findAll();
-    }
-
-    public List<Order> findRecentOrders() {
-        return orderRepository.findTop10ByOrderByDateOrderDesc();
     }
 
     public Order updateStatus(Long id, String status) {
@@ -541,7 +528,7 @@ public class OrderService {
 
     public Integer countOrdersToday() {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        LocalDateTime endOfDay = LocalDateTime.now(); // или LocalDate.now().plusDays(1).atStartOfDay() для точного конца дня
+        LocalDateTime endOfDay = LocalDateTime.now();
         return orderRepository.countByCreatedAtBetween(startOfDay, endOfDay);
     }
 
@@ -563,7 +550,7 @@ public class OrderService {
                         .phoneNumber(order.getPhoneNumber())
                         .address(order.getAddress())
                         .comments(order.getComments())
-                        .createdAt(order.getCreatedAt()) // или createdAt в зависимости от поля
+                        .createdAt(order.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());
     }

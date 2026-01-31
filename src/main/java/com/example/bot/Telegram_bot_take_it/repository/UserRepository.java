@@ -1,7 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.repository;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminUserDto;
-import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -46,8 +45,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByNameContainingIgnoreCase(@Param("name") String name);
 
     Integer countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
-
-    // Получить последние N пользователей
-    @Query(value = "SELECT u FROM User u ORDER BY u.createdAt DESC")
-    List<User> findTopNByOrderByCreatedAtDesc(@Param("limit") int limit);
 }

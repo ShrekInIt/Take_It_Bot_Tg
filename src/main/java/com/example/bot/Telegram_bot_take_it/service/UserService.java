@@ -122,10 +122,6 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public Optional<User> findById(Long id) {
-        return userRepository.findById(id);
-    }
-
     public void delete(Long id) {
         userRepository.deleteById(id);
     }
@@ -134,13 +130,6 @@ public class UserService {
         return userRepository.countActiveUsers();
     }
 
-
-    public List<User> findRecentUsers(int limit) {
-        return userRepository.findAllOrderByCreatedAtDesc()
-                .stream()
-                .limit(limit)
-                .toList();
-    }
 
     public List<AdminUserDto> findRecentUsersDto(int limit) {
         return userRepository.findAllOrderByCreatedAtDescUserDto()
@@ -163,7 +152,7 @@ public class UserService {
                         .chatId(user.getChatId())
                         .isAdmin(user.getIsAdmin())
                         .isActive(user.getIsActive())
-                        .phoneNumber(user.getPhoneNumber())  // Важно!
+                        .phoneNumber(user.getPhoneNumber())
                         .createdAt(user.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());
@@ -179,12 +168,11 @@ public class UserService {
         User user = new User();
         user.setName(name);
         user.setTelegramId(getString(req, "telegramId"));
-        user.setChatId(getLong(req, "chatId"));
+        user.setChatId(getLong(req));
         user.setPhoneNumber(getString(req, "phoneNumber"));
         user.setIsAdmin(getBoolean(req, "isAdmin", false));
         user.setIsActive(getBoolean(req, "isActive", true));
 
-        // createdAt НЕ трогаем — БД сама поставит CURRENT_TIMESTAMP
         return userRepository.save(user);
     }
 
@@ -207,7 +195,7 @@ public class UserService {
         }
 
         if (req.containsKey("chatId")) {
-            user.setChatId(getLong(req, "chatId"));
+            user.setChatId(getLong(req));
         }
 
         if (req.containsKey("phoneNumber")) {
@@ -232,7 +220,6 @@ public class UserService {
         userRepository.save(user);
     }
 
-    // Количество новых пользователей за сегодня
     public Integer countNewUsersToday() {
         LocalDate today = LocalDate.now();
         return userRepository.countByCreatedAtBetween(
@@ -240,8 +227,6 @@ public class UserService {
                 today.plusDays(1).atStartOfDay()
         );
     }
-
-
 
     @Transactional(readOnly = true)
     public List<User> searchByName(String name) {
@@ -258,13 +243,6 @@ public class UserService {
         return v != null ? v.toString() : null;
     }
 
-    private Integer getInt(Map<String, Object> req, String key, Integer def) {
-        Object v = req.get(key);
-        if (v instanceof Number n) return n.intValue();
-        if (v instanceof String s) return Integer.parseInt(s);
-        return def;
-    }
-
     private Boolean getBoolean(Map<String, Object> req, String key, Boolean def) {
         Object v = req.get(key);
         if (v instanceof Boolean b) return b;
@@ -272,8 +250,8 @@ public class UserService {
         return def;
     }
 
-    private Long getLong(Map<String, Object> req, String key) {
-        Object v = req.get(key);
+    private Long getLong(Map<String, Object> req) {
+        Object v = req.get("chatId");
         if (v instanceof Number n) return n.longValue();
         if (v instanceof String s && !s.isBlank()) return Long.parseLong(s);
         return null;

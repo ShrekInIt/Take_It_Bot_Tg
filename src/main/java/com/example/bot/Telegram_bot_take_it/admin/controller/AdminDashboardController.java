@@ -3,7 +3,6 @@ package com.example.bot.Telegram_bot_take_it.admin.controller;
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminOrderDto;
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminUserDto;
 import com.example.bot.Telegram_bot_take_it.admin.dto.DashboardStatsDto;
-import com.example.bot.Telegram_bot_take_it.admin.dto.OrderDto;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.service.UserService;
@@ -23,11 +22,11 @@ import java.util.List;
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class AdminDashboardController {
+
     private final UserService userService;
     private final OrderService orderService;
     private final ProductService productService;
 
-    // Статистика верхних карточек
     @GetMapping("/stats")
     public ResponseEntity<DashboardStatsDto> getStats() {
         DashboardStatsDto stats = DashboardStatsDto.builder()
@@ -42,14 +41,12 @@ public class AdminDashboardController {
         return ResponseEntity.ok(stats);
     }
 
-    // Последние 10 заказов
     @GetMapping("/orders/recent")
     public ResponseEntity<List<AdminOrderDto>> getRecentOrders() {
         List<AdminOrderDto> orders = orderService.getRecentOrders(10);
         return ResponseEntity.ok(orders);
     }
 
-    // Последние 10 пользователей
     @GetMapping("/users/recent")
     public ResponseEntity<List<AdminUserDto>> getRecentUsers() {
         List<AdminUserDto> users = userService.findRecentUsersDto(10);

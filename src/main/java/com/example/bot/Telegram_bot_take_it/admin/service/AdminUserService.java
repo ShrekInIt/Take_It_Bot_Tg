@@ -39,7 +39,6 @@ public class AdminUserService {
             throw new RuntimeException("Администратор с таким логином уже существует");
         }
 
-        // Проверка пароля
         if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
             throw new IllegalArgumentException("Пароль не может быть пустым");
         }
@@ -47,9 +46,8 @@ public class AdminUserService {
         AdminUser adminUser = new AdminUser();
         adminUser.setUsername(request.getUsername());
 
-        // Используйте getPassword() вместо getPasswordHash()
         adminUser.setPasswordHash(
-                passwordEncoder.encode(request.getPassword()) // Изменено здесь!
+                passwordEncoder.encode(request.getPassword())
         );
 
         adminUser.setRole(
@@ -68,7 +66,6 @@ public class AdminUserService {
             adminUser.setUsername(request.getUsername());
         }
 
-        // Если передан новый пароль - обновляем его
         if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
             adminUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         }

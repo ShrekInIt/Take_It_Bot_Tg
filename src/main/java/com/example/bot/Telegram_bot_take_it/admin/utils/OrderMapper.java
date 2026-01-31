@@ -1,10 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.admin.utils;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.*;
-import com.example.bot.Telegram_bot_take_it.entity.Order;
-import com.example.bot.Telegram_bot_take_it.entity.OrderItem;
-import com.example.bot.Telegram_bot_take_it.entity.OrderItemAddon;
-import com.example.bot.Telegram_bot_take_it.entity.User;
+import com.example.bot.Telegram_bot_take_it.entity.*;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -92,5 +89,48 @@ public class OrderMapper {
         dto.setPrice(addon.getPriceAtOrder());
 
         return dto;
+    }
+
+    public static AdminCategoryDto toDtoCategory(Category c) {
+        return AdminCategoryDto.builder()
+                .id(c.getId())
+                .name(c.getName())
+                .description(c.getDescription())
+                .sortOrder(c.getSortOrder())
+                .isActive(c.getIsActive())
+                .parentId(c.getParent() != null ? c.getParent().getId() : null)
+                .parentName(c.getParent() != null ? c.getParent().getName() : null)
+                .categoryTypeId(c.getCategoryType() != null ? c.getCategoryType().getId() : null)
+                .categoryTypeName(c.getCategoryType() != null ? c.getCategoryType().getName() : null)
+                .build();
+    }
+
+    public static AdminProductDto toDtoProduct(Product p) {
+        return AdminProductDto.builder()
+                .id(p.getId())
+                .name(p.getName())
+                .amount(p.getAmount())
+                .available(p.getAvailable())
+                .description(p.getDescription())
+                .photo(p.getPhoto())
+                .size(p.getSize())
+                .count(p.getCount())
+                .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
+                .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
+                .build();
+    }
+
+
+    public static AdminUserDto toDtoUser(User c) {
+        return AdminUserDto.builder()
+                .id(c.getId())
+                .name(c.getName())
+                .isActive(c.getIsActive())
+                .telegramId(c.getTelegramId())
+                .isAdmin(c.getIsAdmin())
+                .chatId(c.getChatId())
+                .phoneNumber(c.getPhoneNumber())
+                .createdAt(c.getCreatedAt())
+                .build();
     }
 }
