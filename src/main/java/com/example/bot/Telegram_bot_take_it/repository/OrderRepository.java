@@ -47,17 +47,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     long countByStatusIn(Collection<Order.OrderStatus> status);
 
-    @Query("SELECT o FROM Order o JOIN FETCH o.user ORDER BY o.createdAt DESC LIMIT 10")
-    List<Order> findTop10ByOrderByDateOrderDesc();
-
-
-    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o " +
-            "WHERE o.createdAt >= :startDate AND o.createdAt < :endDate " +
-            "AND o.status = :status")
-    Long sumTotalAmountByDateAndStatus(@Param("startDate") LocalDateTime startDate,
-                                       @Param("endDate") LocalDateTime endDate,
-                                       @Param("status") String status);
-
     @Query("""
     SELECT o
     FROM Order o

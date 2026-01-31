@@ -25,9 +25,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u ORDER BY u.id")
     @NotNull List<User> findAll();
 
-    @Query("SELECT u FROM User u ORDER BY u.createdAt DESC")
-    List<User> findAllOrderByCreatedAtDesc();
-
     @Query("SELECT COUNT(u) FROM User u WHERE u.isActive = true")
     long countActiveUsers();
 
