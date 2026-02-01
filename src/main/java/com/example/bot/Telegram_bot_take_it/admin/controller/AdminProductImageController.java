@@ -5,6 +5,7 @@ import com.example.bot.Telegram_bot_take_it.admin.service.FileStorageService;
 import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,6 +50,23 @@ public class AdminProductImageController {
     public void delete(@RequestParam String url) throws IOException {
         storage.deleteByUrl(url);
     }
+
+    @DeleteMapping("/folders")
+    public ResponseEntity<?> deleteFolder(@RequestParam String folder) throws IOException {
+
+        if (productService.isImageFolderUsed(folder)) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "message", "Нельзя удалить папку: она используется продуктом"
+                    ));
+        }
+
+        storage.deleteFolder(SCOPE, folder);
+        return ResponseEntity.noContent().build();
+    }
+
+
 
     @PutMapping("/{id}/photo")
     public AdminProductDto setPhoto(@PathVariable Long id, @RequestBody Map<String,String> body) {

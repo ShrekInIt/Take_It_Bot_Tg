@@ -244,4 +244,11 @@ public class ProductService {
 
         return productRepository.save(p);
     }
+
+    @Transactional(readOnly = true)
+    public boolean isImageFolderUsed(String folder) {
+        String prefix = "products/" + folder + "/";
+        return productRepository.existsProductWithPhotoInFolder(prefix);
+    }
+
 }

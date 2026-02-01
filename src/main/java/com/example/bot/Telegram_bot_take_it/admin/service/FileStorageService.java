@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,5 +86,21 @@ public class FileStorageService {
         Path path = root.resolve(url.replace("/uploads/", ""));
         Files.deleteIfExists(path);
     }
+
+    public void deleteFolder(String scope, String folder) throws IOException {
+        Path dir = root.resolve(scope).resolve(folder);
+        if (!Files.exists(dir)) return;
+
+        Files.walk(dir)
+                .sorted(Comparator.reverseOrder())
+                .forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
 
 }

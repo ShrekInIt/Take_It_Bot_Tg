@@ -170,11 +170,15 @@ class ProductManager {
           ${mode==='view'?`<p>${ProductManager.escapeHtml(product.photo||'—')}</p>`:`<input id="productPhoto" class="form-control" value="${ProductManager.escapeHtml(product.photo||'')}">`}
         </div>
 
-        ${mode!=='view' && product.id?`
+        ${mode!=='view'?`
 <hr>
 <h6>Фотографии продукта</h6>
 <div class="input-group input-group-sm mb-2">
+ <div class="input-group input-group-sm mb-2">
   <select id="imageFolderSelect" class="form-select form-select-sm"></select>
+  <button id="deleteImageFolderBtn" class="btn btn-outline-danger btn-sm" title="Удалить папку">🗑</button>
+</div>
+
   <input id="imageFolderInput" class="form-control form-control-sm" placeholder="Новая папка (опционально)">
   <button id="imageFolderUseBtn" class="btn btn-sm btn-outline-secondary">Использовать</button>
 </div>
@@ -210,6 +214,10 @@ class ProductManager {
 
         bsModal.show();
 
+        if ( mode !== 'view') {
+            ProductManager.initImageUpload(product.id ?? null);
+        }
+
         if (mode !== 'view' && product.categoryId != null) {
             const categorySelect = document.getElementById('productCategory');
             if (categorySelect) {
@@ -217,7 +225,7 @@ class ProductManager {
             }
         }
 
-        if (product.id && mode!=='view') ProductManager.initImageUpload(product.id);
+        if (product.id && mode!=='view') ProductManager.initImageUpload(product.id ?? null);
     }
 
     static initImageUpload(productId) {
@@ -227,6 +235,10 @@ class ProductManager {
         const folderInput = document.getElementById('imageFolderInput');
         const useBtn = document.getElementById('imageFolderUseBtn');
 
+        if (!drop || !input || !folderSelect) {
+            console.warn('Image upload UI not found');
+            return;
+        }
         // drag & drop
         drop.addEventListener('click',()=>input.click());
         drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('bg-light');});
@@ -273,17 +285,48 @@ class ProductManager {
         try{
             const res = await axios.get('/api/admin/products/images',{ params:{ folder } });
             gallery.innerHTML='';
-            if(!res.data || res.data.length===0){ gallery.innerHTML='<p class="text-muted">Нет фотографий в этой папке</p>'; return; }
-            res.data.forEach(name=>{
-                const url=`/uploads/products/${folder}/${name}`;
-                gallery.insertAdjacentHTML('beforeend',`
-<div class="border rounded p-1">
-<img src="${url}" style="width:90px;height:90px;object-fit:cover;cursor:pointer"
-title="Сделать фото продукта"
-onclick="ProductManager.setProductPhoto(${productId},'${url}')">
-</div>`);
+            if(!res.data || res.data.length===0){ gallery.innerHTML='<p class="text-muted">Нет фотографий в этой папке</p>'; return; }res.data.forEach(name => {
+                const url = `/uploads/products/${folder}/${name}`;
+                gallery.insertAdjacentHTML('beforeend', `
+<div class="position-relative border rounded p-1">
+  <img src="${url}"
+       style="width:90px;height:90px;object-fit:cover;cursor:pointer"
+       title="Выбрать фото"
+       onclick="ProductManager.setProductPhoto(${productId ?? 'null'},'${url}')" alt="">
+
+  <button class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0"
+          style="width:18px;height:18px;font-size:12px"
+          onclick="ProductManager.deleteImage('${url}','${folder}',${productId ?? 'null'})">
+    ✕
+  </button>
+</div>
+`);
             });
         }catch(err){ console.error(err); gallery.innerHTML='<p class="text-danger">Ошибка загрузки фото</p>'; }
+    }
+
+    static async deleteImage(url, folder, productId) {
+        if (!confirm('Удалить изображение?')) return;
+
+        try {
+            await axios.delete('/api/admin/products/images', {
+                params: { url }
+            });
+
+            ToastManager.showToast('Изображение удалено', 'success');
+
+            // если удалили текущее фото продукта — очистим
+            const photoInput = document.getElementById('productPhoto');
+            if (photoInput && photoInput.value === url) {
+                photoInput.value = '';
+            }
+
+            await ProductManager.loadImages(folder, productId);
+
+        } catch (err) {
+            console.error(err);
+            ToastManager.showToast('Не удалось удалить изображение', 'danger');
+        }
     }
 
     static async uploadImage(file, folder, productId){
@@ -295,17 +338,37 @@ onclick="ProductManager.setProductPhoto(${productId},'${url}')">
             const res = await axios.post('/api/admin/products/images/upload', fd, { headers:{ 'Content-Type':'multipart/form-data' } });
             ToastManager.showToast('Фото загружено','success');
             await ProductManager.loadImages(folder, productId);
-            if(res.data.url) ProductManager.setProductPhoto(productId,res.data.url);
+            if(productId && res.data.url){
+                ProductManager.setProductPhoto(productId, res.data.url);
+            } else {
+                document.getElementById('productPhoto').value = res.data.url;
+            }
         }catch(err){ console.error(err); ToastManager.showToast('Ошибка загрузки','danger'); }
     }
 
-    static async setProductPhoto(productId, url){
-        try{
-            await axios.put(`/api/admin/products/images/${productId}/photo`,{ photo: url });
-            document.getElementById('productPhoto').value=url;
-            ToastManager.showToast('Фото установлено','success');
-        }catch(err){ console.error(err); ToastManager.showToast('Не удалось установить фото','danger'); }
+    static async setProductPhoto(productId, url) {
+        if (!productId) {
+            console.warn('Продукт ещё не создан, фото будет применено после сохранения');
+            const photoInput = document.getElementById('productPhoto');
+            if (photoInput) photoInput.value = url;
+            ToastManager.showToast('Фото будет применено после создания продукта', 'info');
+            return;
+        }
+
+        try {
+            await axios.put(`/api/admin/products/images/${productId}/photo`, {
+                photo: url
+            });
+
+            document.getElementById('productPhoto').value = url;
+            ToastManager.showToast('Фото установлено', 'success');
+
+        } catch (err) {
+            console.error(err);
+            ToastManager.showToast('Не удалось установить фото', 'danger');
+        }
     }
+
 
 
 
@@ -455,4 +518,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.getElementById('productsTableBody');
     if (tbody) ProductManager.loadProducts();
 });
+
+document.getElementById('deleteImageFolderBtn')
+    ?.addEventListener('click', async () => {
+        const folder = folderSelect.value;
+        if (!folder) return;
+
+        if (!confirm(`Удалить папку "${folder}" со всеми изображениями?`)) return;
+
+        try {
+            await axios.delete('/api/admin/products/images/folders', {
+                params: { folder }
+            });
+
+            ToastManager.showToast('Папка удалена', 'success');
+            await ProductManager.loadImageFolders(productId);
+        } catch(err){
+            const msg =
+                err?.response?.data?.message ||
+                'Нельзя удалить папку: она используется продуктом';
+
+            ToastManager.showToast(msg, 'warning');
+        }
+
+    });
+
+
 

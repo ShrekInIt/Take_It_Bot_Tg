@@ -39,4 +39,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p JOIN FETCH p.category WHERE p.id = :id")
     Optional<Product> findByIdWithCategory(@Param("id") Long id);
 
+    @Query("""
+    SELECT COUNT(p) > 0
+    FROM Product p
+    WHERE p.photo IS NOT NULL
+      AND p.photo LIKE CONCAT(:prefix, '%')
+""")
+    boolean existsProductWithPhotoInFolder(@Param("prefix") String prefix);
+
 }
