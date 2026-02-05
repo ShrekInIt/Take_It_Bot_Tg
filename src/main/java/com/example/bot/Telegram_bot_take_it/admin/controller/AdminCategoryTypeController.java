@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @Slf4j
 @RequestMapping("/api/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
 @RequiredArgsConstructor
 public class AdminCategoryTypeController {
     private final CategoryTypeRepository categoryTypeRepository;

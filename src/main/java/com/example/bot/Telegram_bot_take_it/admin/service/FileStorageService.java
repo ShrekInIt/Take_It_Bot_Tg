@@ -35,7 +35,7 @@ public class FileStorageService {
     }
 
     public List<String> listFolders(String scope) throws IOException {
-        Path base = root.resolve(scope); // root = uploads/
+        Path base = root.resolve(scope);
         if (!Files.exists(base)) {
             log.error("❌ PATH NOT EXISTS");
             return List.of();

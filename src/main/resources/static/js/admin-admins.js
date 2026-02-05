@@ -32,6 +32,7 @@ class AdminManager {
     }
 
     static createAdminRowElement(admin) {
+        console.log('OPEN CREATE MODAL');
         const tr = document.createElement('tr');
         tr.setAttribute('data-admin-id', admin.id);
         const isActive = admin.isActive !== undefined ? admin.isActive : admin.active;
@@ -60,6 +61,7 @@ class AdminManager {
     }
 
     static async showCreateAdminUserModal() {
+        console.log('OPEN CREATE MODAL');
         const oldModal = document.getElementById('createAdminUserModal');
         if (oldModal) {
             oldModal.remove();
@@ -75,16 +77,16 @@ class AdminManager {
                     </div>
 
                     <div class="modal-body">
-                        <form id="createAdminUserForm">
+                        <form id="createAdminUserForm" autocomplete="off">
                             <div class="mb-3">
                                 <label class="form-label">Логин</label>
-                                <input type="text" class="form-control" name="username" required>
+                                <input type="text" class="form-control" name="username" required autocomplete="off">
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label">Пароль</label>
                                 <div class="input-group">
-                                    <input type="password" class="form-control" name="password" required id="adminPasswordInput">
+                                    <input type="password" class="form-control" name="password" required id="adminPasswordInput" autocomplete="new-password">
                                     <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('adminPasswordInput')">
                                         <i class="bi bi-eye"></i>
                                     </button>
@@ -127,9 +129,16 @@ class AdminManager {
 
         const modal = new bootstrap.Modal(document.getElementById('createAdminUserModal'));
         modal.show();
+
+        const form = document.getElementById('createAdminUserForm');
+        if (form) form.reset();
+
+        const pass = document.getElementById('adminPasswordInput');
+        if (pass) pass.value = '';
     }
 
     static async createAdminUser() {
+        console.log('OPEN CREATE MODAL');
         const form = document.getElementById('createAdminUserForm');
         const errorBlock = document.getElementById('createAdminError');
 

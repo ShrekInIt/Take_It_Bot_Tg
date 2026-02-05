@@ -35,7 +35,7 @@
         </a>
         <div class="d-flex align-items-center">
             <span class="text-white me-3" id="currentUser">Гость</span>
-            <button class="btn btn-outline-light btn-sm" onclick="logout()">
+            <button class="btn btn-outline-light btn-sm" id="logoutBtn">
                 <i class="bi bi-box-arrow-right"></i> Выйти
             </button>
         </div>
@@ -48,32 +48,32 @@
             <div class="position-sticky pt-3">
                 <ul class="nav flex-column">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#" onclick="showDashboard()">
-                            <i class="bi bi-speedometer2"></i> Дашборд
+                        <a class="nav-link active" href="#" data-nav="dashboard" onclick="showDashboard()">
+                        <i class="bi bi-speedometer2"></i> Дашборд
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showUsers()">
+                        <a class="nav-link active" href="#" data-nav="users" onclick="showUsers()">
                             <i class="bi bi-people"></i> Пользователи
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showCategories()">
+                        <a class="nav-link active" href="#" data-nav="categories" onclick="showCategories()">
                             <i class="bi bi-list-nested"></i> Категории
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showProducts()">
+                        <a class="nav-link active" href="#" data-nav="products" onclick="showProducts()">
                             <i class="bi bi-cup-straw"></i> Продукты
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showOrders()">
+                        <a class="nav-link active" href="#" data-nav="orders" onclick="showOrders()">
                             <i class="bi bi-receipt"></i> Заказы
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#" onclick="showAdmins()">
+                        <a class="nav-link active" href="#" data-nav="admins" onclick="showAdmins()">
                             <i class="bi bi-shield-check"></i> Администраторы
                         </a>
                     </li>

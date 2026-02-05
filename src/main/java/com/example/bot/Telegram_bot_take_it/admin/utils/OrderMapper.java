@@ -42,7 +42,6 @@ public class OrderMapper {
         UserDto dto = new UserDto();
         dto.setId(user.getId());
 
-        // В БД только name
         dto.setUsername(user.getName());
 
         dto.setTelegramId(user.getTelegramId());

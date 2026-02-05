@@ -6,12 +6,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -25,19 +21,10 @@ public class WebSecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService() {
-        UserDetails admin = User.builder()
-                .username("admin")
-                .password(passwordEncoder().encode("admin123"))
-                .roles("ADMIN")
-                .build();
-
-        return new InMemoryUserDetailsManager(admin);
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .csrf(AbstractHttpConfigurer::disable)
+
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(
                                 "/",
@@ -49,32 +36,39 @@ public class WebSecurityConfig {
                                 "/admin/login",
                                 "/admin/static/**"
                         ).permitAll()
+
                         .requestMatchers("/api/admin/auth/check", "/api/admin/current-user").permitAll()
-                        .requestMatchers(
-                                "/admin/dashboard",
-                                "/admin/users",
-                                "/admin/categories",
-                                "/admin/products",
-                                "/admin/orders",
-                                "/admin/addons",
-                                "/admin/admins"
-                        ).hasRole("ADMIN")
-                        .requestMatchers("/admin/**", "/api/admin/**").hasRole("ADMIN")
+
+                        .requestMatchers("/api/admin/products/**", "/api/admin/categories/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("SUPER_ADMIN")
+
+                        .requestMatchers("/admin", "/admin/", "/admin/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+
                         .anyRequest().permitAll()
                 )
+
                 .formLogin(form -> form
                         .loginPage("/admin/login")
                         .loginProcessingUrl("/admin/login")
                         .defaultSuccessUrl("/admin", true)
-                        .failureUrl("/admin/login?error=true")
                         .permitAll()
                 )
+
                 .logout(logout -> logout
                         .logoutUrl("/admin/logout")
                         .logoutSuccessUrl("/admin/login?logout=true")
                         .permitAll()
                 )
-                .csrf(AbstractHttpConfigurer::disable);
+
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendRedirect("/admin/login")
+                        )
+                );
 
         return http.build();
     }

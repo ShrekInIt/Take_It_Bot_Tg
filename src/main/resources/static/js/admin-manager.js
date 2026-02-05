@@ -1,28 +1,35 @@
+function isPageAllowed(page, role) {
+    return ROLE_PERMISSIONS[role]?.includes(page);
+}
+
 class NavigationManager {
-    static redirectBasedOnPath() {
+    static redirectBasedOnPath(userRole) {
         const path = window.location.pathname;
-        if (path.includes('/admin/users')) {
-            console.log('Открываем страницу пользователей');
-            showUsers();
-        } else if (path.includes('/admin/categories')) {
-            console.log('Открываем страницу категорий');
-            showCategories();
-        } else if (path.includes('/admin/products')) {
-            console.log('Открываем страницу продуктов');
-            showProducts();
-        } else if (path.includes('/admin/orders')) {
-            console.log('Открываем страницу заказов');
-            showOrders();
-        } else if (path.includes('/admin/addons')) {
-            console.log('Открываем страницу добавок');
-            showAddons();
-        } else if (path.includes('/admin/admins')) {
-            console.log('Открываем страницу администраторов');
-            showAdmins();
-        } else {
-            console.log('Открываем дашборд по умолчанию');
-            showDashboard();
+
+        const pageMap = [
+            { key: 'dashboard', match: '/admin/dashboard', action: showDashboard },
+            { key: 'users', match: '/admin/users', action: showUsers },
+            { key: 'categories', match: '/admin/categories', action: showCategories },
+            { key: 'products', match: '/admin/products', action: showProducts },
+            { key: 'orders', match: '/admin/orders', action: showOrders },
+            { key: 'admins', match: '/admin/admins', action: showAdmins }
+        ];
+
+        for (const page of pageMap) {
+            if (path.includes(page.match)) {
+                if (isPageAllowed(page.key, userRole)) {
+                    page.action();
+                    return;
+                } else {
+                    break;
+                }
+            }
         }
+
+        // ⛔ если страница запрещена → первая разрешённая
+        const fallback = ROLE_PERMISSIONS[userRole]?.[0];
+        if (fallback === 'categories') showCategories();
+        else if (fallback === 'products') showProducts();
     }
 
     async loadContent(url) {
@@ -79,4 +86,34 @@ class NavigationManager {
             navLinks[navItem].classList.add('active');
         }
     }
+
+    static redirectByRole(role) {
+        if (role === 'ADMIN') {
+            window.location.hash = '#products';
+            showProducts();
+            return;
+        }
+        // SUPER_ADMIN и всё остальное
+        window.location.hash = '#dashboard';
+        showDashboard();
+    }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const hash = window.location.hash;
+
+    if (hash === '#products') showProducts();
+    else if (hash === '#categories') showCategories();
+    else if (hash === '#orders') showOrders();
+    else if (hash === '#admins') showAdmins();
+    else showDashboard();
+});
+
+
+document.addEventListener('click', (e) => {
+    if (e.target.closest('#logoutBtn')) {
+        if (confirm('Вы уверены, что хотите выйти?')) {
+            window.location.href = '/admin/logout';
+        }
+    }
+});

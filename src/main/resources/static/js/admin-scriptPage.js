@@ -28,11 +28,6 @@ class PageScriptExecutor {
             OrderManager.loadOrders();
         }
 
-        if (content.includes('id="addonsTableBody"')) {
-            console.log('Обнаружена страница добавок');
-            AddonManager.loadAddons();
-        }
-
         if (content.includes('id="adminUsersTableBody"')) {
             console.log('Обнаружена страница администраторов');
             AdminManager.loadAdmins();

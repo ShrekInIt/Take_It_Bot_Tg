@@ -860,9 +860,6 @@ function showToast(message, type = 'info', timeout = 3000) {
     toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
 }
 
-
-
-// Вспомогательные функции
 function getStatusBadgeClass(status) {
     if (!status) return 'bg-secondary';
     switch(status.toUpperCase()) {
@@ -885,7 +882,6 @@ function getStatusText(status) {
     }
 }
 
-// Установка активного пункта меню
 function setActiveNav(navItem) {
     console.log('Активирован пункт меню:', navItem);
 

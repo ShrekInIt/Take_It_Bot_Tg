@@ -19,7 +19,7 @@ import java.util.List;
 @RestController
 @Slf4j
 @RequestMapping("/api/admin/dashboard")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('SUPER_ADMIN')")
 @RequiredArgsConstructor
 public class AdminDashboardController {
 

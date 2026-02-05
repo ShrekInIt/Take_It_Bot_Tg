@@ -18,7 +18,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/products/images")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
 @RequiredArgsConstructor
 public class AdminProductImageController {
     private final FileStorageService storage;
@@ -70,8 +70,7 @@ public class AdminProductImageController {
 
     @PutMapping("/{id}/photo")
     public AdminProductDto setPhoto(@PathVariable Long id, @RequestBody Map<String,String> body) {
-        String photoUrl = body.get("photo"); // из фронта приходит "/uploads/product-7/name.jpg"
-        // Нормализуем перед сохранением:
+        String photoUrl = body.get("photo");
         if (photoUrl != null) {
             if (photoUrl.startsWith("/")) photoUrl = photoUrl.substring(1);
             if (photoUrl.startsWith("uploads/")) photoUrl = photoUrl.substring("uploads/".length());

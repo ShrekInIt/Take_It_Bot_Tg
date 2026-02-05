@@ -38,6 +38,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     @Query("""
     select c from Category c
     left join fetch c.parent
+    left join fetch c.categoryType
     where lower(c.name) like lower(concat('%', :name, '%'))
 """)
     List<Category> findByNameContainingIgnoreCase(@Param("name") String name);

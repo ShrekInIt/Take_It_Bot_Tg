@@ -1,3 +1,32 @@
+const ROLE_PERMISSIONS = {
+    SUPER_ADMIN: [
+        'dashboard',
+        'users',
+        'categories',
+        'products',
+        'orders',
+        'admins'
+    ],
+    ADMIN: [
+        'categories',
+        'products'
+    ]
+};
+
+function applyRolePermissions(userRole) {
+    const allowed = ROLE_PERMISSIONS[userRole] || [];
+
+    document.querySelectorAll('.nav-link[data-nav]').forEach(link => {
+        const nav = link.dataset.nav;
+
+        if (allowed.includes(nav)) {
+            link.style.display = '';
+        } else {
+            link.style.display = 'none';
+        }
+    });
+}
+
 class AuthManager {
     constructor() {
         this.currentUser = null;
@@ -12,10 +41,14 @@ class AuthManager {
 
             if (response.data.authenticated) {
                 this.currentUser = response.data.user;
-                document.getElementById('currentUser').textContent = this.currentUser.username;
-                console.log('Пользователь авторизован:', this.currentUser.username);
 
-                NavigationManager.redirectBasedOnPath();
+                // ВАЖНО: role должен приходить с бэка
+                applyRolePermissions(this.currentUser.role);
+
+                document.getElementById('currentUser').textContent = this.currentUser.username;
+
+                // ✅ редирект по ролям
+                NavigationManager.redirectByRole(this.currentUser.role);
             } else {
                 console.log('Пользователь не авторизован');
                 this.showLoginMessage();
@@ -46,11 +79,5 @@ class AuthManager {
                 </div>
             </div>
         `;
-    }
-
-    logout() {
-        if (confirm('Вы уверены, что хотите выйти?')) {
-            window.location.href = '/admin/logout';
-        }
     }
 }
