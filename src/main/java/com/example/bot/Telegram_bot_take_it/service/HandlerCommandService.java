@@ -16,11 +16,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class HandlerCommandService {
 
-    private final UserTransactionService userTransactionService;
     private final KeyboardService keyboardService;
     private final TelegramMessageSender messageSender;
     private final CartService cartService;
     private final OrderHistoryHandler orderHistoryHandler;
+    private final TelegramUserRegistrar telegramUserRegistrar;
 
     /**
      * Обработка команды /start
@@ -31,7 +31,7 @@ public class HandlerCommandService {
             TelegramUserDto telegramUserDto = convertToTelegramUserDto(telegramUser);
             log.info("DTO создан: id={}, username={}", telegramUserDto.getId(), telegramUserDto.getUsername());
 
-            User user = userTransactionService.registerOrUpdateUser(telegramUserDto, chatId);
+            User user = telegramUserRegistrar.registerOrUpdate(telegramUser, chatId);
 
             if (user != null) {
                 log.info("Пользователь создан/обновлен: id={}, name={}", user.getId(), user.getName());
@@ -89,7 +89,7 @@ public class HandlerCommandService {
         try {
             TelegramUserDto telegramUserDto = convertToTelegramUserDto(telegramUser);
 
-            User user = userTransactionService.registerOrUpdateUser(telegramUserDto, chatId);
+            User user = telegramUserRegistrar.registerOrUpdate(telegramUserDto, chatId);
 
             if (user == null) {
                 messageSender.sendMessage(chatId, "❌ Не удалось загрузить данные пользователя");
@@ -106,7 +106,7 @@ public class HandlerCommandService {
     }
 
     /**
-     * Конвертация в DTO
+     * Формирует DTO пользователя Telegram для дальнейшей обработки в системе
      */
     private TelegramUserDto convertToTelegramUserDto(com.pengrad.telegrambot.model.User telegramUser) {
         return TelegramUserDto.builder()
@@ -120,7 +120,7 @@ public class HandlerCommandService {
     }
 
     /**
-     * Отправление начального сообщения
+     * Отправляет приветственное сообщение пользователю с клавиатурой главного меню
      */
     private void sendWelcomeMessage(Long chatId, User user) {
         if (user == null) {
@@ -168,6 +168,9 @@ public class HandlerCommandService {
         orderHistoryHandler.handleOrderHistory(chatId);
     }
 
+    /**
+     * Отправляет сообщение о нас
+     */
     public void handleInfoAboutUs(Long chatId) {
         messageSender.sendMessage(chatId, Messages.ABOUT_US_TEXT);
     }

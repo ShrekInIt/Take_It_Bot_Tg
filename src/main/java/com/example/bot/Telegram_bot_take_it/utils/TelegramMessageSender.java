@@ -138,19 +138,37 @@ public class TelegramMessageSender {
     }
 
     /**
-     * Отправить фото
+     * Отправить фото по id
      */
-    public void sendPhoto(Long chatId,  byte[] photoBytes, String caption,  InlineKeyboardMarkup keyboard, boolean parseMode){
-        SendPhoto sendPhoto = new SendPhoto(chatId.toString(), photoBytes)
+    public SendResponse sendPhotoByFileId(Long chatId, String fileId, String caption,
+                                          InlineKeyboardMarkup keyboard, boolean parseMode) {
+
+        SendPhoto sendPhoto = new SendPhoto(chatId.toString(), fileId)
                 .caption(caption)
-                .parseMode(ParseMode.HTML)
                 .replyMarkup(keyboard);
 
         if (parseMode) {
             sendPhoto.parseMode(ParseMode.HTML);
         }
 
-        bot.execute(sendPhoto);
+        return bot.execute(sendPhoto);
+    }
+
+    /**
+     * Отправить фото
+     */
+    public SendResponse sendPhoto(Long chatId, byte[] photoBytes, String caption,
+                                  InlineKeyboardMarkup keyboard, boolean parseMode) {
+
+        SendPhoto sendPhoto = new SendPhoto(chatId.toString(), photoBytes)
+                .caption(caption)
+                .replyMarkup(keyboard);
+
+        if (parseMode) {
+            sendPhoto.parseMode(ParseMode.HTML);
+        }
+
+        return bot.execute(sendPhoto);
     }
 
     /**

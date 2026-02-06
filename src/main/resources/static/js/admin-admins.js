@@ -1,3 +1,5 @@
+/* global axios, bootstrap */
+
 class AdminManager {
     static async loadAdmins() {
         console.log('Загрузка администраторов...');

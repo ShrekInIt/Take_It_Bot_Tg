@@ -1,11 +1,9 @@
-class DashboardManager {
-    // Базовый URL для всех запросов дашборда
-    static API_BASE = `${new AuthManager().API_BASE}/dashboard`;
+/* global axios, bootstrap */
 
-    // Флаг, чтобы инициализация выполнялась один раз
+class DashboardManager {
+    static API_BASE = `${new AuthManager().API_BASE}/dashboard`;
     static _inited = false;
 
-    // Инициализация дашборда
     static async init() {
         if (this._inited) return;
         this._inited = true;
@@ -15,7 +13,6 @@ class DashboardManager {
         await this.loadRecentUsers();
     }
 
-    // Загрузка статистики
     static async loadStats() {
         try {
             const response = await axios.get(`${this.API_BASE}/stats`);
@@ -33,7 +30,6 @@ class DashboardManager {
         }
     }
 
-    // Загрузка последних заказов
     static async loadRecentOrders() {
         try {
             const response = await axios.get(`${this.API_BASE}/orders/recent`);
@@ -68,7 +64,6 @@ class DashboardManager {
         }
     }
 
-    // Загрузка последних пользователей
     static async loadRecentUsers() {
         try {
             const response = await axios.get(`${this.API_BASE}/users/recent`);
@@ -99,7 +94,6 @@ class DashboardManager {
         }
     }
 
-    // Получение цвета статуса заказа
     static getStatusColor(status) {
         if (!status) return 'secondary';
         switch(status.toLowerCase()) {
@@ -113,7 +107,6 @@ class DashboardManager {
         }
     }
 
-    // Текст статуса заказа
     static getStatusText(status) {
         if (!status) return 'Неизвестно';
         switch(status.toLowerCase()) {
@@ -128,7 +121,6 @@ class DashboardManager {
     }
 }
 
-// Автоинициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
-    DashboardManager.init();
+    void DashboardManager.init();
 });

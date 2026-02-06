@@ -1,34 +1,22 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
-import com.example.bot.Telegram_bot_take_it.admin.dto.*;
-import com.example.bot.Telegram_bot_take_it.admin.exception.ResourceNotFoundException;
 import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
-import com.example.bot.Telegram_bot_take_it.admin.dto.AdminOrderDto;
 import com.example.bot.Telegram_bot_take_it.dto.OrderData;
-import com.example.bot.Telegram_bot_take_it.dto.OrderItemDtoBot;
 import com.example.bot.Telegram_bot_take_it.dto.OrderRequest;
 import com.example.bot.Telegram_bot_take_it.entity.*;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
-import com.example.bot.Telegram_bot_take_it.utils.ConfectioneryBotClient;
-import com.example.bot.Telegram_bot_take_it.utils.OrderStatusNotifier;
-import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
-import jakarta.persistence.EntityNotFoundException;
+import com.example.bot.Telegram_bot_take_it.utils.interfaces.ConfectioneryClient;
+import com.example.bot.Telegram_bot_take_it.utils.interfaces.OrderUserNotifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.toList;
 
 @Service
 @Slf4j
@@ -41,10 +29,8 @@ public class OrderService {
     private final UserService userService;
     private final CartService cartService;
     private final ProductService productService;
-    private final ConfectioneryBotClient confectioneryBotClient;
-    private final OrderStatusNotifier orderStatusNotifier;
-    private final OrderMapper orderMapper;
-    private final TelegramMessageSender telegramMessageSender;
+    private final ConfectioneryClient confectioneryClient;
+    private final OrderUserNotifier orderUserNotifier;
 
     /**
      * Получить все заказы пользователя с загруженными items
@@ -100,7 +86,7 @@ public class OrderService {
     /**
      * Вспомогательный метод для загрузки addons для заказа
      */
-    private void loadAddonsForOrder(Order order) {
+    public void loadAddonsForOrder(Order order) {
         List<OrderItem> itemsWithAddons = orderRepository.findOrderItemsWithAddons(order.getId());
         Map<Long, OrderItem> itemsMap = itemsWithAddons.stream()
                 .collect(Collectors.toMap(OrderItem::getId, item -> item));
@@ -229,108 +215,19 @@ public class OrderService {
                     savedOrder.getId(), savedOrder.getOrderNumber(),
                     user.getName(), savedOrder.getTotalAmount());
 
-            OrderRequest orderRequest = convertToOrderRequest(savedOrder);
-            confectioneryBotClient.sendOrderToConfectionery(orderRequest);
+            OrderRequest orderRequest = OrderMapper.convertToOrderRequest(savedOrder);
+            confectioneryClient.sendOrderToConfectionery(orderRequest);
 
             return savedOrder;
 
-        } catch (Exception e) {
+        }catch (IllegalArgumentException e) {
+            log.warn("Невозможно создать заказ: {}", e.getMessage());
+            throw e;
+        }
+        catch (Exception e) {
             log.error("Ошибка при создании заказа: {}", e.getMessage(), e);
             throw e;
         }
-    }
-
-    /**
-     * Конвертация сущности Order в OrderRequest для кондитерского бота
-     */
-    private OrderRequest convertToOrderRequest(Order order) {
-        OrderRequest orderRequest = new OrderRequest();
-
-        orderRequest.setOrderId(order.getId());
-        orderRequest.setOrderNumber(order.getOrderNumber());
-        orderRequest.setCustomerName(order.getUser().getName());
-        orderRequest.setCustomerChatId(order.getUser().getChatId());
-        orderRequest.setPhoneNumber(order.getPhoneNumber());
-        orderRequest.setAddress(order.getAddress());
-        orderRequest.setComments(order.getComments());
-        orderRequest.setTotalAmount(order.getTotalAmount());
-        orderRequest.setDeliveryType(order.getDeliveryType().getDescription());
-        orderRequest.setStatus(order.getStatus().name());
-        orderRequest.setCreatedAt(order.getCreatedAt());
-
-        if (order.getItems() != null && !order.getItems().isEmpty()) {
-            List<OrderItemDtoBot> itemDtos = new ArrayList<>();
-
-            Map<String, List<OrderItem>> groupedItems = groupOrderItems(order.getItems());
-
-            for (Map.Entry<String, List<OrderItem>> entry : groupedItems.entrySet()) {
-                List<OrderItem> group = entry.getValue();
-                OrderItem firstItem = group.getFirst();
-
-                int totalQuantity = group.stream().mapToInt(OrderItem::getQuantity).sum();
-                int pricePerItem = firstItem.getPriceAtOrder();
-                int totalPrice = pricePerItem * totalQuantity;
-
-                List<String> addons = new ArrayList<>();
-                if (firstItem.getAddons() != null) {
-                    addons = firstItem.getAddons().stream()
-                            .map(addon -> addon.getAddonProductName() != null ?
-                                    addon.getAddonProductName() : "Добавка")
-                            .collect(toList());
-                }
-
-                OrderItemDtoBot itemDto = new OrderItemDtoBot(
-                        firstItem.getProductName(),
-                        totalQuantity,
-                        pricePerItem,
-                        totalPrice,
-                        addons
-                );
-
-                itemDtos.add(itemDto);
-            }
-
-            orderRequest.setItems(itemDtos);
-        }
-
-        return orderRequest;
-    }
-
-    /**
-     * Группировка OrderItem по продукту и добавкам
-     */
-    private Map<String, List<OrderItem>> groupOrderItems(List<OrderItem> orderItems) {
-        Map<String, List<OrderItem>> groupedMap = new LinkedHashMap<>();
-
-        for (OrderItem item : orderItems) {
-            String key = generateGroupKey(item);
-            groupedMap.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
-        }
-
-        return groupedMap;
-    }
-
-    /**
-     * Генерация ключа для группировки
-     */
-    private String generateGroupKey(OrderItem orderItem) {
-        StringBuilder keyBuilder = new StringBuilder();
-        keyBuilder.append(orderItem.getProduct().getId());
-
-        if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
-            String addonsKey = orderItem.getAddons().stream()
-                    .map(addon -> addon.getAddonProduct() != null ?
-                            String.valueOf(addon.getAddonProduct().getId()) : "")
-                    .filter(s -> !s.isEmpty())
-                    .sorted()
-                    .collect(Collectors.joining(","));
-
-            if (!addonsKey.isEmpty()) {
-                keyBuilder.append("_").append(addonsKey);
-            }
-        }
-
-        return keyBuilder.toString();
     }
 
     /**
@@ -357,7 +254,7 @@ public class OrderService {
                 log.info("✅ Статус заказа {} обновлен на: {}", orderId, status);
 
                 if (shouldNotifyUser(order.getStatus())) {
-                    orderStatusNotifier.sendStatusUpdateNotification(order);
+                    orderUserNotifier.sendStatusUpdateNotification(order);
                 }
 
                 return true;
@@ -382,176 +279,5 @@ public class OrderService {
     private boolean shouldNotifyUser(Order.OrderStatus newStatus) {
         return (newStatus == Order.OrderStatus.CONFIRMED ||
                 newStatus == Order.OrderStatus.COMPLETED);
-    }
-
-    public long countActiveOrders() {
-        return orderRepository.countByStatusIn(Order.OrderStatus.activeStatuses());
-    }
-
-    public List<Order> findAll() {
-        return orderRepository.findAll();
-    }
-
-    public Order updateStatus(Long id, String status) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        order.setStatus(Order.OrderStatus.valueOf(status));
-        return orderRepository.save(order);
-    }
-
-    public Order save(Order order) {
-        return orderRepository.save(order);
-    }
-
-    public List<AdminOrderDto> getOrdersByUsername(String username) {
-        List<Order> orders = orderRepository.findByUsername(username.trim().toLowerCase());
-
-        return orders.stream().map(o -> AdminOrderDto.builder()
-                .id(o.getId())
-                .orderNumber(o.getOrderNumber())
-                .totalAmount(o.getTotalAmount())
-                .status(o.getStatus())
-                .deliveryType(o.getDeliveryType())
-                .userName(o.getUser().getName())
-                .phoneNumber(o.getPhoneNumber())
-                .address(o.getAddress())
-                .comments(o.getComments())
-                .createdAt(o.getCreatedAt())
-                .build()
-        ).collect(toList());
-
-    }
-
-    @Transactional(readOnly = true)
-    public OrderDto getById(Long id) {
-
-        OrderDto order = orderRepository.findByIdWithDetails(id)
-                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + id));
-
-        List<OrderItem> orderItems = orderItemRepository.findItemsByOrderId(id);
-
-        List<OrderItemDto> items = orderItems.stream()
-                .map(i -> new OrderItemDto(
-                        i.getId(),
-                        new ProductDto(i.getProduct().getId(), i.getProduct().getName()),
-                        i.getQuantity(),
-                        i.getPriceAtOrder()
-                ))
-                .toList();
-
-        items.forEach(item -> {
-            List<OrderItemAddonDto> addons =
-                    orderItemAddonRepository.findByOrderItemId(item.getId());
-            item.setAddons(addons);
-        });
-
-        order.setItems(items);
-
-        return order;
-    }
-
-    @Transactional
-    public void removeOrderItem(Long orderId, Long itemId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
-
-        Optional<OrderItem> maybeItem = order.getItems().stream()
-                .filter(i -> i.getId().equals(itemId))
-                .findFirst();
-
-        if (maybeItem.isEmpty()) {
-            throw new ResourceNotFoundException("Order item not found: " + itemId);
-        }
-
-        OrderItem item = maybeItem.get();
-        order.getItems().remove(item);
-        orderItemRepository.delete(item);
-
-        loadAddonsForOrder(order);
-
-        int total = order.getItems().stream()
-                .mapToInt(i -> {
-                    int itemSum = (i.getPriceAtOrder() == null ? 0 : i.getPriceAtOrder()) * (i.getQuantity() == null ? 1 : i.getQuantity());
-                    int addonsSum = 0;
-                    if (i.getAddons() != null) {
-                        addonsSum = i.getAddons().stream()
-                                .mapToInt(a -> (a.getPriceAtOrder() == null ? 0 : a.getPriceAtOrder()) * (a.getQuantity() == null ? 1 : a.getQuantity()))
-                                .sum();
-                    }
-                    return itemSum + addonsSum;
-                })
-                .sum();
-        order.setTotalAmount(total);
-
-        orderRepository.save(order);
-    }
-
-    /**
-     * Обновляет поля заказа (в этом примере — статус) и возвращает обновлённый DTO.
-     * Валидация статуса должна соответствовать enum'у в Order (Order.OrderStatus).
-     */
-    @Transactional
-    public OrderDto updateOrderStatusAdmin(Long orderId, String statusStr) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
-
-        if (statusStr == null || statusStr.isBlank()) {
-            throw new IllegalArgumentException("Status is required");
-        }
-
-        try {
-            Order.OrderStatus statusEnum = Order.OrderStatus.valueOf(statusStr.toUpperCase());
-            if(Objects.equals(statusEnum.getDescription(), "Подтвержден") && !order.getStatus().equals(statusEnum)) {
-                Long chatId = getChatIdByOrderId(orderId);
-                telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ подтверждён!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.");
-            }
-            if(Objects.equals(statusEnum.getDescription(), "Завершен") && !order.getStatus().equals(statusEnum)){
-                Long chatId = getChatIdByOrderId(orderId);
-                telegramMessageSender.sendMessageHtml(chatId, "*Заказ завершён!*\n\nСпасибо за заказ! Надеемся, вам понравилось! 😊");
-            }
-            order.setStatus(statusEnum);
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Unknown status: " + statusStr);
-        }
-
-        orderRepository.save(order);
-        return orderMapper.toDto(order);
-    }
-
-    // Доход за сегодня
-    public Integer calculateTodayRevenue() {
-        LocalDateTime start = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime end = start.plusDays(1);
-        Integer revenue = orderRepository.sumTotalAmountByDateOrderBetween(start, end);
-        return revenue != null ? revenue : 0;
-    }
-
-    public Integer countOrdersToday() {
-        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        LocalDateTime endOfDay = LocalDateTime.now();
-        return orderRepository.countByCreatedAtBetween(startOfDay, endOfDay);
-    }
-
-    /**
-     * Возвращает последние N заказов, user уже будет инициализирован (EntityGraph).
-     */
-    @Transactional(readOnly = true)
-    public List<AdminOrderDto> getRecentOrders(int limit) {
-        Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return orderRepository.findAllByOrderByCreatedAtDesc(pageable)
-                .stream()
-                .map(order -> AdminOrderDto.builder()
-                        .id(order.getId())
-                        .orderNumber(order.getOrderNumber())
-                        .totalAmount(order.getTotalAmount())
-                        .status(order.getStatus())
-                        .deliveryType(order.getDeliveryType())
-                        .userName(order.getUser() != null ? order.getUser().getName() : null)
-                        .phoneNumber(order.getPhoneNumber())
-                        .address(order.getAddress())
-                        .comments(order.getComments())
-                        .createdAt(order.getCreatedAt())
-                        .build())
-                .collect(Collectors.toList());
     }
 }

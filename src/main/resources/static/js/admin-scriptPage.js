@@ -1,36 +1,39 @@
 class PageScriptExecutor {
-    static execute() {
-        console.log('Выполнение скриптов для загруженной страницы');
-        const content = document.getElementById('contentArea').innerHTML;
+    static async execute() {
+        const contentEl = document.getElementById('contentArea');
+        if (!contentEl) return;
 
-        if (content.includes('id="totalUsers"')) {
-            console.log('Обнаружена страница дашборда');
-            DashboardManager.loadStats();
-        }
+        const content = contentEl.innerHTML;
 
-        if (content.includes('id="usersTableBody"')) {
-            console.log('Обнаружена страница пользователей');
-            UserManager.loadUsers();
-        }
+        try {
+            if (content.includes('id="totalUsers"')) {
+                await DashboardManager.loadStats();
+            }
 
-        if (content.includes('id="categoriesTableBody"')) {
-            console.log('Обнаружена страница категорий');
-            CategoryManager.loadCategories();
-        }
+            if (content.includes('id="usersTableBody"')) {
+                await UserManager.loadUsers();
+            }
 
-        if (content.includes('id="productsTableBody"')) {
-            console.log('Обнаружена страница продуктов');
-            ProductManager.loadProducts();
-        }
+            if (content.includes('id="categoriesTableBody"')) {
+                await CategoryManager.loadCategories();
+            }
 
-        if (content.includes('id="ordersTableBody"')) {
-            console.log('Обнаружена страница заказов');
-            OrderManager.loadOrders();
-        }
+            if (content.includes('id="productsTableBody"')) {
+                await ProductManager.loadProducts();
+            }
 
-        if (content.includes('id="adminUsersTableBody"')) {
-            console.log('Обнаружена страница администраторов');
-            AdminManager.loadAdmins();
+            if (content.includes('id="ordersTableBody"')) {
+                await OrderManager.loadOrders();
+            }
+
+            if (content.includes('id="adminUsersTableBody"')) {
+                await AdminManager.loadAdmins();
+            }
+        } catch (e) {
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.showToast('Ошибка загрузки данных страницы', 'danger');
+            }
+            console.error(e);
         }
     }
 }

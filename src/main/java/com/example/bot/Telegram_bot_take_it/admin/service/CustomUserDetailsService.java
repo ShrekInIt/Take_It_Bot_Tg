@@ -9,12 +9,37 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+/**
+ * Реализация UserDetailsService для Spring Security.
+ * <p>
+ * Spring Security вызывает этот сервис при логине, чтобы:
+ *  - найти администратора по username
+ *  - проверить, что он активен
+ *  - собрать UserDetails (username/passwordHash/roles) для дальнейшей авторизации
+ */
 @Service
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
+    /** Репозиторий для поиска администратора по username */
     private final AdminUserRepository adminUserRepository;
 
+    /**
+     * Загружает пользователя (админа) по username для механизма аутентификации Spring Security.
+     * <p>
+     * Логика:
+     *  - ищет AdminUser в базе по username
+     *  - если не найден — кидает UsernameNotFoundException
+     *  - если admin не активен — также кидает UsernameNotFoundException
+     *  - возвращает UserDetails (Spring Security User) с:
+     *      username
+     *      passwordHash
+     *      roles(admin.getRole())
+     *
+     * @param username логин администратора
+     * @return UserDetails для Spring Security
+     * @throws UsernameNotFoundException если админ не найден или неактивен
+     */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 

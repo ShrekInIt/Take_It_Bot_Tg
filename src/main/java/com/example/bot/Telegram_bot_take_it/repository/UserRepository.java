@@ -1,6 +1,5 @@
 package com.example.bot.Telegram_bot_take_it.repository;
 
-import com.example.bot.Telegram_bot_take_it.admin.dto.AdminUserDto;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,12 +27,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(u) FROM User u WHERE u.isActive = true")
     long countActiveUsers();
 
-
     @Query("SELECT u FROM User u ORDER BY u.createdAt DESC")
-    List<AdminUserDto> findAllOrderByCreatedAtDescUserDto();
-
-    @Query("SELECT u FROM User u WHERE u.id = :id")
-    Optional<AdminUserDto> findByIdUserDto(Long id);
+    List<User> findAllOrderByCreatedAtDesc();
 
     @Query("""
     select u from User u

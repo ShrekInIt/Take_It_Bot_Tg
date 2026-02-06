@@ -5,10 +5,7 @@ import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Order;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.entity.User;
-import com.example.bot.Telegram_bot_take_it.service.CartService;
-import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
-import com.example.bot.Telegram_bot_take_it.service.OrderService;
-import com.example.bot.Telegram_bot_take_it.service.UserService;
+import com.example.bot.Telegram_bot_take_it.service.*;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.TelegramBot;
@@ -22,9 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
@@ -38,9 +33,7 @@ public class OrderHandler {
     private final OrderHistoryHandler orderHistoryHandler;
     private final TelegramMessageSender telegramMessageSender;
     private final KeyboardService keyboardService;
-
-    // Мапа для хранения временных данных заказа
-    private final Map<Long, OrderData> orderDataMap = new ConcurrentHashMap<>();
+    private final OrderSessionService orderSessionService;
 
     /**
      * Обработка callback-запросов для заказов
@@ -84,10 +77,11 @@ public class OrderHandler {
 
             userService.updatePhoneNumber(chatId, phoneNumber);
 
-            OrderData orderData = orderDataMap.get(chatId);
-            if (orderData != null) {
-                orderData.setPhoneNumber(phoneNumber);
-                orderDataMap.put(chatId, orderData);
+            var optSession = orderSessionService.get(chatId);
+            if (optSession.isPresent()) {
+                var session = optSession.get();
+                session.setPhoneNumber(phoneNumber);
+                orderSessionService.save(session);
 
                 ReplyKeyboardRemove removeKeyboard = new ReplyKeyboardRemove();
                 SendMessage removeMessage = new SendMessage(chatId.toString(), "✅ Номер телефона получен")
@@ -111,38 +105,49 @@ public class OrderHandler {
         try {
             log.info("Обработка текста в OrderHandler: chatId={}, text={}", chatId, text);
 
-            OrderData orderData = orderDataMap.get(chatId);
+            var optSession = orderSessionService.get(chatId);
 
-            if (orderData == null) {
+            if (optSession.isEmpty()) {
                 if (isPhoneNumber(text)) {
                     processPhoneNumberInput(chatId, text, messageId);
                 }
                 return;
             }
 
+            var session = optSession.get();
+
+            String normalized = text;
             if (text.equalsIgnoreCase("пропустить") || text.equalsIgnoreCase("нет") ||
                     text.equalsIgnoreCase("skip") || text.equalsIgnoreCase("no")) {
-                text = "Пропущено";
+                normalized = "Пропущено";
             }
 
-            if (orderData.getDeliveryType() != null &&
-                    orderData.getDeliveryType().equals("DELIVERY") &&
-                    orderData.getAddress() == null) {
-
-                orderData.setAddress(text);
-                orderDataMap.put(chatId, orderData);
-                askForComments(chatId, messageId);
-
-            }
-            else if ((orderData.getDeliveryType() != null && orderData.getDeliveryType().equals("PICKUP")) ||
-                    (orderData.getAddress() != null && orderData.getComments() == null)) {
-
-                orderData.setComments(text);
-                orderDataMap.put(chatId, orderData);
-                showOrderConfirmation(chatId);
-            }
-            else if (orderData.getDeliveryType() == null) {
+            if (session.getDeliveryType() == null) {
                 messageSender.sendMessage(chatId, "⚠️ Пожалуйста, сначала выберите способ получения заказа.");
+                return;
+            }
+
+            if ("DELIVERY".equals(session.getDeliveryType())) {
+                if (session.getAddress() == null) {
+                    session.setAddress(normalized);
+                    orderSessionService.save(session);
+                    askForComments(chatId, messageId);
+                    return;
+                }
+                if (session.getComments() == null) {
+                    session.setComments(normalized);
+                    orderSessionService.save(session);
+                    showOrderConfirmation(chatId);
+                    return;
+                }
+            }
+
+            if ("PICKUP".equals(session.getDeliveryType())) {
+                if (session.getComments() == null) {
+                    session.setComments(normalized);
+                    orderSessionService.save(session);
+                    showOrderConfirmation(chatId);
+                }
             }
 
         } catch (Exception e) {
@@ -178,17 +183,13 @@ public class OrderHandler {
 
             User user = userOpt.get();
 
-            OrderData orderData = OrderData.builder()
-                    .chatId(chatId)
-                    .cartItems(cartService.getCartItems(chatId))
-                    .build();
-            orderDataMap.put(chatId, orderData);
+            var session = orderSessionService.createOrReset(chatId);
 
             if (user.getPhoneNumber() == null || user.getPhoneNumber().isEmpty()) {
                 askForPhoneNumber(chatId);
             } else {
-                orderData.setPhoneNumber(user.getPhoneNumber());
-                orderDataMap.put(chatId, orderData);
+                session.setPhoneNumber(user.getPhoneNumber());
+                orderSessionService.save(session);
                 askForDeliveryType(chatId, messageId);
             }
 
@@ -323,17 +324,17 @@ public class OrderHandler {
      * Обработка выбора типа доставки
      */
     private void handleDeliveryTypeSelected(Long chatId, String callbackId, Integer messageId) {
-        OrderData orderData = orderDataMap.get(chatId);
-        if (orderData == null) {
+        var optSession = orderSessionService.get(chatId);
+        if (optSession.isEmpty()) {
             messageSender.answerCallback(callbackId, "❌ Данные заказа не найдены");
             return;
         }
 
-        orderData.setDeliveryType("PICKUP");
-        orderDataMap.put(chatId, orderData);
+        var session = optSession.get();
+        session.setDeliveryType("PICKUP");
+        orderSessionService.save(session);
 
         askForComments(chatId, messageId);
-
         messageSender.answerCallback(callbackId, "✅ Способ получения: Самовывоз");
     }
 
@@ -359,16 +360,19 @@ public class OrderHandler {
      * Показать подтверждение заказа
      */
     private void showOrderConfirmation(Long chatId) {
-        OrderData orderData = orderDataMap.get(chatId);
-        if (orderData == null) {
+        var optSession = orderSessionService.get(chatId);
+        if (optSession.isEmpty()) {
             messageSender.sendMessage(chatId, "❌ Данные заказа не найдены");
             return;
         }
 
+        var session = optSession.get();
+
         int totalAmount = cartService.getCartTotal(chatId);
-        String deliveryText = orderData.getDeliveryType().equals("PICKUP")
+
+        String deliveryText = "PICKUP".equals(session.getDeliveryType())
                 ? "🚶 Самовывоз"
-                : "🚚 Доставка по адресу: " + orderData.getAddress();
+                : "🚚 Доставка по адресу: " + session.getAddress();
 
         String message = String.format("""
             ✅ *Подтверждение заказа*
@@ -385,13 +389,18 @@ public class OrderHandler {
             
             Подтвердить заказ?
             """,
-                orderData.getPhoneNumber(),
+                session.getPhoneNumber(),
                 deliveryText,
                 totalAmount,
-                orderData.getComments() != null ? orderData.getComments() : "Нет"
+                session.getComments() != null ? session.getComments() : "Нет"
         );
 
-        telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message, keyboardService.createKeyboardConfirmOrder(), true);
+        telegramMessageSender.sendMessageWithInlineKeyboard(
+                chatId,
+                message,
+                keyboardService.createKeyboardConfirmOrder(),
+                true
+        );
     }
 
     /**
@@ -399,21 +408,37 @@ public class OrderHandler {
      */
     private void handleOrderConfirm(Long chatId, String callbackId, Integer messageId) {
         try {
-            OrderData orderData = orderDataMap.get(chatId);
-            if (orderData == null) {
+            var optSession = orderSessionService.get(chatId);
+            if (optSession.isEmpty()) {
                 messageSender.answerCallback(callbackId, "❌ Данные заказа не найдены");
                 return;
             }
 
+            var session = optSession.get();
+
+            OrderData orderData = OrderData.builder()
+                    .chatId(chatId)
+                    .cartItems(cartService.getCartItems(chatId))
+                    .deliveryType(session.getDeliveryType())
+                    .address(session.getAddress())
+                    .comments(session.getComments())
+                    .phoneNumber(session.getPhoneNumber())
+                    .build();
+
             Order order = orderService.createOrderFromCart(chatId, orderData);
 
             cartService.clearCart(chatId);
-
-            orderDataMap.remove(chatId);
+            orderSessionService.clear(chatId);
 
             String orderMessage = createOrderConfirmationMessage(order);
 
-            telegramMessageSender.sendEditMessage(chatId, messageId, orderMessage, keyboardService.createEmptyCartKeyboard(), true);
+            telegramMessageSender.sendEditMessage(
+                    chatId,
+                    messageId,
+                    orderMessage,
+                    keyboardService.createEmptyCartKeyboard(),
+                    true
+            );
 
         } catch (Exception e) {
             log.error("Ошибка при подтверждении заказа: {}", e.getMessage(), e);
@@ -446,7 +471,7 @@ public class OrderHandler {
      * Отмена заказа
      */
     private void handleOrderCancel(Long chatId, String callbackId, Integer messageId) {
-        orderDataMap.remove(chatId);
+        orderSessionService.clear(chatId);
 
         String cartDescription = cartService.getCartDescription(chatId);
 

@@ -1,3 +1,5 @@
+/* global axios, bootstrap */
+
 class CategoryManager {
     static API_BASE = `${new AuthManager().API_BASE}/categories`;
     static API_ROOT = new AuthManager().API_BASE;

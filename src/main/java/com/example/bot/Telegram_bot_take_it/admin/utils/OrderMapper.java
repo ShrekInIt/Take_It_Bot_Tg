@@ -1,13 +1,47 @@
 package com.example.bot.Telegram_bot_take_it.admin.utils;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.*;
+import com.example.bot.Telegram_bot_take_it.dto.OrderItemDtoBot;
+import com.example.bot.Telegram_bot_take_it.dto.OrderRequest;
 import com.example.bot.Telegram_bot_take_it.entity.*;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
+
+/**
+ * Маппер (конвертер) объектов между сущностями (Entity) и DTO.
+ * <p>
+ * Этот класс используется в админке и в части интеграции с "кондитерским ботом":
+ *  - Order -> OrderDto (подробный заказ для админ-панели)
+ *  - Category/Product/User -> Admin*Dto (формат для таблиц админки)
+ *  - Order -> OrderRequest (формат заказа для внешнего/другого бота)
+ * <p>
+ * Также содержит утилиты для группировки позиций заказа по товару и набору добавок.
+ */
 @Component
 public class OrderMapper {
+
+    /**
+     * Конвертирует сущность Order в DTO для админки (OrderDto).
+     * <p>
+     * Заполняет основные поля заказа:
+     *  - id, createdAt, статус, сумма
+     *  - адрес доставки, комментарий
+     *  - пользователя (через toUserDto)
+     *  - список позиций (items) (через toItemDto)
+     * <p>
+     * Если order == null -> возвращает null.
+     * Если items == null -> ставит пустой список.
+     *
+     * @param order сущность заказа из БД
+     * @return OrderDto для отдачи на фронт админки
+     */
     public OrderDto toDto(Order order) {
         if (order == null) return null;
 
@@ -36,6 +70,20 @@ public class OrderMapper {
         return dto;
     }
 
+    /**
+     * Конвертирует сущность User в UserDto (упрощённый пользователь для заказа).
+     * <p>
+     * Заполняет:
+     *  - id
+     *  - username (берётся из user.getName())
+     *  - telegramId
+     *  - phoneNumber
+     * <p>
+     * Если user == null -> возвращает null.
+     *
+     * @param user сущность пользователя
+     * @return UserDto для вложения в OrderDto
+     */
     private UserDto toUserDto(User user) {
         if (user == null) return null;
 
@@ -50,7 +98,23 @@ public class OrderMapper {
         return dto;
     }
 
-
+    /**
+     * Конвертирует сущность OrderItem (позиция заказа) в OrderItemDto.
+     * <p>
+     * Заполняет:
+     *  - id, quantity
+     *  - price (берётся из priceAtOrder)
+     *  - product.name (берётся из item.getProductName())
+     *  - addons (если есть) через toAddonDto
+     * <p>
+     * Важно: здесь ProductDto создаётся и заполняется только name,
+     * ID товара не заполняется (по логике текущего файла).
+     * <p>
+     * Если addons == null -> ставит пустой список.
+     *
+     * @param item позиция заказа
+     * @return OrderItemDto для отдачи на фронт админки
+     */
     private OrderItemDto toItemDto(OrderItem item) {
         if (item == null) return null;
 
@@ -77,7 +141,18 @@ public class OrderMapper {
         return dto;
     }
 
-
+    /**
+     * Конвертирует сущность OrderItemAddon (добавка к позиции) в OrderItemAddonDto.
+     * <p>
+     * Заполняет:
+     *  - id
+     *  - name (берётся из addonProductName)
+     *  - quantity
+     *  - price (берётся из priceAtOrder)
+     *
+     * @param addon сущность добавки
+     * @return DTO добавки
+     */
     private OrderItemAddonDto toAddonDto(OrderItemAddon addon) {
         if (addon == null) return null;
 
@@ -90,6 +165,16 @@ public class OrderMapper {
         return dto;
     }
 
+    /**
+     * Конвертирует Category в AdminCategoryDto для админки.
+     * <p>
+     * Дополнительно вытягивает данные связей:
+     *  - parentId / parentName (если есть родитель)
+     *  - categoryTypeId / categoryTypeName (если задан тип категории)
+     *
+     * @param c сущность категории
+     * @return AdminCategoryDto для отображения в админ-панели
+     */
     public static AdminCategoryDto toDtoCategory(Category c) {
         return AdminCategoryDto.builder()
                 .id(c.getId())
@@ -104,6 +189,15 @@ public class OrderMapper {
                 .build();
     }
 
+    /**
+     * Конвертирует Product в AdminProductDto для админки.
+     * <p>
+     * Дополнительно:
+     *  - вытягивает categoryId/categoryName, если категория задана
+     *
+     * @param p сущность товара
+     * @return AdminProductDto для админ-панели
+     */
     public static AdminProductDto toDtoProduct(Product p) {
         return AdminProductDto.builder()
                 .id(p.getId())
@@ -119,7 +213,14 @@ public class OrderMapper {
                 .build();
     }
 
-
+    /**
+     * Конвертирует User в AdminUserDto для админки.
+     * <p>
+     * Используется для таблицы пользователей/деталей пользователя.
+     *
+     * @param c сущность пользователя
+     * @return AdminUserDto
+     */
     public static AdminUserDto toDtoUser(User c) {
         return AdminUserDto.builder()
                 .id(c.getId())
@@ -131,5 +232,98 @@ public class OrderMapper {
                 .phoneNumber(c.getPhoneNumber())
                 .createdAt(c.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * Конвертация сущности Order в OrderRequest для кондитерского бота
+     */
+    public static OrderRequest convertToOrderRequest(Order order) {
+        OrderRequest orderRequest = new OrderRequest();
+
+        orderRequest.setOrderId(order.getId());
+        orderRequest.setOrderNumber(order.getOrderNumber());
+        orderRequest.setCustomerName(order.getUser().getName());
+        orderRequest.setCustomerChatId(order.getUser().getChatId());
+        orderRequest.setPhoneNumber(order.getPhoneNumber());
+        orderRequest.setAddress(order.getAddress());
+        orderRequest.setComments(order.getComments());
+        orderRequest.setTotalAmount(order.getTotalAmount());
+        orderRequest.setDeliveryType(order.getDeliveryType().getDescription());
+        orderRequest.setStatus(order.getStatus().name());
+        orderRequest.setCreatedAt(order.getCreatedAt());
+
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            List<OrderItemDtoBot> itemDtos = new ArrayList<>();
+
+            Map<String, List<OrderItem>> groupedItems = groupOrderItems(order.getItems());
+
+            for (Map.Entry<String, List<OrderItem>> entry : groupedItems.entrySet()) {
+                List<OrderItem> group = entry.getValue();
+                OrderItem firstItem = group.getFirst();
+
+                int totalQuantity = group.stream().mapToInt(OrderItem::getQuantity).sum();
+                int pricePerItem = firstItem.getPriceAtOrder();
+                int totalPrice = pricePerItem * totalQuantity;
+
+                List<String> addons = new ArrayList<>();
+                if (firstItem.getAddons() != null) {
+                    addons = firstItem.getAddons().stream()
+                            .map(addon -> addon.getAddonProductName() != null ?
+                                    addon.getAddonProductName() : "Добавка")
+                            .collect(toList());
+                }
+
+                OrderItemDtoBot itemDto = new OrderItemDtoBot(
+                        firstItem.getProductName(),
+                        totalQuantity,
+                        pricePerItem,
+                        totalPrice,
+                        addons
+                );
+
+                itemDtos.add(itemDto);
+            }
+
+            orderRequest.setItems(itemDtos);
+        }
+
+        return orderRequest;
+    }
+
+    /**
+     * Группировка OrderItem по продукту и добавкам
+     */
+    private static Map<String, List<OrderItem>> groupOrderItems(List<OrderItem> orderItems) {
+        Map<String, List<OrderItem>> groupedMap = new LinkedHashMap<>();
+
+        for (OrderItem item : orderItems) {
+            String key = generateGroupKey(item);
+            groupedMap.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
+        }
+
+        return groupedMap;
+    }
+
+    /**
+     * Генерация ключа для группировки
+     */
+    private static String generateGroupKey(OrderItem orderItem) {
+        StringBuilder keyBuilder = new StringBuilder();
+        keyBuilder.append(orderItem.getProduct().getId());
+
+        if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
+            String addonsKey = orderItem.getAddons().stream()
+                    .map(addon -> addon.getAddonProduct() != null ?
+                            String.valueOf(addon.getAddonProduct().getId()) : "")
+                    .filter(s -> !s.isEmpty())
+                    .sorted()
+                    .collect(Collectors.joining(","));
+
+            if (!addonsKey.isEmpty()) {
+                keyBuilder.append("_").append(addonsKey);
+            }
+        }
+
+        return keyBuilder.toString();
     }
 }

@@ -1,3 +1,5 @@
+/* global axios, bootstrap */
+
 let currentUser = null;
 const API_BASE = '/api/admin';
 

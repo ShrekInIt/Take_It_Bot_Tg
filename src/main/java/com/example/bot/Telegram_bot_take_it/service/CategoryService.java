@@ -2,7 +2,6 @@ package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.CategoryType;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryTypeRepository;
 import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
@@ -100,16 +99,6 @@ public class CategoryService {
         return categoryRepository.findById(categoryId);
     }
 
-    public void find(Long catId, Product product){
-        try {
-            Category category = categoryRepository.findById(catId)
-                    .orElseThrow(() -> new EntityNotFoundException("Category not found with id = " + catId));
-            product.setCategory(category);
-        } catch (Exception ex) {
-            log.warn("Не удалось установить Category relation: {}", ex.getMessage());
-        }
-    }
-
     public Category getById(Long id) {
         return categoryRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> new EntityNotFoundException("Категория не найдена: " + id));
@@ -177,7 +166,6 @@ public class CategoryService {
             }
         }
 
-        // обработка типа категории
         if (req.containsKey("categoryTypeId")) {
             Long ctId = getLongByKey(req, "categoryTypeId");
             if (ctId == null) {

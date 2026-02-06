@@ -5,6 +5,14 @@ import lombok.Setter;
 
 import java.util.List;
 
+/**
+ * DTO позиции заказа (order item).
+ * <p>
+ * Хранит:
+ *  - товар (ProductDto)
+ *  - количество и цену
+ *  - список добавок (addons), если они есть
+ */
 @Getter
 @Setter
 public class OrderItemDto {
@@ -18,6 +26,14 @@ public class OrderItemDto {
 
     private List<OrderItemAddonDto> addons;
 
+    /**
+     * Конструктор для создания позиции заказа из основных данных.
+     *
+     * @param id       ID позиции
+     * @param product  товар (упрощённый ProductDto)
+     * @param quantity количество
+     * @param price    цена позиции
+     */
     public OrderItemDto(Long id, ProductDto product, Integer quantity, Integer price) {
         this.id = id;
         this.product = product;
@@ -25,5 +41,8 @@ public class OrderItemDto {
         this.price = price;
     }
 
+    /**
+     * Пустой конструктор — нужен для сериализации/десериализации (Jackson).
+     */
     public OrderItemDto(){}
 }

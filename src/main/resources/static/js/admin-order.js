@@ -1,3 +1,29 @@
+/* global axios, bootstrap */
+/**
+ * @typedef {Object} OrderDto
+ * @property {number} id
+ * @typedef {{ name?:string, quantity?:number, price?:number }} AddonDto
+ * @typedef {{ id:number, quantity?:number, price?:number, product?:ProductDto, addons?:AddonDto[] }} OrderItemDto
+ * @typedef {{
+ *   id:number,
+ *   createdAt?: any,
+ *   status?:string,
+ *   totalAmount?:number,
+ *   userName?:string,
+ *   user?:UserDto,
+ *   deliveryType?:string,
+ *   deliveryAddress?:string,
+ *   comment?:string,
+ *   items?:OrderItemDto[]
+ * }} OrderDto
+ */
+/**
+ * @typedef {{ hide(): void, show(): void, dispose(): void }} BsModalInstance
+ * @typedef {{ getInstance(el: Element): (BsModalInstance|null), new(el: Element): BsModalInstance }} BsModalCtor
+ * @typedef {{ Modal: BsModalCtor }} BootstrapNs
+ */
+/** @type {BootstrapNs} */
+
 class OrderManager {
     static async loadOrders() {
         try {
@@ -28,9 +54,10 @@ class OrderManager {
         }
     }
 
+    /** @param {OrderDto} order */
     static createOrderRowElement(order) {
         const tr = document.createElement('tr');
-        tr.setAttribute('data-order-id', order.id);
+        tr.setAttribute('data-order-id', String(order.id));
 
         const createdDate = OrderManager.formatDate(order.createdAt);
         console.log(order);
@@ -61,13 +88,13 @@ class OrderManager {
         return tr;
     }
 
+    /** @param {any} value @returns {string} */
     static formatDate(value) {
         if (!value) return '—';
 
         try {
             let date;
 
-            // ✅ Формат из Java: [2026, 1, 8, 11, 31, 57, 332071000]
             if (Array.isArray(value) && value.length >= 6) {
                 const [
                     year,
@@ -81,25 +108,22 @@ class OrderManager {
 
                 date = new Date(
                     year,
-                    month - 1,              // ⚠️ месяц в JS с 0
+                    month - 1,
                     day,
                     hour,
                     minute,
                     second,
-                    Math.floor(nano / 1_000_000) // нс → мс
+                    Math.floor(nano / 1_000_000)
                 );
             }
-            // Date
             else if (value instanceof Date) {
                 date = value;
             }
-            // timestamp number
             else if (typeof value === 'number') {
                 date = new Date(
                     String(value).length === 10 ? value * 1000 : value
                 );
             }
-            // string
             else if (typeof value === 'string') {
                 date = new Date(value.includes(' ')
                     ? value.replace(' ', 'T')
@@ -182,7 +206,7 @@ class OrderManager {
         if (!tbody) return;
 
         if (!query) {
-            OrderManager.loadOrders();
+            await OrderManager.loadOrders();
             return;
         }
 
@@ -244,9 +268,11 @@ class OrderManager {
         }
     }
 
+    /** @param {OrderDto} order
+     * @param mode
+     */
     static showOrderModal(order, mode = 'view') {
 
-        // ===== 1. ПОЛНОСТЬЮ УНИЧТОЖАЕМ СТАРУЮ МОДАЛКУ =====
         const oldModal = document.getElementById('orderModal');
         if (oldModal) {
             const instance = bootstrap.Modal.getInstance(oldModal);
@@ -255,8 +281,6 @@ class OrderManager {
             }
             oldModal.remove();
         }
-
-        // ===== 2. ФОРМИРУЕМ HTML ПОЗИЦИЙ =====
         let orderItemsHtml;
 
         if (order.items && order.items.length > 0) {
@@ -299,7 +323,6 @@ class OrderManager {
             orderItemsHtml = '<tr><td colspan="5" class="text-center">Нет позиций</td></tr>';
         }
 
-        // ===== 3. СТАТУСЫ =====
         const statusOptions = [
             { value: 'PENDING', label: 'Ожидает' },
             { value: 'CONFIRMED', label: 'Подтвержден' },
@@ -314,7 +337,6 @@ class OrderManager {
         </option>`
         ).join('');
 
-        // ===== 4. HTML МОДАЛКИ =====
         const modalHtml = `
         <div class="modal fade" id="orderModal" tabindex="-1">
             <div class="modal-dialog modal-lg">
@@ -407,7 +429,6 @@ class OrderManager {
         </div>
     `;
 
-        // ===== 5. ДОБАВЛЯЕМ И ПОКАЗЫВАЕМ =====
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         const modal = new bootstrap.Modal(document.getElementById('orderModal'));
         modal.show();
@@ -427,7 +448,9 @@ class OrderManager {
     }
 
 
-
+    /**
+     * @param orderId
+     */
     static async updateOrder(orderId) {
         const statusSelect = document.getElementById('orderStatusSelect');
         if (!statusSelect) return;
@@ -441,10 +464,8 @@ class OrderManager {
 
             const updatedOrder = response.data;
 
-            // Обновляем строку в таблице
             OrderManager.updateOrderRow(updatedOrder);
 
-            // Закрываем модалку
             const modalEl = document.getElementById('orderModal');
             bootstrap.Modal.getInstance(modalEl).hide();
 
@@ -466,11 +487,9 @@ class OrderManager {
         try {
             await axios.delete(`${new AuthManager().API_BASE}/orders/${orderId}/items/${itemId}`);
 
-            // Перезагружаем данные заказа
             const response = await axios.get(`${new AuthManager().API_BASE}/orders/${orderId}`);
             const updatedOrder = response.data;
 
-            // Обновляем таблицу в модалке
             const tableBody = document.getElementById('orderItemsTableBody');
             if (tableBody) {
                 let itemsHtml;
@@ -512,19 +531,17 @@ class OrderManager {
                 tableBody.innerHTML = itemsHtml;
             }
 
-            // Обновляем общую сумму в модалке
             const totalAmountElement = document.getElementById('orderTotalAmount');
             const itemsTotalElement = document.getElementById('orderItemsTotal');
 
             if (totalAmountElement) {
-                totalAmountElement.textContent = updatedOrder.totalAmount || 0;
+                totalAmountElement.textContent = String(updatedOrder.totalAmount || 0);
             }
 
             if (itemsTotalElement) {
-                itemsTotalElement.textContent = updatedOrder.totalAmount || 0;
+                itemsTotalElement.textContent = String(updatedOrder.totalAmount || 0);
             }
 
-            // Обновляем строку в основной таблице
             OrderManager.updateOrderRow(updatedOrder);
 
             ToastManager.showToast('Позиция удалена', 'success');
@@ -547,19 +564,18 @@ class OrderManager {
     }
 }
 
-// Глобальные функции для совместимости с HTML
 function viewOrder(orderId) {
-    OrderManager.viewOrder(orderId);
+    OrderManager.viewOrder(orderId).catch(console.error);
 }
 
 function editOrder(orderId) {
-    OrderManager.editOrder(orderId);
+    OrderManager.editOrder(orderId).catch(console.error);
 }
 
 function searchOrders() {
-    OrderManager.searchOrders();
+    OrderManager.searchOrders().catch(console.error);
 }
 
 function loadOrders() {
-    OrderManager.loadOrders();
+    OrderManager.loadOrders().catch(console.error);
 }

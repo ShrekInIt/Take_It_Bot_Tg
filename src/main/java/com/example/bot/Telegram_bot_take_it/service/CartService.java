@@ -22,12 +22,12 @@ public class CartService {
 
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
-    private final CartItemAddonRepository cartItemAddonRepository;
     private final ProductService productService;
     private final UserService userService;
-    private final SyrupPriceService syrupPriceService;
     private final CartItemAddonService cartItemAddonService;
+    private final SyrupPriceService syrupPriceService;
     private final CategoryService categoryService;
+    private final CartItemAddonRepository cartItemAddonRepository;
 
     /**
      * Получить корзину пользователя
@@ -36,88 +36,6 @@ public class CartService {
     public Cart getCartByUser(User user) {
         return cartRepository.findByUser(user)
                 .orElseGet(() -> createCartForUser(user));
-    }
-
-    /**
-     * Повторить заказ - добавить все товары из заказа в корзину
-     */
-    @Transactional
-    public void repeatOrder(Long chatId, Order order) {
-        try {
-            clearCart(chatId);
-
-            Map<String, OrderItemGroupDTO> groupedItems = new HashMap<>();
-
-            for (OrderItem orderItem : order.getItems()) {
-                String groupKey = generateGroupKey(orderItem);
-
-                if (groupedItems.containsKey(groupKey)) {
-                    OrderItemGroupDTO group = groupedItems.get(groupKey);
-                    group.addOrderItem(orderItem);
-                } else {
-                    groupedItems.put(groupKey, new OrderItemGroupDTO(orderItem));
-                }
-            }
-
-            for (OrderItemGroupDTO group : groupedItems.values()) {
-                OrderItem firstItem = group.getOrderItems().getFirst();
-                Product product = firstItem.getProduct();
-
-                if (!product.getAvailable() || product.getCount() < group.getTotalQuantity()) {
-                    throw new IllegalArgumentException(
-                            String.format("Товар '%s' недоступен в нужном количестве. Доступно: %d",
-                                    product.getName(), product.getCount()));
-                }
-
-                List<CartItem> cartItems = addProductToCart(chatId, product.getId(), group.getTotalQuantity());
-
-                if (!firstItem.getAddons().isEmpty() && !cartItems.isEmpty()) {
-                    for (CartItem cartItem : cartItems) {
-                        for (OrderItemAddon orderItemAddon : firstItem.getAddons()) {
-                            Product addonProduct = orderItemAddon.getAddonProduct();
-
-                            if (addonProduct != null && addonProduct.getAvailable()) {
-                                cartItemAddonService.addAddonToCartItem(
-                                        cartItem,
-                                        addonProduct,
-                                        orderItemAddon.getQuantity(),
-                                        orderItemAddon.getPriceAtOrder()
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            log.info("Заказ повторен: orderId={}, chatId={}, товаров: {}",
-                    order.getId(), chatId, groupedItems.size());
-
-        } catch (Exception e) {
-            log.error("Ошибка при повторении заказа: {}", e.getMessage(), e);
-            throw e;
-        }
-    }
-
-    /**
-     * Генерация ключа для группировки OrderItem
-     */
-    private String generateGroupKey(OrderItem orderItem) {
-        StringBuilder key = new StringBuilder();
-        key.append(orderItem.getProduct().getId());
-
-        if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
-            String addonsKey = orderItem.getAddons().stream()
-                    .map(addon -> addon.getAddonProduct() != null ?
-                            String.valueOf(addon.getAddonProduct().getId()) : "")
-                    .filter(s -> !s.isEmpty())
-                    .sorted()
-                    .collect(Collectors.joining(","));
-
-            if (!addonsKey.isEmpty()) {
-                key.append("_").append(addonsKey);
-            }
-        }
-
-        return key.toString();
     }
 
     /**
@@ -235,7 +153,58 @@ public class CartService {
     }
 
     /**
-     * Добавить товар в корзину
+     * Получить содержимое корзины
+     */
+    @Transactional(readOnly = true)
+    public List<CartItem> getCartItems(Long chatId) {
+        User user = userService.getUserByChatId(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        Cart cart = getCartByUser(user);
+        return cartItemRepository.findByCartWithProductAndAddons(cart);
+    }
+
+    /**
+     * Получить общую сумму корзины
+     */
+    @Transactional(readOnly = true)
+    public Integer getCartTotal(Long chatId) {
+        User user = userService.getUserByChatId(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        Cart cart = getCartByUser(user);
+        return cart.calculateTotalAmount();
+    }
+
+    /**
+     * Проверить, пуста ли корзина
+     */
+    @Transactional(readOnly = true)
+    public boolean isCartEmpty(Long chatId) {
+        User user = userService.getUserByChatId(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        Cart cart = getCartByUser(user);
+        return cart.isEmpty();
+    }
+
+    /**
+     * Проверить если данный товар в корзине
+     */
+    @Transactional(readOnly = true)
+    public boolean findProductInCart(Long chatId, Long productId) {
+        User user = userService.getUserByChatId(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+        Cart cart = getCartByUser(user);
+
+        List<CartItem> products = cartItemRepository.findByCartIdAndProductId(cart.getId(), productId);
+
+        return products.isEmpty();
+    }
+
+    /**
+     * Добавляет товар в корзину.
      */
     @Transactional
     public List<CartItem> addProductToCart(Long chatId, Long productId, Integer quantity) {
@@ -290,7 +259,7 @@ public class CartService {
     }
 
     /**
-     * Добавить товар в корзину с добавками
+     * Добавляет товар с add-on в корзину.
      */
     @Transactional
     public CartItem addProductWithAddonToCart(Long chatId, Long productId, Integer quantity,
@@ -331,7 +300,7 @@ public class CartService {
     }
 
     /**
-     * Очистить корзину
+     * Очищает корзину пользователя.
      */
     @Transactional
     public void clearCart(Long chatId) {
@@ -344,40 +313,85 @@ public class CartService {
     }
 
     /**
-     * Получить содержимое корзины
+     * Повторить заказ - добавить все товары из заказа в корзину
      */
-    @Transactional(readOnly = true)
-    public List<CartItem> getCartItems(Long chatId) {
-        User user = userService.getUserByChatId(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+    @Transactional
+    public void repeatOrder(Long chatId, Order order) {
+        try {
+            clearCart(chatId);
 
-        Cart cart = getCartByUser(user);
-        return cartItemRepository.findByCartWithProductAndAddons(cart);
+            Map<String, OrderItemGroupDTO> groupedItems = new HashMap<>();
+
+            for (OrderItem orderItem : order.getItems()) {
+                String groupKey = generateGroupKey(orderItem);
+
+                if (groupedItems.containsKey(groupKey)) {
+                    OrderItemGroupDTO group = groupedItems.get(groupKey);
+                    group.addOrderItem(orderItem);
+                } else {
+                    groupedItems.put(groupKey, new OrderItemGroupDTO(orderItem));
+                }
+            }
+
+            for (OrderItemGroupDTO group : groupedItems.values()) {
+                OrderItem firstItem = group.getOrderItems().getFirst();
+                Product product = firstItem.getProduct();
+
+                if (!product.getAvailable() || product.getCount() < group.getTotalQuantity()) {
+                    throw new IllegalArgumentException(
+                            String.format("Товар '%s' недоступен в нужном количестве. Доступно: %d",
+                                    product.getName(), product.getCount()));
+                }
+
+                List<CartItem> cartItems = addProductToCart(chatId, product.getId(), group.getTotalQuantity());
+
+                if (!firstItem.getAddons().isEmpty() && !cartItems.isEmpty()) {
+                    for (CartItem cartItem : cartItems) {
+                        for (OrderItemAddon orderItemAddon : firstItem.getAddons()) {
+                            Product addonProduct = orderItemAddon.getAddonProduct();
+
+                            if (addonProduct != null && addonProduct.getAvailable()) {
+                                cartItemAddonService.addAddonToCartItem(
+                                        cartItem,
+                                        addonProduct,
+                                        orderItemAddon.getQuantity(),
+                                        orderItemAddon.getPriceAtOrder()
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            log.info("Заказ повторен: orderId={}, chatId={}, товаров: {}",
+                    order.getId(), chatId, groupedItems.size());
+
+        } catch (Exception e) {
+            log.error("Ошибка при повторении заказа: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
-
     /**
-     * Получить общую сумму корзины
+     * Генерация ключа для группировки OrderItem
      */
-    @Transactional(readOnly = true)
-    public Integer getCartTotal(Long chatId) {
-        User user = userService.getUserByChatId(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+    private String generateGroupKey(OrderItem orderItem) {
+        StringBuilder key = new StringBuilder();
+        key.append(orderItem.getProduct().getId());
 
-        Cart cart = getCartByUser(user);
-        return cart.calculateTotalAmount();
-    }
+        if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
+            String addonsKey = orderItem.getAddons().stream()
+                    .map(addon -> addon.getAddonProduct() != null ?
+                            String.valueOf(addon.getAddonProduct().getId()) : "")
+                    .filter(s -> !s.isEmpty())
+                    .sorted()
+                    .collect(Collectors.joining(","));
 
-    /**
-     * Проверить, пуста ли корзина
-     */
-    @Transactional(readOnly = true)
-    public boolean isCartEmpty(Long chatId) {
-        User user = userService.getUserByChatId(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+            if (!addonsKey.isEmpty()) {
+                key.append("_").append(addonsKey);
+            }
+        }
 
-        Cart cart = getCartByUser(user);
-        return cart.isEmpty();
+        return key.toString();
     }
 
     /**
@@ -500,20 +514,5 @@ public class CartService {
         }
 
         return key.toString();
-    }
-
-    /**
-     * Проверить если данный товар в корзине
-     */
-    @Transactional(readOnly = true)
-    public boolean findProductInCart(Long chatId, Long productId) {
-        User user = userService.getUserByChatId(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
-
-        Cart cart = getCartByUser(user);
-
-        List<CartItem> products = cartItemRepository.findByCartIdAndProductId(cart.getId(), productId);
-
-        return products.isEmpty();
     }
 }

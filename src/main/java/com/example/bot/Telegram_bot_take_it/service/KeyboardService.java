@@ -345,15 +345,18 @@ public class KeyboardService {
             return null;
         }
 
-        photoPath = photoPath.trim();
-        while (photoPath.startsWith("/")) photoPath = photoPath.substring(1);
-        if (photoPath.startsWith("uploads/")) photoPath = photoPath.substring("uploads/".length());
+        String key = photoPath.trim();
+        while (key.startsWith("/")) key = key.substring(1);
+        if (key.startsWith("uploads/")) key = key.substring("uploads/".length());
 
-        // возможные варианты, которые попробуем
+        byte[] cached = photoCache.get(key);
+        if (cached != null) return cached;
+
+        photoPath = key;
+
         List<Path> candidates = new ArrayList<>();
-        candidates.add(fileStorageService.getRoot().resolve(photoPath)); // e.g. uploads/products/...
-        candidates.add(fileStorageService.getRoot().resolve("products").resolve(photoPath)); // если передали product-7/.. без products
-        // если передали products/product-7/name.jpg, в candidates[0] уже правильно
+        candidates.add(fileStorageService.getRoot().resolve(photoPath));
+        candidates.add(fileStorageService.getRoot().resolve("products").resolve(photoPath));
 
         for (Path p : candidates) {
             try {
@@ -361,7 +364,7 @@ public class KeyboardService {
                 if (file.exists() && file.isFile()) {
                     byte[] bytes = Files.readAllBytes(p);
                     log.debug("Фото загружено: {} ({} байт)", p.toAbsolutePath(), bytes.length);
-                    photoCache.put(photoPath, bytes);
+                    photoCache.put(key, bytes);
                     return bytes;
                 }
             } catch (Exception ex) {
@@ -369,13 +372,12 @@ public class KeyboardService {
             }
         }
 
-        // fallback classpath
         String resourcePath = "static/images/" + photoPath;
         try (InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
             if (stream != null) {
                 byte[] photoBytes = stream.readAllBytes();
                 log.debug("Фото загружено из ресурсов: {} ({} байт)", resourcePath, photoBytes.length);
-                photoCache.put(photoPath, photoBytes);
+                photoCache.put(key, photoBytes);
                 return photoBytes;
             }
         } catch (Exception e) {
@@ -383,12 +385,9 @@ public class KeyboardService {
         }
 
         log.error("Фото не найдено: tried paths: {} , resource={}", candidates, resourcePath);
-        photoCache.put(photoPath, null);
+
         return null;
     }
-
-
-
 
     /**
      * Создать клавиатуру с категориями для указанного родителя

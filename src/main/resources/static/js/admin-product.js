@@ -1,3 +1,21 @@
+/* global axios, bootstrap */
+/**
+ * @typedef {{
+ *  id:number,
+ *  name?:string,
+ *  amount?:number,
+ *  price?:number,
+ *  categoryName?:string,
+ *  category?:{name?:string},
+ *  categoryId?:number|null,
+ *  available?:boolean,
+ *  photo?:string,
+ *  description?:string,
+ *  size?:string,
+ *  count?:number
+ * }} ProductDto
+ */
+
 class ProductManager {
     static API_BASE() { return `${new AuthManager().API_BASE}/products`; }
     static _inited = false;
@@ -6,7 +24,6 @@ class ProductManager {
         if (this._inited) return;
         this._inited = true;
 
-        // Делегирование кликов по документу
         document.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.js-edit-product');
             if (editBtn) return ProductManager.showProductModalById(Number(editBtn.dataset.id), 'edit');
@@ -24,29 +41,21 @@ class ProductManager {
             if (resetBtn) return ProductManager.loadProducts();
         });
 
-        // Enter для поиска
         const searchInput = document.getElementById('productSearchInput');
         if (searchInput) {
             searchInput.addEventListener('keydown', (ev) => {
                 if (ev.key === 'Enter') {
                     ev.preventDefault();
-                    ProductManager.searchProducts();
+                    ProductManager.searchProducts().catch(console.error);
                 }
             });
         }
 
-        // Если таблица продуктов есть сразу — грузим продукты
         const tbody = document.getElementById('productsTableBody');
-        if (tbody) ProductManager.loadProducts();
+        if (tbody) ProductManager.loadProducts().catch(console.error);
 
-        // **Главная панель изображений и папок**
-        // Вызываем только если элементы существуют (динамическая подгрузка)
-        if (document.getElementById('imageFolderSelectMain')) {
-            ProductManager.initMainFolderPanel();
-        }
     }
 
-    // ----------------- Products list -----------------
     static async loadProducts() {
         const tbody = document.getElementById('productsTableBody');
         if (!tbody) return;
@@ -96,7 +105,6 @@ class ProductManager {
         else tbody.prepend(newRow);
     }
 
-    // ----------------- Modal -----------------
     static async showProductModalById(productId, mode = 'edit') {
         try {
             const res = await axios.get(`${this.API_BASE()}/${productId}`);
@@ -109,7 +117,6 @@ class ProductManager {
     }
 
     static async showProductModal(product = {}, mode = 'view') {
-        // Remove old modal if exists
         const oldModal = document.getElementById('productModal');
         if (oldModal) {
             bootstrap.Modal.getInstance(oldModal)?.hide();
@@ -120,7 +127,6 @@ class ProductManager {
             product = { name:'', amount:0, size:'', count:0, categoryId:null, available:false, photo:'', description:'' };
         }
 
-        // Load categories
         let categories = [];
         try {
             const res = await axios.get(`${new AuthManager().API_BASE.replace('/products','')}/categories`);
@@ -206,14 +212,12 @@ class ProductManager {
         const bsModal = new bootstrap.Modal(modalEl);
         bsModal.show();
 
-        // Привязка кнопок модалки (после вставки DOM)
         if (mode==='create') document.getElementById('productCreateBtn')?.addEventListener('click',()=>ProductManager.createProduct());
         if (mode==='edit') document.getElementById('productSaveBtn')?.addEventListener('click',()=>ProductManager.updateProduct(product.id));
 
         if (mode!=='view') ProductManager.initImageUpload(product.id);
     }
 
-    // ----------------- Image handling inside modal -----------------
     static initImageUpload(productId) {
         const drop = document.getElementById('imageDropZone');
         const input = document.getElementById('imageFileInput');
@@ -227,9 +231,19 @@ class ProductManager {
         drop.addEventListener('click', ()=>input.click());
         drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('bg-light'); });
         drop.addEventListener('dragleave', ()=>drop.classList.remove('bg-light'));
-        drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('bg-light'); ProductManager.uploadImage(e.dataTransfer.files[0], folderSelect.value, productId); });
+        drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('bg-light'); ProductManager.uploadImage(e.dataTransfer.files[0], folderSelect.value, productId).catch(err => {
+            console.error(err);
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.showToast('Ошибка загрузки изображения', 'danger');
+            }
+        }); });
 
-        input.addEventListener('change', ()=>{ ProductManager.uploadImage(input.files[0], folderSelect.value, productId); input.value=''; });
+        input.addEventListener('change', ()=>{ ProductManager.uploadImage(input.files[0], folderSelect.value, productId).catch(err => {
+            console.error(err);
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.showToast('Ошибка загрузки изображения', 'danger');
+            }
+        }); input.value=''; });
 
         useBtn?.addEventListener('click', async ()=>{
             const val = folderInput.value.trim();
@@ -254,7 +268,7 @@ class ProductManager {
             } catch(err){ ToastManager.showToast('Нельзя удалить папку: она используется продуктом','warning'); }
         });
 
-        ProductManager.loadImageFolders(productId);
+        ProductManager.loadImageFolders(productId).catch(console.error);
     }
 
     static async loadImageFolders(productId){
@@ -283,7 +297,10 @@ class ProductManager {
                 const url = `/uploads/products/${folder}/${name}`;
                 gallery.insertAdjacentHTML('beforeend', `
 <div class="position-relative border rounded p-1">
-  <img src="${url}" style="width:90px;height:90px;object-fit:cover;cursor:pointer" title="Выбрать фото" onclick="ProductManager.setProductPhoto(${productId ?? 'null'},'${url}')">
+  <img src="${url}" alt="Фото продукта" loading="lazy"
+     style="width:90px;height:90px;object-fit:cover;cursor:pointer"
+     title="Выбрать фото"
+     onclick="ProductManager.setProductPhoto(${productId ?? 'null'},'${url}')">
   <button class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0" style="width:18px;height:18px;font-size:12px" onclick="ProductManager.deleteImage('${url}','${folder}',${productId ?? 'null'})">✕</button>
 </div>
                 `);
@@ -329,12 +346,11 @@ class ProductManager {
             const res = await axios.post('/api/admin/products/images/upload', fd, { headers:{ 'Content-Type':'multipart/form-data' } });
             ToastManager.showToast('Фото загружено','success');
             await ProductManager.loadImages(folder, productId);
-            if(productId && res.data.url) ProductManager.setProductPhoto(productId,res.data.url);
+            if(productId && res.data.url) await ProductManager.setProductPhoto(productId, res.data.url);
             else document.getElementById('productPhoto').value = res.data.url;
         }catch(err){ console.error(err); ToastManager.showToast('Ошибка загрузки','danger'); }
     }
 
-    // ----------------- Helpers: create / update / delete products -----------------
     static escapeHtml(str){ return String(str ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;"); }
 
     static async createProduct(){
@@ -408,5 +424,4 @@ class ProductManager {
     }
 }
 
-// Запуск
 document.addEventListener('DOMContentLoaded', ()=>ProductManager.init());

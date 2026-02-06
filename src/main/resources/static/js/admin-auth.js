@@ -1,3 +1,5 @@
+/* global axios, bootstrap */
+
 const ROLE_PERMISSIONS = {
     SUPER_ADMIN: [
         'dashboard',
@@ -42,12 +44,10 @@ class AuthManager {
             if (response.data.authenticated) {
                 this.currentUser = response.data.user;
 
-                // ВАЖНО: role должен приходить с бэка
                 applyRolePermissions(this.currentUser.role);
 
                 document.getElementById('currentUser').textContent = this.currentUser.username;
 
-                // ✅ редирект по ролям
                 NavigationManager.redirectByRole(this.currentUser.role);
             } else {
                 console.log('Пользователь не авторизован');

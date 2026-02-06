@@ -1,5 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
+import com.example.bot.Telegram_bot_take_it.utils.interfaces.ConfectioneryClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,7 +10,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class ConfectioneryBotClient {
+public class ConfectioneryBotClient implements ConfectioneryClient {
     private final RestTemplate restTemplate;
 
     @Value("${confectionery.bot.url:http://localhost:8081}")
@@ -18,6 +19,7 @@ public class ConfectioneryBotClient {
     /**
      * Отправить заказ в кондитерский бот
      */
+    @Override
     public void sendOrderToConfectionery(Object orderRequest) {
         try {
             String url = confectioneryBotUrl + "/api/orders/new";

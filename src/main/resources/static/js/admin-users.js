@@ -1,3 +1,12 @@
+/* global axios, bootstrap */
+/**
+ * @typedef {{ hide(): void, show(): void }} BsModalInstance
+ * @typedef {{ getInstance(el: Element): (BsModalInstance|null), new(el: Element): BsModalInstance }} BsModalCtor
+ * @typedef {{ Modal: BsModalCtor }} BootstrapNs
+ */
+
+/** @type {BootstrapNs} */
+
 class UserManager {
     static API_BASE = `${new AuthManager().API_BASE}/users`;
     static _inited = false;
@@ -10,14 +19,14 @@ class UserManager {
             const edit = e.target.closest('.js-edit-user');
             if (edit) {
                 const id = Number(edit.dataset.id);
-                if (id) UserManager.showUserModalById(id, 'edit');
+                if (id) void UserManager.showUserModalById(id, 'edit');
                 return;
             }
 
             const del = e.target.closest('.js-delete-user');
             if (del) {
                 const id = Number(del.dataset.id);
-                if (id) UserManager.deleteUser(id);
+                if (id) void UserManager.deleteUser(id);
                 return;
             }
 
@@ -26,7 +35,7 @@ class UserManager {
                 e.target.closest('[data-action="open-create-user"]');
 
             if (createOpen) {
-                UserManager.showUserModal({}, 'create');
+                void UserManager.showUserModal({}, 'create');
                 return;
             }
 
@@ -35,7 +44,7 @@ class UserManager {
                 e.target.closest('[data-action="search-users"]');
 
             if (searchBtn) {
-                UserManager.searchUsers();
+                void UserManager.searchUsers();
                 return;
             }
 
@@ -44,7 +53,7 @@ class UserManager {
                 e.target.closest('[data-action="reset-users"]');
 
             if (resetBtn) {
-                UserManager.loadUsers();
+                void UserManager.loadUsers();
             }
         });
 
@@ -55,7 +64,7 @@ class UserManager {
                 e.target.closest('[data-action="search-users"]');
 
             if (searchBtn) {
-                UserManager.searchUsers();
+                void UserManager.searchUsers();
                 return;
             }
 
@@ -64,7 +73,7 @@ class UserManager {
                 e.target.closest('[data-action="reset-users"]');
 
             if (resetBtn) {
-                UserManager.loadUsers();
+                void UserManager.loadUsers();
             }
 
         });
@@ -75,13 +84,11 @@ class UserManager {
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    UserManager.searchUsers();
+                    void UserManager.searchUsers();
                 }
             });
         }
     }
-
-    // ===================== LOAD =====================
 
     static async loadUsers() {
         const tbody = document.getElementById('usersTableBody');
@@ -108,11 +115,15 @@ class UserManager {
         }
     }
 
-    // ===================== ROW =====================
+    /**
+     * @typedef {{id:number, name?:string, telegramId?:string, phoneNumber?:string,
+     *  isActive?:boolean, isAdmin?:boolean, createdAt?:string}} UserDto
+     */
 
+    /** @param {UserDto} user */
     static createUserRow(user) {
         const tr = document.createElement('tr');
-        tr.dataset.userId = user.id;
+        tr.dataset.userId = `${user.id}`;
 
         tr.innerHTML = `
             <td>${user.id}</td>
@@ -152,8 +163,6 @@ class UserManager {
         existing ? existing.replaceWith(row) : tbody.prepend(row);
     }
 
-    // ===================== SEARCH =====================
-
     static async searchUsers() {
         const input = document.getElementById('userSearchInput');
         const tbody = document.getElementById('usersTableBody');
@@ -189,8 +198,14 @@ class UserManager {
         }
     }
 
-    // ===================== MODAL =====================
+    /**
+     * @typedef {{id:number, name?:string, telegramId?:string, phoneNumber?:string,
+     *  isActive?:boolean, isAdmin?:boolean, createdAt?:string}} UserDto
+     */
 
+    /** @param {{}} user
+     * @param mode
+     */
     static async showUserModal(user = {}, mode = 'view') {
         const old = document.getElementById('userModal');
         if (old) {
@@ -258,8 +273,6 @@ class UserManager {
         modal.show();
     }
 
-    // ===================== CRUD =====================
-
     static async createUser() {
         const data = UserManager.collectForm();
         if (!data) return;
@@ -302,13 +315,11 @@ class UserManager {
     static async showUserModalById(id, mode) {
         try {
             const res = await axios.get(`${this.API_BASE}/${id}`);
-            UserManager.showUserModal(res.data, mode);
+            void UserManager.showUserModal(res.data, mode);
         } catch {
             ToastManager.showToast('Не удалось загрузить пользователя', 'danger');
         }
     }
-
-    // ===================== HELPERS =====================
 
     static collectForm() {
         const err = document.getElementById('userError');
@@ -375,9 +386,8 @@ class UserManager {
     }
 }
 
-// INIT
 document.addEventListener('DOMContentLoaded', () => {
     UserManager.init();
     const tbody = document.getElementById('usersTableBody');
-    if (tbody) UserManager.loadUsers();
+    if (tbody) void UserManager.loadUsers();
 });

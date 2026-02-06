@@ -1,36 +1,6 @@
-function isPageAllowed(page, role) {
-    return ROLE_PERMISSIONS[role]?.includes(page);
-}
+/* global axios, bootstrap */
 
 class NavigationManager {
-    static redirectBasedOnPath(userRole) {
-        const path = window.location.pathname;
-
-        const pageMap = [
-            { key: 'dashboard', match: '/admin/dashboard', action: showDashboard },
-            { key: 'users', match: '/admin/users', action: showUsers },
-            { key: 'categories', match: '/admin/categories', action: showCategories },
-            { key: 'products', match: '/admin/products', action: showProducts },
-            { key: 'orders', match: '/admin/orders', action: showOrders },
-            { key: 'admins', match: '/admin/admins', action: showAdmins }
-        ];
-
-        for (const page of pageMap) {
-            if (path.includes(page.match)) {
-                if (isPageAllowed(page.key, userRole)) {
-                    page.action();
-                    return;
-                } else {
-                    break;
-                }
-            }
-        }
-
-        // ⛔ если страница запрещена → первая разрешённая
-        const fallback = ROLE_PERMISSIONS[userRole]?.[0];
-        if (fallback === 'categories') showCategories();
-        else if (fallback === 'products') showProducts();
-    }
 
     async loadContent(url) {
         console.log('Загрузка контента:', url);
@@ -48,7 +18,7 @@ class NavigationManager {
             const response = await axios.get(url);
             console.log('HTML контент получен успешно');
             document.getElementById('contentArea').innerHTML = response.data;
-            PageScriptExecutor.execute();
+            await PageScriptExecutor.execute();
         } catch (error) {
             console.error('Ошибка загрузки контента:', error);
             if (error.response && error.response.status === 403) {
@@ -93,7 +63,6 @@ class NavigationManager {
             showProducts();
             return;
         }
-        // SUPER_ADMIN и всё остальное
         window.location.hash = '#dashboard';
         showDashboard();
     }
@@ -108,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (hash === '#admins') showAdmins();
     else showDashboard();
 });
-
 
 document.addEventListener('click', (e) => {
     if (e.target.closest('#logoutBtn')) {

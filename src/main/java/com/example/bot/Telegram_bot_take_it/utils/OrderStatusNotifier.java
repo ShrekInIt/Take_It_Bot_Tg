@@ -1,6 +1,7 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
 import com.example.bot.Telegram_bot_take_it.entity.Order;
+import com.example.bot.Telegram_bot_take_it.utils.interfaces.OrderUserNotifier;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.SendMessage;
@@ -11,7 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class OrderStatusNotifier {
+public class OrderStatusNotifier implements OrderUserNotifier {
 
     private final TelegramBot bot;
 
@@ -25,6 +26,7 @@ public class OrderStatusNotifier {
      *
      * @param order заказ, по которому отправляется уведомление
      */
+    @Override
     public void sendStatusUpdateNotification(Order order) {
         try {
             Long chatId = order.getUser().getChatId();

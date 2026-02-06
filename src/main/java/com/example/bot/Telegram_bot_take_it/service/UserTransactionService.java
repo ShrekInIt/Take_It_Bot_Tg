@@ -17,34 +17,6 @@ public class UserTransactionService {
     private final UserRepository userRepository;
 
     /**
-     * Обновить информацию о пользователе (транзакционный)
-     */
-    @Transactional
-    public User updateUser(User user) {
-        return userRepository.save(user);
-    }
-
-    /**
-     * Создать пользователя (транзакционный)
-     */
-    @Transactional
-    public User createUser(String telegramId, String name, Long chatId) {
-        User user = User.builder()
-                .telegramId(telegramId)
-                .name(name)
-                .chatId(chatId)
-                .isActive(true)
-                .isAdmin(false)
-                .build();
-
-        User savedUser = userRepository.save(user);
-        log.info("Создан новый пользователь: {} (telegramId: {}, chatId: {})",
-                savedUser.getName(), telegramId, chatId);
-
-        return savedUser;
-    }
-
-    /**
      * Регистрация или обновление пользователя (транзакционный)
      */
     @Transactional

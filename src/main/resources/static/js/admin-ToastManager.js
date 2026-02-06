@@ -1,3 +1,5 @@
+/* global axios, bootstrap, Toast */
+
 class ToastManager {
     static showToast(message, type = 'info', timeout = 3000) {
         const id = `toast-${Date.now()}`;
@@ -20,14 +22,13 @@ class ToastManager {
         container.insertAdjacentHTML('beforeend', toastHtml);
 
         const toastEl = document.getElementById(id);
-        const bsToast = new bootstrap.Toast(toastEl, { delay: timeout });
+        const bsToast = new Toast(toastEl, { delay: timeout });
         bsToast.show();
 
         toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
     }
 }
 
-// Глобальные функции для совместимости с HTML
 function togglePasswordVisibility(inputId) {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -39,51 +40,50 @@ function togglePasswordVisibility(inputId) {
     }
 }
 
-// Навигационные функции
 function showDashboard() {
     console.log('Показываем дашборд');
-    new NavigationManager().loadContent('/admin/dashboard');
+    new NavigationManager().loadContent('/admin/dashboard')
+        .catch(() => ToastManager.showToast('Ошибка загрузки', 'danger'));
     NavigationManager.setActiveNav('dashboard');
 }
 
 function showUsers() {
     console.log('Показываем пользователей');
-    new NavigationManager().loadContent('/admin/users');
+    new NavigationManager().loadContent('/admin/users')
+        .catch(() => ToastManager.showToast('Ошибка загрузки', 'danger'));
     NavigationManager.setActiveNav('users');
 }
 
 function showCategories() {
     console.log('Показываем категории');
-    new NavigationManager().loadContent('/admin/categories');
+    new NavigationManager().loadContent('/admin/categories')
+        .catch(() => ToastManager.showToast('Ошибка загрузки', 'danger'));
     NavigationManager.setActiveNav('categories');
 }
 
 function showProducts() {
     console.log('Показываем продукты');
-    new NavigationManager().loadContent('/admin/products');
+    new NavigationManager().loadContent('/admin/products')
+        .catch(() => ToastManager.showToast('Ошибка загрузки', 'danger'));
     NavigationManager.setActiveNav('products');
 }
 
 function showOrders() {
     console.log('Показываем заказы');
-    new NavigationManager().loadContent('/admin/orders');
+    new NavigationManager().loadContent('/admin/orders')
+        .catch(() => ToastManager.showToast('Ошибка загрузки', 'danger'));
     NavigationManager.setActiveNav('orders');
-}
-
-function showAddons() {
-    console.log('Показываем добавки');
-    new NavigationManager().loadContent('/admin/addons');
-    NavigationManager.setActiveNav('addons');
 }
 
 function showAdmins() {
     console.log('Показываем администраторов');
-    new NavigationManager().loadContent('/admin/admins');
+    new NavigationManager().loadContent('/admin/admins')
+        .catch(() => ToastManager.showToast('Ошибка загрузки', 'danger'));
     NavigationManager.setActiveNav('admins');
 }
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM загружен, вызываем checkAuth');
-    new AuthManager().checkAuth();
+    new AuthManager().checkAuth()
+        .catch(() => ToastManager.showToast('Ошибка авторизации', 'danger'));
 });

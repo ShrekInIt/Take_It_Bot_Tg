@@ -65,14 +65,10 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public boolean isCoffeeProduct(Long productId) {
-        try {
-            Product product = getProductById(productId)
-                    .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
-            return product.getCategory().getId() == 3L;
-        } catch (Exception e) {
-            log.error("Ошибка при проверке типа товара: {}", e.getMessage());
-            return false;
-        }
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Товар не найден: " + productId));
+
+        return product.getCategory() != null && Long.valueOf(3L).equals(product.getCategory().getId());
     }
 
     /**
@@ -103,7 +99,6 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<Product> searchByName(String name) {
-        // Возвращаем все, у которых в имени содержится запрос (case-insensitive)
         return productRepository.findByNameContainingIgnoreCase(name);
     }
 
@@ -221,7 +216,7 @@ public class ProductService {
                 }
             }
 
-            final Long catId = catIdTemp; // вот теперь она effectively final
+            final Long catId = catIdTemp;
 
             if (catId != null) {
                 categoryService.findById(catId).ifPresentOrElse(
@@ -250,5 +245,4 @@ public class ProductService {
         String prefix = "products/" + folder + "/";
         return productRepository.existsProductWithPhotoInFolder(prefix);
     }
-
 }
