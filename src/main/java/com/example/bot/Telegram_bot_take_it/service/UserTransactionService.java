@@ -21,18 +21,12 @@ public class UserTransactionService {
      */
     @Transactional
     public User registerOrUpdateUser(TelegramUserDto userDto, Long chatId) {
-        try {
-            String telegramId = String.valueOf(userDto.getId());
-            String displayName = createDisplayName(userDto);
+        String telegramId = String.valueOf(userDto.getId());
+        String displayName = createDisplayName(userDto);
 
-            return userRepository.findByTelegramId(telegramId)
-                    .map(existingUser -> updateExistingUser(existingUser, displayName, chatId))
-                    .orElseGet(() -> createNewUserFromDto(telegramId, displayName, chatId));
-
-        } catch (Exception e) {
-            log.error("Ошибка регистрации пользователя: {}", e.getMessage(), e);
-            return null;
-        }
+        return userRepository.findByTelegramId(telegramId)
+                .map(existingUser -> updateExistingUser(existingUser, displayName, chatId))
+                .orElseGet(() -> createNewUserFromDto(telegramId, displayName, chatId));
     }
 
     /**

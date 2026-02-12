@@ -72,6 +72,18 @@ public class MessageSender {
         }
     }
 
+    public void sendBlockedMessage(Long chatId) {
+        String text = """
+        🚫 Ваш аккаунт заблокирован.
+
+        Пожалуйста, свяжитесь с администратором:
+        📧 @barysheva_ol
+        📞 +79930990947
+        """;
+
+        sendMessage(chatId, text);
+    }
+
     /**
      * Удалить сообщение и отправить новое вместо редактирования
      */

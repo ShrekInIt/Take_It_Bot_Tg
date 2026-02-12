@@ -82,9 +82,12 @@ public class UserService {
         return AdminUserDto.builder()
                 .id(u.getId())
                 .name(u.getName())
+                .telegramId(u.getTelegramId())
+                .chatId(u.getChatId())
                 .phoneNumber(u.getPhoneNumber())
                 .createdAt(u.getCreatedAt())
                 .isActive(u.getIsActive())
+                .isAdmin(u.getIsAdmin())
                 .build();
     }
 

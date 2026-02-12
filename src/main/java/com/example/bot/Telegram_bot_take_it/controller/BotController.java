@@ -3,6 +3,9 @@ package com.example.bot.Telegram_bot_take_it.controller;
 import com.example.bot.Telegram_bot_take_it.controller.commands.CommandDispatcher;
 import com.example.bot.Telegram_bot_take_it.handlers.OrderHandler;
 import com.example.bot.Telegram_bot_take_it.service.TelegramUserRegistrar;
+import com.example.bot.Telegram_bot_take_it.service.UserAccessService;
+import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
+import com.example.bot.Telegram_bot_take_it.utils.SimpleRateLimiter;
 import com.pengrad.telegrambot.model.CallbackQuery;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
@@ -13,6 +16,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.example.bot.Telegram_bot_take_it.utils.SimpleRateLimiter.WARN_COOLDOWN_MS;
+
 @Controller
 @RequiredArgsConstructor
 public class BotController {
@@ -22,12 +29,56 @@ public class BotController {
     private final OrderHandler orderHandler;
     private final TelegramUserRegistrar telegramUserRegistrar;
     private final CommandDispatcher commandDispatcher;
+    private final MessageSender sendMessage;
+    private final UserAccessService userAccessService;
+    private final SimpleRateLimiter rateLimiter = new SimpleRateLimiter(5, 2000);
+
+    private final ConcurrentHashMap<String, Long> lastWarnAt = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<String, Long> lastSpamLogAt = new ConcurrentHashMap<>();
+    private static final long SPAM_LOG_COOLDOWN_MS = 30_000;
+
 
     /**
      * Основной метод обработки входящих обновлений от Telegram
      * Распределяет обработку между сообщениями и callback-запросами
      */
     public void handleUpdate(Update update) {
+
+        String telegramId = null;
+        Long chatId = null;
+
+        if (update.message() != null) {
+            telegramId = String.valueOf(update.message().from().id());
+            chatId = update.message().chat().id();
+            if(checkTimeAnswer(telegramId, chatId)){
+                return;
+            }
+
+        } else if (update.callbackQuery() != null) {
+            telegramId = String.valueOf(update.callbackQuery().from().id());
+
+            var maybe = update.callbackQuery().maybeInaccessibleMessage();
+
+            if (maybe != null && maybe.chat() != null) {
+                chatId = maybe.chat().id();
+                if(checkTimeAnswer(telegramId, chatId)){
+                    return;
+                }
+            }
+        }
+
+        if (telegramId != null) {
+            boolean active = userAccessService.isUserActiveByTelegramId(telegramId);
+
+            if (!active) {
+                if (chatId != null) {
+                    sendMessage.sendBlockedMessage(chatId);
+                }
+                return;
+            }
+        }
+
         try {
             if (update.message() != null) {
                 handleMessage(update.message());
@@ -36,6 +87,40 @@ public class BotController {
             }
         } catch (Exception e) {
             logger.error("Error handling update: {}", e.getMessage(), e);
+        }
+    }
+
+    private boolean checkTimeAnswer(String telegramId, Long chatId) {
+        if (telegramId != null && !rateLimiter.allow(telegramId)) {
+
+            if (chatId != null && shouldWarn(telegramId)) {
+                sendMessage.sendMessage(chatId, "⏳ Слишком часто. Подожди пару секунд.");
+            }
+
+            logSpam(telegramId, chatId);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean shouldWarn(String telegramId) {
+        long now = System.currentTimeMillis();
+        Long last = lastWarnAt.get(telegramId);
+
+        if (last == null || now - last > WARN_COOLDOWN_MS) {
+            lastWarnAt.put(telegramId, now);
+            return true;
+        }
+        return false;
+    }
+
+    private void logSpam(String telegramId, Long chatId) {
+        long now = System.currentTimeMillis();
+        Long last = lastSpamLogAt.get(telegramId);
+
+        if (last == null || now - last > SPAM_LOG_COOLDOWN_MS) {
+            lastSpamLogAt.put(telegramId, now);
+            logger.warn("Rate limit: telegramId={}, chatId={}", telegramId, chatId);
         }
     }
 

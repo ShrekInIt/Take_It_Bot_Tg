@@ -116,7 +116,7 @@ class UserManager {
     }
 
     /**
-     * @typedef {{id:number, name?:string, telegramId?:string, phoneNumber?:string,
+     * @typedef {{id:number, name?:string, chatId?:number, phoneNumber?:string,
      *  isActive?:boolean, isAdmin?:boolean, createdAt?:string}} UserDto
      */
 
@@ -128,7 +128,7 @@ class UserManager {
         tr.innerHTML = `
             <td>${user.id}</td>
             <td>${UserManager.escapeHtml(user.name ?? '—')}</td>
-            <td>${UserManager.escapeHtml(user.telegramId ?? '—')}</td>
+            <td>${UserManager.escapeHtml(user.chatId ?? '—')}</td>
             <td>${UserManager.escapeHtml(user.phoneNumber ?? '—')}</td>
             <td>
                 <span class="badge ${user.isActive ? 'bg-success' : 'bg-danger'}">
@@ -217,7 +217,7 @@ class UserManager {
         if (mode === 'create') {
             user = {
                 name: '',
-                telegramId: '',
+                chatId: '',
                 phoneNumber: '',
                 isActive: true,
                 isAdmin: false
@@ -240,7 +240,7 @@ class UserManager {
                         <div id="userError" class="alert alert-danger d-none"></div>
 
                         ${UserManager.input('Имя', 'userName', user.name, mode)}
-                        ${UserManager.input('Telegram ID', 'userTelegramId', user.telegramId, mode)}
+                        ${UserManager.input('Chat ID', 'userChatId', user.chatId, mode)}
                         ${UserManager.input('Телефон', 'userPhoneNumber', user.phoneNumber, mode)}
 
                         ${UserManager.checkbox('Активен', 'userIsActive', user.isActive, mode)}
@@ -334,7 +334,7 @@ class UserManager {
 
         return {
             name,
-            telegramId: document.getElementById('userTelegramId')?.value?.trim() || null,
+            chatId: document.getElementById('userChatId')?.value?.trim() || null,
             phoneNumber: document.getElementById('userPhoneNumber')?.value?.trim() || null,
             isActive: !!document.getElementById('userIsActive')?.checked,
             isAdmin: !!document.getElementById('userIsAdmin')?.checked
