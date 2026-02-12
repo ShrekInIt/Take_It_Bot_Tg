@@ -7,6 +7,7 @@ import com.example.bot.Telegram_bot_take_it.entity.*;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CartRepository;
+import com.example.bot.Telegram_bot_take_it.utils.CartSnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -514,5 +515,14 @@ public class CartService {
         }
 
         return key.toString();
+    }
+
+    @Transactional(readOnly = true)
+    public CartSnapshot getCartSnapshot(Long chatId) {
+        User user = userService.getUserByChatId(chatId).orElseThrow();
+        Cart cart = getCartByUser(user);
+        List<CartItem> items = cartItemRepository.findByCartWithProductAndAddons(cart);
+        int total = cart.calculateTotalAmount();
+        return new CartSnapshot(cart, items, total);
     }
 }

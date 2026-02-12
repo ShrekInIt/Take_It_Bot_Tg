@@ -1,16 +1,17 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
-import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
 import com.example.bot.Telegram_bot_take_it.dto.OrderData;
-import com.example.bot.Telegram_bot_take_it.dto.OrderRequest;
 import com.example.bot.Telegram_bot_take_it.entity.*;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
-import com.example.bot.Telegram_bot_take_it.utils.interfaces.ConfectioneryClient;
+import com.example.bot.Telegram_bot_take_it.utils.CartSnapshot;
+import com.example.bot.Telegram_bot_take_it.utils.OrderCreatedEvent;
 import com.example.bot.Telegram_bot_take_it.utils.interfaces.OrderUserNotifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,13 +24,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrderService {
 
+    private final ApplicationEventPublisher publisher;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAddonRepository orderItemAddonRepository;
     private final UserService userService;
     private final CartService cartService;
     private final ProductService productService;
-    private final ConfectioneryClient confectioneryClient;
     private final OrderUserNotifier orderUserNotifier;
 
     /**
@@ -108,36 +109,10 @@ public class OrderService {
             User user = userService.getUserByChatId(chatId)
                     .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
-            List<CartItem> cartItems = cartService.getCartItems(chatId);
+            CartSnapshot snap = cartService.getCartSnapshot(chatId);
+            List<CartItem> cartItems = getCartItems(snap);
 
-            if (cartItems.isEmpty()) {
-                throw new IllegalArgumentException("Корзина пуста");
-            }
-
-            for (CartItem cartItem : cartItems) {
-                Product product = cartItem.getProduct();
-                if (product.getCount() < cartItem.getCountProduct()) {
-                    throw new IllegalArgumentException(
-                            String.format("Товар '%s' недоступен в нужном количестве. Осталось: %d",
-                                    product.getName(), product.getCount()));
-                }
-
-                if (cartItem.getAddons() != null && !cartItem.getAddons().isEmpty()) {
-                    for (CartItemAddon cartItemAddon : cartItem.getAddons()) {
-                        Product addonProduct = cartItemAddon.getAddonProduct();
-                        if (addonProduct != null) {
-                            int requiredAddonQuantity = cartItemAddon.getQuantity() * cartItem.getCountProduct();
-                            if (addonProduct.getCount() < requiredAddonQuantity) {
-                                throw new IllegalArgumentException(
-                                        String.format("Добавка '%s' недоступна в нужном количестве. Осталось: %d",
-                                                addonProduct.getName(), addonProduct.getCount()));
-                            }
-                        }
-                    }
-                }
-            }
-
-            int totalAmount = cartService.getCartTotal(chatId);
+            int totalAmount = snap.total();
 
             Order.OrderStatus status = Order.OrderStatus.PENDING;
             Order.DeliveryType deliveryType;
@@ -215,8 +190,8 @@ public class OrderService {
                     savedOrder.getId(), savedOrder.getOrderNumber(),
                     user.getName(), savedOrder.getTotalAmount());
 
-            OrderRequest orderRequest = OrderMapper.convertToOrderRequest(savedOrder);
-            confectioneryClient.sendOrderToConfectionery(orderRequest);
+
+            publisher.publishEvent(new OrderCreatedEvent(savedOrder.getId()));
 
             return savedOrder;
 
@@ -228,6 +203,39 @@ public class OrderService {
             log.error("Ошибка при создании заказа: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    @NotNull
+    private static List<CartItem> getCartItems(CartSnapshot snap) {
+        List<CartItem> cartItems = snap.items();
+
+        if (cartItems.isEmpty()) {
+            throw new IllegalArgumentException("Корзина пуста");
+        }
+
+        for (CartItem cartItem : cartItems) {
+            Product product = cartItem.getProduct();
+            if (product.getCount() < cartItem.getCountProduct()) {
+                throw new IllegalArgumentException(
+                        String.format("Товар '%s' недоступен в нужном количестве. Осталось: %d",
+                                product.getName(), product.getCount()));
+            }
+
+            if (cartItem.getAddons() != null && !cartItem.getAddons().isEmpty()) {
+                for (CartItemAddon cartItemAddon : cartItem.getAddons()) {
+                    Product addonProduct = cartItemAddon.getAddonProduct();
+                    if (addonProduct != null) {
+                        int requiredAddonQuantity = cartItemAddon.getQuantity() * cartItem.getCountProduct();
+                        if (addonProduct.getCount() < requiredAddonQuantity) {
+                            throw new IllegalArgumentException(
+                                    String.format("Добавка '%s' недоступна в нужном количестве. Осталось: %d",
+                                            addonProduct.getName(), addonProduct.getCount()));
+                        }
+                    }
+                }
+            }
+        }
+        return cartItems;
     }
 
     /**

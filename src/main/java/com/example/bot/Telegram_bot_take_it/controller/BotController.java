@@ -44,10 +44,9 @@ public class BotController {
      * Распределяет обработку между сообщениями и callback-запросами
      */
     public void handleUpdate(Update update) {
-
         String telegramId = null;
         Long chatId = null;
-
+        long t0 = System.nanoTime();
         if (update.message() != null) {
             telegramId = String.valueOf(update.message().from().id());
             chatId = update.message().chat().id();
@@ -87,6 +86,10 @@ public class BotController {
             }
         } catch (Exception e) {
             logger.error("Error handling update: {}", e.getMessage(), e);
+        }
+        finally {
+            long ms = (System.nanoTime() - t0) / 1_000_000;
+            logger.info("update took {} ms", ms);
         }
     }
 
