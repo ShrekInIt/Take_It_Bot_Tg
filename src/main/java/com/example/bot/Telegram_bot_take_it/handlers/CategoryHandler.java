@@ -63,7 +63,7 @@ public class CategoryHandler {
     /**
      * Показать содержимое категории: подкатегории и/или товары
      */
-    protected void showCategory(Long chatId, Integer messageId, Long categoryId) {
+    public void showCategory(Long chatId, Integer messageId, Long categoryId) {
         CategoryData data = categoryTransactionService.getCategoryData(categoryId);
 
         if (data == null || data.getCategory() == null) {

@@ -2,30 +2,46 @@
 
 class ToastManager {
     static showToast(message, type = 'info', timeout = 3000) {
-        const id = `toast-${Date.now()}`;
-        const bgClass = (type === 'success') ? 'bg-success text-white' :
-            (type === 'danger') ? 'bg-danger text-white' :
-                (type === 'warning') ? 'bg-warning text-dark' : 'bg-secondary text-white';
+        try {
+            const container = document.getElementById('toastContainer');
+            if (!container) {
+                console.warn('toastContainer not found:', message);
+                return;
+            }
 
-        const toastHtml = `
-          <div id="${id}" class="toast align-items-center ${bgClass}" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-              <div class="toast-body">
-                ${message}
-              </div>
-              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
-            </div>
+            const id = `toast-${Date.now()}`;
+            const bgClass =
+                type === 'success' ? 'bg-success text-white' :
+                    type === 'danger'  ? 'bg-danger text-white'  :
+                        type === 'warning' ? 'bg-warning text-dark'  : 'bg-secondary text-white';
+
+            const toastHtml = `
+        <div id="${id}" class="toast align-items-center ${bgClass}" role="alert" aria-live="assertive" aria-atomic="true">
+          <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Закрыть"></button>
           </div>
-        `;
+        </div>
+      `;
 
-        const container = document.getElementById('toastContainer');
-        container.insertAdjacentHTML('beforeend', toastHtml);
+            container.insertAdjacentHTML('beforeend', toastHtml);
 
-        const toastEl = document.getElementById(id);
-        const bsToast = new Toast(toastEl, { delay: timeout });
-        bsToast.show();
+            const toastEl = document.getElementById(id);
 
-        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+            // Bootstrap 5: Toast лежит в bootstrap.Toast
+            if (!window.bootstrap?.Toast) {
+                console.warn('bootstrap.Toast is not available:', message);
+                toastEl?.remove();
+                return;
+            }
+
+            const bsToast = new bootstrap.Toast(toastEl, { delay: timeout });
+            bsToast.show();
+
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove(), { once: true });
+        } catch (e) {
+            console.warn('ToastManager failed:', e);
+        }
     }
 }
 

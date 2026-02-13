@@ -218,13 +218,9 @@ public class KeyboardService {
     public InlineKeyboardMarkup createEmptyCartKeyboard() {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        InlineKeyboardButton menuButton = new InlineKeyboardButton("📋 Перейти в меню")
-                .callbackData("cart_back_to_menu");
-
         InlineKeyboardButton mainButton = new InlineKeyboardButton("🏠 На главную")
                 .callbackData("main_menu");
 
-        keyboard.addRow(menuButton);
         keyboard.addRow(mainButton);
 
         return keyboard;

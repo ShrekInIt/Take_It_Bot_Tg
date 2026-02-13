@@ -27,7 +27,7 @@ public class SyrupPriceService {
                 if (!sizeStr.isEmpty()) {
                     int volume = Integer.parseInt(sizeStr);
 
-                    if (volume >= 300) {
+                    if (volume > 200) {
                         return 50;
                     } else {
                         return 35;

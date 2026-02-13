@@ -1,7 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
 import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
@@ -20,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class MessageSender {
 
-    private final TelegramBot bot;
+    private final TelegramSendQueue sendQueue;
 
     private final Map<Long, String> lastMessageType = new ConcurrentHashMap<>();
 
@@ -57,14 +56,7 @@ public class MessageSender {
                     .parseMode(ParseMode.Markdown)
                     .replyMarkup(keyboard);
 
-            var response = bot.execute(editMessage);
-
-            if (response.isOk()) {
-                log.info("Сообщение успешно отредактировано (текст->текст)");
-            } else {
-                log.warn("EditMessage не удалось, заменяем сообщение");
-                replaceMessage(chatId, messageId, newText, keyboard);
-            }
+            sendQueue.enqueue(chatId, editMessage);
 
         } catch (Exception e) {
             log.error("Ошибка при обновлении сообщения: {}", e.getMessage());
@@ -94,7 +86,7 @@ public class MessageSender {
                     .parseMode(ParseMode.Markdown)
                     .replyMarkup(keyboard);
 
-            bot.execute(newMessage);
+            sendQueue.enqueue(chatId, newMessage);
             log.info("Новое сообщение отправлено");
 
             log.info("Старое сообщение оставлено в истории: {}", messageIdToDelete);
@@ -115,7 +107,7 @@ public class MessageSender {
                 .parseMode(ParseMode.Markdown);
 
         try {
-            bot.execute(message);
+            sendQueue.enqueue(chatId, message);
         } catch (Exception e) {
             log.error("Error sending message to chat {}: {}", chatId, e.getMessage());
         }
@@ -128,13 +120,11 @@ public class MessageSender {
         AnswerCallbackQuery answer = new AnswerCallbackQuery(callbackId);
 
         if (text != null && !text.isEmpty()) {
-            answer.text(text).showAlert(true);
-        } else {
-            answer.text("").showAlert(false);
+            answer.text(text);
         }
 
         try {
-            bot.execute(answer);
+            sendQueue.enqueueGlobal(answer);
         } catch (Exception e) {
             log.error("Error answering callback: {}", e.getMessage());
         }

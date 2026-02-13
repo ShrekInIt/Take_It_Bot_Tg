@@ -9,6 +9,7 @@ import com.example.bot.Telegram_bot_take_it.service.*;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
 import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.KeyboardButton;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardRemove;
@@ -316,8 +317,9 @@ public class OrderHandler {
             ⏰ Время работы: 10:00 - 21:00
             """;
 
-        telegramMessageSender.sendEditMessage(chatId, messageId, message,
-                keyboardService.createKeyboardForChoiceDelivery(), true);
+        InlineKeyboardMarkup kb = keyboardService.createKeyboardForChoiceDelivery();
+
+        telegramMessageSender.editOrSendMarkdown(chatId, messageId, message, kb);
     }
 
     /**

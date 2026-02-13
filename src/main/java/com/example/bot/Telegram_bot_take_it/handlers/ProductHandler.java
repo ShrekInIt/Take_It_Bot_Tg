@@ -66,24 +66,21 @@ public class ProductHandler {
 
                         String cachedFileId = telegramFileIdCacheService.get(cacheKey);
                         if (cachedFileId != null) {
-                            SendResponse resp = telegramMessageSender.sendPhotoByFileId(
-                                    chatId, cachedFileId, caption, keyboard, true
-                            );
-
-                            if (resp != null && resp.isOk()) {
-                                return;
-                            } else {
-                                telegramFileIdCacheService.invalidate(cacheKey);
-                            }
+                            telegramMessageSender.sendPhotoByFileId(chatId, cachedFileId, caption, keyboard, true)
+                                    .exceptionally(ex -> {
+                                        telegramFileIdCacheService.invalidate(cacheKey);
+                                        return null;
+                                    });
+                            return;
                         }
 
                         try {
                             byte[] photoBytes = keyboardService.readPhotoFile(product.getPhoto());
-
                             if (photoBytes != null && photoBytes.length > 0) {
-                                SendResponse resp = telegramMessageSender.sendPhoto(
-                                        chatId, photoBytes, caption, keyboard, true
-                                );
+
+                                SendResponse resp = telegramMessageSender
+                                        .sendPhoto(chatId, photoBytes, caption, keyboard, true)
+                                        .get(6, java.util.concurrent.TimeUnit.SECONDS);
 
                                 if (resp != null && resp.isOk()
                                         && resp.message() != null
@@ -94,7 +91,7 @@ public class ProductHandler {
                                     var best = photos[0];
                                     for (var p : photos) {
                                         long bestSize = best.fileSize() == null ? 0 : best.fileSize();
-                                        long curSize = p.fileSize() == null ? 0 : p.fileSize();
+                                        long curSize  = p.fileSize() == null ? 0 : p.fileSize();
                                         if (curSize > bestSize) best = p;
                                     }
 

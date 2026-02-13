@@ -1,31 +1,29 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
-import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.InputMediaPhoto;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import com.pengrad.telegrambot.request.*;
+import com.pengrad.telegrambot.response.BaseResponse;
 import com.pengrad.telegrambot.response.SendResponse;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.CompletableFuture;
 
 @Component
 @RequiredArgsConstructor
 public class TelegramMessageSender {
 
-    private static final Logger log = LoggerFactory.getLogger(TelegramMessageSender.class);
-
-    private final TelegramBot bot;
+    private final TelegramSendQueue sendQueue;
 
     /**
      * Отправить простое текстовое сообщение БЕЗ разметки
      */
     public void sendMessage(Long chatId, String text) {
         SendMessage request = new SendMessage(chatId.toString(), text);
-        executeRequest(request, chatId);
+        sendQueue.enqueue(chatId, request);
     }
 
     /**
@@ -34,7 +32,7 @@ public class TelegramMessageSender {
     public void sendMessageHtml(Long chatId, String text) {
         SendMessage request = new SendMessage(chatId.toString(), text);
         request.parseMode(ParseMode.Markdown);
-        executeRequest(request, chatId);
+        sendQueue.enqueue(chatId, request);
     }
 
     /**
@@ -48,7 +46,7 @@ public class TelegramMessageSender {
             request.parseMode(ParseMode.Markdown);
         }
 
-        executeRequest(request, chatId);
+        sendQueue.enqueue(chatId, request);
     }
 
     /**
@@ -62,7 +60,7 @@ public class TelegramMessageSender {
             request.parseMode(ParseMode.HTML);
         }
 
-        executeRequest(request, chatId);
+        sendQueue.enqueue(chatId, request);
     }
 
     /**
@@ -76,7 +74,7 @@ public class TelegramMessageSender {
             request.parseMode(ParseMode.Markdown);
         }
 
-        executeRequest(request, chatId);
+        sendQueue.enqueue(chatId, request);
     }
 
     /**
@@ -90,7 +88,7 @@ public class TelegramMessageSender {
             request.parseMode(ParseMode.HTML);
         }
 
-        executeRequest(request, chatId);
+        sendQueue.enqueue(chatId, request);
     }
 
     /**
@@ -104,7 +102,7 @@ public class TelegramMessageSender {
             editMessage.parseMode(ParseMode.Markdown);
         }
 
-        bot.execute(editMessage);
+        sendQueue.enqueue(chatId, editMessage);
     }
 
     /**
@@ -118,7 +116,7 @@ public class TelegramMessageSender {
             editMessage.parseMode(ParseMode.HTML);
         }
 
-        bot.execute(editMessage);
+        sendQueue.enqueue(chatId, editMessage);
     }
 
 
@@ -134,41 +132,35 @@ public class TelegramMessageSender {
             editCaption.parseMode(ParseMode.HTML);
         }
 
-        bot.execute(editCaption);
+        sendQueue.enqueue(chatId, editCaption);
     }
 
     /**
      * Отправить фото по id
      */
-    public SendResponse sendPhotoByFileId(Long chatId, String fileId, String caption,
-                                          InlineKeyboardMarkup keyboard, boolean parseMode) {
-
+    public CompletableFuture<SendResponse> sendPhotoByFileId(Long chatId, String fileId,
+                                                                  String caption,
+                                                                  InlineKeyboardMarkup keyboard, boolean parseMode) {
         SendPhoto sendPhoto = new SendPhoto(chatId.toString(), fileId)
                 .caption(caption)
                 .replyMarkup(keyboard);
+        if (parseMode) sendPhoto.parseMode(ParseMode.HTML);
 
-        if (parseMode) {
-            sendPhoto.parseMode(ParseMode.HTML);
-        }
-
-        return bot.execute(sendPhoto);
+        return sendQueue.enqueue(chatId, sendPhoto);
     }
 
     /**
      * Отправить фото
      */
-    public SendResponse sendPhoto(Long chatId, byte[] photoBytes, String caption,
-                                  InlineKeyboardMarkup keyboard, boolean parseMode) {
-
+    public CompletableFuture<SendResponse> sendPhoto(Long chatId, byte[] photoBytes,
+                                                          String caption,
+                                                          InlineKeyboardMarkup keyboard, boolean parseMode) {
         SendPhoto sendPhoto = new SendPhoto(chatId.toString(), photoBytes)
                 .caption(caption)
                 .replyMarkup(keyboard);
+        if (parseMode) sendPhoto.parseMode(ParseMode.HTML);
 
-        if (parseMode) {
-            sendPhoto.parseMode(ParseMode.HTML);
-        }
-
-        return bot.execute(sendPhoto);
+        return sendQueue.enqueue(chatId, sendPhoto);
     }
 
     /**
@@ -176,44 +168,28 @@ public class TelegramMessageSender {
      */
     public void sendMediaGroup(Long chatId, InputMediaPhoto[] mediaGroup){
         SendMediaGroup sendMediaGroup = new SendMediaGroup(chatId.toString(), mediaGroup);
-        bot.execute(sendMediaGroup);
+        sendQueue.enqueue(chatId, sendMediaGroup);
     }
 
-    /**
-     * Выполнение запроса на отправку сообщения с обработкой ошибок
-     */
-    private void responser(Long chatId, SendMessage request) {
-        try {
-            SendResponse response = bot.execute(request);
+    public void editOrSendMarkdown(Long chatId,
+                                   Integer messageId,
+                                   String text,
+                                   InlineKeyboardMarkup keyboard) {
 
-            if (response.isOk()) {
-                log.info("✅ Message sent to chatId: {}", chatId);
-                log.debug("✅ Message text: {}", request.getParameters().get("text"));
-            } else {
-                log.error("❌ Send failed for chatId {}: {} - {}",
-                        chatId, response.errorCode(), response.description());
-                log.debug("❌ Failed message text: {}", request.getParameters().get("text"));
-            }
-        } catch (Exception e) {
-            log.error("⚠️ Network error for chatId {}: {}", chatId, e.getMessage());
+        if (messageId == null || messageId == 0) {
+            sendMessageWithInlineKeyboard(chatId, text, keyboard, true);
+            return;
         }
-    }
 
-    /**
-     * Обертка для выполнения запроса отправки сообщения
-     */
-    private void executeRequest(SendMessage request, Long chatId) {
-        String text = (String) request.getParameters().get("text");
-        String parseMode = null;
+        EditMessageText edit = new EditMessageText(chatId, messageId, text)
+                .parseMode(ParseMode.Markdown)
+                .replyMarkup(keyboard);
 
-        Object parseModeObj = request.getParameters().get("parse_mode");
-        if (parseModeObj instanceof ParseMode) {
-            parseMode = parseModeObj.toString();
-        } else if (parseModeObj instanceof String) {
-            parseMode = (String) parseModeObj;
+        BaseResponse resp = sendQueue.enqueue(chatId, edit).join();
+
+
+        if (resp == null || !resp.isOk()) {
+            sendMessageWithInlineKeyboard(chatId, text, keyboard, true);
         }
-        log.debug("Отправка сообщения: chatId={}, parseMode={}, textLength={}",
-                chatId, parseMode, text != null ? text.length() : 0);
-        responser(chatId, request);
     }
 }
