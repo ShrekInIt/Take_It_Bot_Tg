@@ -264,7 +264,7 @@ public class KeyboardService {
                 Product product = group.getProduct();
 
                 int totalQuantity = 0;
-                int totalPrice = 0;
+                long totalPrice = 0;
 
                 for (CartItem cartItem : group.getItems()) {
                     totalQuantity += cartItem.getCountProduct();
@@ -317,7 +317,7 @@ public class KeyboardService {
     /**
      * Форматирует текст для сгруппированного товара как в примере
      */
-    private String formatGroupedItemText(Product product, CartItemGroupDTO group, int totalQuantity, int totalPrice) {
+    private String formatGroupedItemText(Product product, CartItemGroupDTO group, int totalQuantity, long totalPrice) {
         StringBuilder text = new StringBuilder();
 
         text.append(product.getName());
@@ -659,7 +659,7 @@ public class KeyboardService {
                 keyboard.addRow(unavailableButton);
             } else {
                 for (Product syrup : syrups) {
-                    int syrupPrice = syrupPriceService.calculateSyrupPriceForSize(syrup, mainProduct);
+                    long syrupPrice = syrupPriceService.calculateSyrupPriceForSize(syrup, mainProduct);
                     String buttonText = String.format("%s +%d₽",
                             syrup.getName(), syrupPrice);
 

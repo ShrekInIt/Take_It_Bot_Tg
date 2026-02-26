@@ -23,7 +23,7 @@ public class Order {
     private User user;
 
     @Column(name = "total_amount", nullable = false)
-    private Integer totalAmount;
+    private Long totalAmount;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")

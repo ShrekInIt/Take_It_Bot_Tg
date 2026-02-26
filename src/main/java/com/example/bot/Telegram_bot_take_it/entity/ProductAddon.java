@@ -26,7 +26,7 @@ public class ProductAddon {
     private Product addonProduct;
 
     @Column(name = "additional_price")
-    private Integer additionalPrice = 0;
+    private Long additionalPrice = 0L;
 
     @Column(name = "price_for_small_volume")
     private Integer priceForSmallVolume;

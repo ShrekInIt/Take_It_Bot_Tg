@@ -370,7 +370,7 @@ public class OrderHandler {
 
         var session = optSession.get();
 
-        int totalAmount = cartService.getCartTotal(chatId);
+        long totalAmount = cartService.getCartTotal(chatId);
 
         String deliveryText = "PICKUP".equals(session.getDeliveryType())
                 ? "🚶 Самовывоз"

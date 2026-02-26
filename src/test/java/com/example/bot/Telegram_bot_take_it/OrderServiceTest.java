@@ -60,7 +60,7 @@ public class OrderServiceTest {
         when(cartItem.getAddons()).thenReturn(List.of());
 
         when(cartService.getCartItems(chatId)).thenReturn(List.of(cartItem));
-        when(cartService.getCartTotal(chatId)).thenReturn(500);
+        when(cartService.getCartTotal(chatId)).thenReturn(500L);
 
         OrderData orderData = OrderData.builder()
                 .deliveryType("PICKUP")

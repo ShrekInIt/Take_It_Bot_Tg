@@ -229,7 +229,7 @@ public class CartHandler {
             Long productId = Long.parseLong(parts[3]);
             int quantity = Integer.parseInt(parts[4]);
             Long addonProductId = Long.parseLong(parts[5]);
-            int addonPrice = Integer.parseInt(parts[6]);
+            long addonPrice =  Long.parseLong(parts[6]);
 
             log.info("Товар ID: {}, количество: {}, добавка ID: {}, цена добавки: {}",
                     productId, quantity, addonProductId, addonPrice);

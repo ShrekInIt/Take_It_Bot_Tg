@@ -34,7 +34,7 @@ public class CartItemAddon {
     private Integer quantity = 1;
 
     @Column(name = "price_at_selection", nullable = false)
-    private Integer priceAtSelection;
+    private Long priceAtSelection;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

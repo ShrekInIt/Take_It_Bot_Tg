@@ -134,7 +134,7 @@ public class MessageSender {
      * Возвращение сложной строки для описания продукта
      */
     @NotNull
-    public static String getString(int product, Product product1, int quantity) {
+    public static String getString(long product, Product product1, int quantity) {
         return String.format(
                 "<b>%s</b>\n%s\n\n<b>Цена:</b> %d₽\n<b>Размер:</b> %s\n<b>Количество:</b> %d шт.\n<b>Итого:</b> <b>%d₽</b>",
                 product1.getName(),

@@ -18,7 +18,7 @@ public class Product {
     private String name;
 
     @Column(name = "amount")
-    private Integer amount;
+    private Long amount;
 
     @Column(name = "size")
     private String size;

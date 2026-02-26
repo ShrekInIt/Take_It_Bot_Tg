@@ -18,8 +18,8 @@ public class SyrupPriceService {
     /**
      * Рассчитывает цену сиропа на основе объема основного напитка
      */
-    public int calculateSyrupPriceForSize(Product syrupProduct, Product mainProduct) {
-        int basePrice = syrupProduct.getAmount();
+    public Long calculateSyrupPriceForSize(Product syrupProduct, Product mainProduct) {
+        long basePrice = syrupProduct.getAmount();
 
         if (mainProduct.getSize() != null) {
             try {
@@ -28,9 +28,9 @@ public class SyrupPriceService {
                     int volume = Integer.parseInt(sizeStr);
 
                     if (volume > 200) {
-                        return 50;
+                        return 50L;
                     } else {
-                        return 35;
+                        return 35L;
                     }
                 }
             } catch (NumberFormatException e) {

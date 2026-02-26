@@ -32,7 +32,7 @@ public class OrderItem {
     private Integer quantity;
 
     @Column(name = "price_at_time", nullable = false)
-    private Integer priceAtOrder;
+    private Long priceAtOrder;
 
     @Column(name = "product_name", nullable = false)
     private String productName;

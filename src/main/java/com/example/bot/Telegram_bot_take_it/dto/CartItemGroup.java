@@ -10,7 +10,7 @@ import java.util.List;
 public class CartItemGroup {
     private final CartItem firstItem;
     private int totalQuantity;
-    private int totalPrice;
+    private long totalPrice;
     private final List<CartItem> items;
 
     public CartItemGroup(CartItem firstItem) {

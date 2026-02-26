@@ -397,7 +397,7 @@ public class AddonHandler {
 
         String currentSyrupText = "";
         if (currentSyrup != null) {
-            int currentSyrupPrice = syrupPriceService.calculateSyrupPriceForSize(currentSyrup, mainProduct);
+            long currentSyrupPrice = syrupPriceService.calculateSyrupPriceForSize(currentSyrup, mainProduct);
             currentSyrupText = String.format("\n\nТекущий сироп: *%s* (+%d₽)",
                     currentSyrup.getName(), currentSyrupPrice);
         }

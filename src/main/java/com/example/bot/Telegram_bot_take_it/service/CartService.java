@@ -169,7 +169,7 @@ public class CartService {
      * Получить общую сумму корзины
      */
     @Transactional(readOnly = true)
-    public Integer getCartTotal(Long chatId) {
+    public Long getCartTotal(Long chatId) {
         User user = userService.getUserByChatId(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
 
@@ -264,7 +264,7 @@ public class CartService {
      */
     @Transactional
     public CartItem addProductWithAddonToCart(Long chatId, Long productId, Integer quantity,
-                                              Long addonProductId, Integer addonPrice) {
+                                              Long addonProductId, Long addonPrice) {
         List<CartItem> cartItems = addProductToCart(chatId, productId, quantity);
 
         if (cartItems.isEmpty()) {
@@ -423,21 +423,21 @@ public class CartService {
         StringBuilder description = new StringBuilder();
         description.append("🛒 *Ваша корзина:*\n\n");
 
-        int totalAmount = 0;
+        long totalAmount = 0;
         int itemNumber = 1;
 
         for (CartItemGroup group : groupedItems.values()) {
             CartItem firstItem = group.getFirstItem();
             int groupQuantity = group.getTotalQuantity();
 
-            int itemTotal = firstItem.getProduct().getAmount() * groupQuantity;
-            int addonsTotal = 0;
+            long itemTotal = firstItem.getProduct().getAmount() * groupQuantity;
+            long addonsTotal = 0;
 
             List<String> addonDescriptions = new ArrayList<>();
 
             if (firstItem.hasAddons()) {
                 for (CartItemAddon addon : firstItem.getAddons()) {
-                    int syrupPricePerUnit;
+                    long syrupPricePerUnit;
 
                     if (syrupPriceService.isSyrup(addon.getAddonProduct())) {
                         syrupPricePerUnit = syrupPriceService.calculateSyrupPriceForSize(
@@ -449,7 +449,7 @@ public class CartService {
                     }
 
                     int addonQuantity = addon.getQuantity() * groupQuantity;
-                    int addonTotalPrice = syrupPricePerUnit * addonQuantity;
+                    long addonTotalPrice = syrupPricePerUnit * addonQuantity;
                     addonsTotal += addonTotalPrice;
 
                     addonDescriptions.add(String.format(
@@ -461,7 +461,7 @@ public class CartService {
                 }
             }
 
-            int groupTotalPrice = itemTotal + addonsTotal;
+            long groupTotalPrice = itemTotal + addonsTotal;
             totalAmount += groupTotalPrice;
 
             description.append(itemNumber).append(". *").append(firstItem.getProduct().getName())
@@ -522,7 +522,7 @@ public class CartService {
         User user = userService.getUserByChatId(chatId).orElseThrow();
         Cart cart = getCartByUser(user);
         List<CartItem> items = cartItemRepository.findByCartWithProductAndAddons(cart);
-        int total = cart.calculateTotalAmount();
+        long total = cart.calculateTotalAmount();
         return new CartSnapshot(cart, items, total);
     }
 }

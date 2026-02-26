@@ -30,7 +30,7 @@ public class AdminOrderDto {
     private String orderNumber;
 
     /** Итоговая сумма заказа */
-    private Integer totalAmount;
+    private Long totalAmount;
 
     /** Статус заказа (enum из сущности Order) */
     private Order.OrderStatus status;

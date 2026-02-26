@@ -42,9 +42,9 @@ public class Cart {
     /**
      * Рассчитать общую сумму корзины
      */
-    public Integer calculateTotalAmount() {
+    public Long calculateTotalAmount() {
         return cartItems.stream()
-                .mapToInt(CartItem::calculateItemTotal)
+                .mapToLong(CartItem::calculateItemTotal)
                 .sum();
     }
 

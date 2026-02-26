@@ -112,7 +112,7 @@ public class OrderService {
             CartSnapshot snap = cartService.getCartSnapshot(chatId);
             List<CartItem> cartItems = getCartItems(snap);
 
-            int totalAmount = snap.total();
+            long totalAmount = snap.total();
 
             Order.OrderStatus status = Order.OrderStatus.PENDING;
             Order.DeliveryType deliveryType;

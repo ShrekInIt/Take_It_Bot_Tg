@@ -57,7 +57,7 @@ public class CartItemAddonService {
      * Добавить добавку к cart_item
      */
     @Transactional
-    public void addAddonToCartItem(CartItem cartItem, Product addonProduct, Integer quantity, Integer priceAtSelection) {
+    public void addAddonToCartItem(CartItem cartItem, Product addonProduct, Integer quantity, Long priceAtSelection) {
         log.debug("Adding addon productId: {} to cartItemId: {} with quantity: {} and price: {}",
                 addonProduct.getId(), cartItem.getId(), quantity, priceAtSelection);
 

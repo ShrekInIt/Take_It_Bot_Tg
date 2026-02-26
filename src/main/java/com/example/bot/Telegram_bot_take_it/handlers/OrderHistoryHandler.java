@@ -247,13 +247,13 @@ public class OrderHistoryHandler {
             OrderItem firstItem = group.getFirst();
 
             int totalQuantity = group.stream().mapToInt(OrderItem::getQuantity).sum();
-            int pricePerItem = firstItem.getPriceAtOrder();
-            int groupTotalPrice = pricePerItem * totalQuantity;
+            long pricePerItem = firstItem.getPriceAtOrder();
+            long groupTotalPrice = pricePerItem * totalQuantity;
 
-            int addonsPrice = 0;
+            long addonsPrice = 0;
             if (firstItem.getAddons() != null && !firstItem.getAddons().isEmpty()) {
                 addonsPrice = firstItem.getAddons().stream()
-                        .mapToInt(addon -> addon.getPriceAtOrder() * addon.getQuantity())
+                        .mapToLong(addon -> addon.getPriceAtOrder() * addon.getQuantity())
                         .sum() * totalQuantity;
                 groupTotalPrice += addonsPrice;
             }

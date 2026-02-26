@@ -48,11 +48,11 @@ public class CartItem {
     /**
      * Рассчитать общую стоимость товара с учетом добавок
      */
-    public Integer calculateItemTotal() {
-        int productTotal = (product.getAmount() != null ? product.getAmount() : 0) * countProduct;
+    public Long calculateItemTotal() {
+        long productTotal = (product.getAmount() != null ? product.getAmount() : 0) * countProduct;
 
-        int addonsTotal = addons.stream()
-                .mapToInt(addon -> (addon.getPriceAtSelection() != null ? addon.getPriceAtSelection() : 0) *
+        long addonsTotal = addons.stream()
+                .mapToLong(addon -> (addon.getPriceAtSelection() != null ? addon.getPriceAtSelection() : 0) *
                         (addon.getQuantity() != null ? addon.getQuantity() : 0))
                 .sum();
 
@@ -62,7 +62,7 @@ public class CartItem {
     /**
      * Рассчитать стоимость только товара (без добавок)
      */
-    public Integer calculateProductTotal() {
+    public Long calculateProductTotal() {
         return (product.getAmount() != null ? product.getAmount() : 0) * countProduct;
     }
 
