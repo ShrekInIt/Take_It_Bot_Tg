@@ -1,0 +1,18 @@
+.env
+*.log
+logs/
+target/
+*.jar
+*.war
+*.class
+*.iml
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Uploads (опционально - можете удалить эту строку если хотите включать uploads)
+# uploads/
+

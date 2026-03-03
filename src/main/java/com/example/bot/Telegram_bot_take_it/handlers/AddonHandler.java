@@ -1,7 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
-import com.example.bot.Telegram_bot_take_it.entity.CartItem;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.service.*;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
@@ -17,7 +16,6 @@ public class AddonHandler {
     private final KeyboardService keyboardService;
     private final ProductService productService;
     private final CartService cartService;
-    private final CartItemService cartItemService;
     private final CartItemAddonService cartItemAddonService;
     private final MessageSender messageSender;
     private final SyrupPriceService syrupPriceService;
@@ -28,7 +26,7 @@ public class AddonHandler {
      */
     public void handlerAddonCallback(Long chatId, Integer messageId, String data){
         if (data.startsWith("addons_show_edit_")) {
-            System.out.println("We here");
+            log.info("Обработка выбора добавок (edit)...");
             handleAddonsSelection(chatId, data, messageId);
         }
         else if (data.startsWith("addons_show_")) {
@@ -86,7 +84,7 @@ public class AddonHandler {
 
             log.info("Товар ID в handleAddonsSelection: {}, количество: {}", productId, quantity);
 
-            productService.getProductById(productId).ifPresent(
+            productService.getProductByIdDto(productId).ifPresent(
                     product -> {
                         String messageText = String.format(
                                 """
@@ -134,7 +132,7 @@ public class AddonHandler {
 
             log.info("Товар ID: {}, количество: {}", productId, quantity);
 
-            productService.getProductById(productId).ifPresent(
+            productService.getProductByIdDto(productId).ifPresent(
                     product -> {
                         String messageText = String.format(
                                 """
@@ -167,8 +165,8 @@ public class AddonHandler {
         int quantity = Integer.parseInt(parts[5]);
         long categoryId = Long.parseLong(parts[6]);
 
-        Product syrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
-        Product milk = cartItemAddonService.getMilkByCartItemId(cartItemId);
+        ProductResponseDto syrup = cartItemAddonService.getSyrupByCartItemIdDto(cartItemId);
+        ProductResponseDto milk = cartItemAddonService.getMilkByCartItemIdDto(cartItemId);
 
         String text = String.format("""
                        Добавки:
@@ -180,7 +178,7 @@ public class AddonHandler {
                 (milk == null) ? "Не добавлено": milk.getName()
         );
         try {
-            telegramMessageSender.sendEditMessage(chatId, messageId, text, keyboardService.createKeyboardSyrupAndMilk(cartItemId, productId, quantity,categoryId, addon, syrup, milk), true);
+            telegramMessageSender.sendEditMessage(chatId, messageId, text, keyboardService.createKeyboardSyrupAndMilkDto(cartItemId, productId, quantity, categoryId, addon, syrup, milk), true);
         } catch (Exception e) {
             log.error("Ошибка при обновлении сообщения с добавками", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при обновлении добавок");
@@ -195,7 +193,7 @@ public class AddonHandler {
             String[] parts = data.split("_");
             Long cartItemId = Long.parseLong(parts[3]);
 
-            Product oldMilk = cartItemAddonService.getMilkByCartItemId(cartItemId);
+            ProductResponseDto oldMilk = cartItemAddonService.getMilkByCartItemIdDto(cartItemId);
             if (oldMilk != null) {
                 cartItemAddonService.deleteAddonByCartItemIdAndProductId(cartItemId, oldMilk.getId());
             }
@@ -203,8 +201,8 @@ public class AddonHandler {
             updateAddonsMessage(chatId, messageId, data, "milk");
 
         } catch (Exception e) {
-            log.error("Ошибка выбора сиропа", e);
-            messageSender.sendMessage(chatId, "❌ Ошибка при добавлении сиропа");
+            log.error("Ошибка удаления молока", e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при удалении молока");
         }
     }
 
@@ -220,20 +218,18 @@ public class AddonHandler {
             int quantity = Integer.parseInt(parts[6]);
             long categoryId = Long.parseLong(parts[7]);
 
-            Product milk = productService.getProductById(milkId)
-                    .orElseThrow(() -> new RuntimeException("Молоко не найден"));
+            ProductResponseDto milk = productService.getProductByIdDto(milkId)
+                    .orElseThrow(() -> new RuntimeException("Молоко не найдено"));
 
-            CartItem cartItem = cartItemService.getCartItemById(cartItemId);
-
-            Product oldMilk = cartItemAddonService.getMilkByCartItemId(cartItemId);
+            ProductResponseDto oldMilk = cartItemAddonService.getMilkByCartItemIdDto(cartItemId);
             if (oldMilk != null) {
                 cartItemAddonService.deleteAddonByCartItemIdAndProductId(cartItemId, oldMilk.getId());
             }
 
-            cartItemAddonService.addAddonToCartItem(cartItem, milk, 1, milk.getAmount());
+            cartItemAddonService.addAddonToCartItem(cartItemId, milkId, 1, milk.getAmount());
 
             String messageText = String.format("""
-                ✅ *Молоко добавлен!*
+                ✅ *Молоко добавлено!*
                 
                 🍯 Вы выбрали: *%s*
                 💰 Доплата: *+%d₽*
@@ -243,7 +239,7 @@ public class AddonHandler {
                     milk.getName(),
                     milk.getAmount());
 
-            telegramMessageSender.sendEditMessage(chatId, messageId,messageText,
+            telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
                     keyboardService.createButtonBackForAddonsMilkOrSyrup(cartItemId, productId, quantity, categoryId, "milk"), true);
 
         } catch (Exception e) {
@@ -253,7 +249,7 @@ public class AddonHandler {
     }
 
     /**
-     * Показ выбранного молока
+     * Показ выбора молока
      */
     private void showMilksSelection(Long chatId, String data, Integer messageId) {
         String[] parts = data.split("_");
@@ -262,22 +258,22 @@ public class AddonHandler {
         int quantity = Integer.parseInt(parts[5]);
         long categoryId = Long.parseLong(parts[6]);
 
-        Product currentMilk = cartItemAddonService.getMilkByCartItemId(cartItemId);
+        ProductResponseDto currentMilk = cartItemAddonService.getMilkByCartItemIdDto(cartItemId);
 
-        String currentSyrupText = currentMilk != null
-                ? String.format("\n\nТекущий сироп: *%s* (+%d₽)",
+        String currentMilkText = currentMilk != null
+                ? String.format("\n\nТекущее молоко: *%s* (+%d₽)",
                 currentMilk.getName(), currentMilk.getAmount())
                 : "";
 
         String messageText = String.format("""
-            🍯 *Выбор  альт.молока*
+            🥛 *Выбор альт.молока*
             
             Выберите альт.молоко для вашего напитка:%s
-            """, currentSyrupText);
+            """, currentMilkText);
 
         try {
             telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
-                    keyboardService.createKeyboardForSelectedMilkOrSyrup(cartItemId, productId, quantity, categoryId, "milk", null), true);
+                    keyboardService.createKeyboardForSelectedMilkOrSyrupDto(cartItemId, productId, quantity, categoryId, "milk", null), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке выбора альтернативного молока", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке альтернативного молока");
@@ -294,8 +290,8 @@ public class AddonHandler {
         int quantity = Integer.parseInt(parts[4]);
         long categoryId = Long.parseLong(parts[5]);
 
-        Product syrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
-        Product milk = cartItemAddonService.getMilkByCartItemId(cartItemId);
+        ProductResponseDto syrup = cartItemAddonService.getSyrupByCartItemIdDto(cartItemId);
+        ProductResponseDto milk = cartItemAddonService.getMilkByCartItemIdDto(cartItemId);
 
         String text = String.format("""
                        Добавки:
@@ -309,7 +305,7 @@ public class AddonHandler {
 
         try {
             telegramMessageSender.sendEditMessage(chatId, messageId, text,
-                    keyboardService.createKeyboardForMilkActionOrSyrupAction(cartItemId, productId, quantity, categoryId, milk, "milk"), true);
+                    keyboardService.createKeyboardForMilkActionOrSyrupActionDto(cartItemId, productId, quantity, categoryId, milk, "milk"), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке сообщения с добавками", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке добавок");
@@ -324,7 +320,7 @@ public class AddonHandler {
             String[] parts = data.split("_");
             Long cartItemId = Long.parseLong(parts[3]);
 
-            Product oldSyrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
+            ProductResponseDto oldSyrup = cartItemAddonService.getSyrupByCartItemIdDto(cartItemId);
             if (oldSyrup != null) {
                 cartItemAddonService.deleteAddonByCartItemIdAndProductId(cartItemId, oldSyrup.getId());
             }
@@ -332,13 +328,13 @@ public class AddonHandler {
             updateAddonsMessage(chatId, messageId, data, "syrup");
 
         } catch (Exception e) {
-            log.error("Ошибка выбора сиропа", e);
-            messageSender.sendMessage(chatId, "❌ Ошибка при добавлении сиропа");
+            log.error("Ошибка удаления сиропа", e);
+            messageSender.sendMessage(chatId, "❌ Ошибка при удалении сиропа");
         }
     }
 
     /**
-     * Выбор альтернативного сиропа
+     * Выбор сиропа
      */
     private void handleSelectSyrup(Long chatId, String data, Integer messageId) {
         try {
@@ -349,17 +345,15 @@ public class AddonHandler {
             int quantity = Integer.parseInt(parts[6]);
             long categoryId = Long.parseLong(parts[7]);
 
-            Product syrup = productService.getProductById(syrupId)
+            ProductResponseDto syrup = productService.getProductByIdDto(syrupId)
                     .orElseThrow(() -> new RuntimeException("Сироп не найден"));
 
-            CartItem cartItem = cartItemService.getCartItemById(cartItemId);
-
-            Product oldSyrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
+            ProductResponseDto oldSyrup = cartItemAddonService.getSyrupByCartItemIdDto(cartItemId);
             if (oldSyrup != null) {
                 cartItemAddonService.deleteAddonByCartItemIdAndProductId(cartItemId, oldSyrup.getId());
             }
 
-            cartItemAddonService.addAddonToCartItem(cartItem, syrup, 1, syrup.getAmount());
+            cartItemAddonService.addAddonToCartItem(cartItemId, syrupId, 1, syrup.getAmount());
 
             String messageText = String.format("""
                 ✅ *Сироп добавлен!*
@@ -382,7 +376,7 @@ public class AddonHandler {
     }
 
     /**
-     * Показ выбранного сиропа
+     * Показ выбора сиропа
      */
     private void showSyrupsSelection(Long chatId, String data, Integer messageId) {
         String[] parts = data.split("_");
@@ -391,9 +385,10 @@ public class AddonHandler {
         int quantity = Integer.parseInt(parts[5]);
         long categoryId = Long.parseLong(parts[6]);
 
-        Product mainProduct = productService.getProductById(productId).orElseThrow(() -> new RuntimeException("Напиток не найден"));
+        ProductResponseDto mainProduct = productService.getProductByIdDto(productId)
+                .orElseThrow(() -> new RuntimeException("Напиток не найден"));
 
-        Product currentSyrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
+        ProductResponseDto currentSyrup = cartItemAddonService.getSyrupByCartItemIdDto(cartItemId);
 
         String currentSyrupText = "";
         if (currentSyrup != null) {
@@ -409,8 +404,8 @@ public class AddonHandler {
             """, currentSyrupText);
 
         try {
-            telegramMessageSender.sendEditMessage(chatId, messageId,messageText,
-                    keyboardService.createKeyboardForSelectedMilkOrSyrup(cartItemId, productId, quantity, categoryId, "syrup", mainProduct), true);
+            telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
+                    keyboardService.createKeyboardForSelectedMilkOrSyrupDto(cartItemId, productId, quantity, categoryId, "syrup", mainProduct), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке выбора сиропов", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке сиропов");
@@ -418,7 +413,7 @@ public class AddonHandler {
     }
 
     /**
-     * Показ альтернативного сиропа
+     * Показ выбора сиропа (меню действий)
      */
     private void handleAddonsSelectionSyrup(Long chatId, String data, Integer messageId) {
         String[] parts = data.split("_");
@@ -427,8 +422,8 @@ public class AddonHandler {
         int quantity = Integer.parseInt(parts[4]);
         long categoryId = Long.parseLong(parts[5]);
 
-        Product syrup = cartItemAddonService.getSyrupByCartItemId(cartItemId);
-        Product milk = cartItemAddonService.getMilkByCartItemId(cartItemId);
+        ProductResponseDto syrup = cartItemAddonService.getSyrupByCartItemIdDto(cartItemId);
+        ProductResponseDto milk = cartItemAddonService.getMilkByCartItemIdDto(cartItemId);
 
         String text = String.format("""
                        Добавки:
@@ -442,7 +437,7 @@ public class AddonHandler {
 
         try {
             telegramMessageSender.sendEditMessage(chatId, messageId, text,
-                    keyboardService.createKeyboardForMilkActionOrSyrupAction(cartItemId, productId, quantity, categoryId,syrup, "syrup"), true);
+                    keyboardService.createKeyboardForMilkActionOrSyrupActionDto(cartItemId, productId, quantity, categoryId, syrup, "syrup"), true);
         } catch (Exception e) {
             log.error("Ошибка при отправке сообщения с добавками", e);
             messageSender.sendMessage(chatId, "❌ Ошибка при загрузке добавок");

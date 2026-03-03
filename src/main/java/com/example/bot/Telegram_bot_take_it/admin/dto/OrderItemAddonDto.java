@@ -18,7 +18,7 @@ public class OrderItemAddonDto {
 
     private Integer quantity;
 
-    private Integer price;
+    private Long price;
 
     /**
      * Пустой конструктор — нужен для сериализации/десериализации (Jackson).
@@ -39,7 +39,7 @@ public class OrderItemAddonDto {
             Long id,
             String name,
             Integer quantity,
-            Integer price
+            Long price
     ) {
         this.id = id;
         this.name = name;

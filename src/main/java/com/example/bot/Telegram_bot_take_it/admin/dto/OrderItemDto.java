@@ -20,7 +20,7 @@ public class OrderItemDto {
 
     private Integer quantity;
 
-    private Integer price;
+    private Long price;
 
     private ProductDto product;
 
@@ -34,7 +34,7 @@ public class OrderItemDto {
      * @param quantity количество
      * @param price    цена позиции
      */
-    public OrderItemDto(Long id, ProductDto product, Integer quantity, Integer price) {
+    public OrderItemDto(Long id, ProductDto product, Integer quantity, Long price) {
         this.id = id;
         this.product = product;
         this.quantity = quantity;

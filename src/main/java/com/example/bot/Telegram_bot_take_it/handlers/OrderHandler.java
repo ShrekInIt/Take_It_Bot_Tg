@@ -1,10 +1,10 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
 import com.example.bot.Telegram_bot_take_it.dto.OrderData;
-import com.example.bot.Telegram_bot_take_it.entity.CartItem;
-import com.example.bot.Telegram_bot_take_it.entity.Order;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.example.bot.Telegram_bot_take_it.entity.User;
+import com.example.bot.Telegram_bot_take_it.dto.response.CartItemResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.OrderResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.UserResponseDto;
 import com.example.bot.Telegram_bot_take_it.service.*;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
 import com.example.bot.Telegram_bot_take_it.utils.TelegramMessageSender;
@@ -176,13 +176,13 @@ public class OrderHandler {
                 return;
             }
 
-            Optional<User> userOpt = userService.getUserByChatId(chatId);
+            Optional<UserResponseDto> userOpt = userService.getUserByChatIdDto(chatId);
             if (userOpt.isEmpty()) {
                 messageSender.answerCallback(callbackId, "❌ Пользователь не найден");
                 return;
             }
 
-            User user = userOpt.get();
+            UserResponseDto user = userOpt.get();
 
             var session = orderSessionService.createOrReset(chatId);
 
@@ -249,20 +249,24 @@ public class OrderHandler {
      */
     private List<String> checkProductAvailability(Long chatId) {
         List<String> unavailableItems = new ArrayList<>();
-        List<CartItem> cartItems = cartService.getCartItems(chatId);
+        List<CartItemResponseDto> cartItems = cartService.getCartItemsDto(chatId);
 
-        for (CartItem cartItem : cartItems) {
-            Product product = cartItem.getProduct();
+        for (CartItemResponseDto cartItem : cartItems) {
+            ProductResponseDto product = cartItem.getProduct();
             if (product == null) {
                 unavailableItems.add("Неизвестный товар");
                 continue;
             }
 
-            if (!product.getAvailable() || product.getCount() < cartItem.getCountProduct()) {
+            boolean available = product.getAvailable() != null && product.getAvailable();
+            int count = product.getCount() != null ? product.getCount() : 0;
+            int needed = cartItem.getCountProduct() != null ? cartItem.getCountProduct() : 0;
+
+            if (!available || count < needed) {
                 unavailableItems.add(String.format("%s (осталось: %d, нужно: %d)",
                         product.getName(),
-                        product.getCount(),
-                        cartItem.getCountProduct()));
+                        count,
+                        needed));
             }
         }
 
@@ -427,7 +431,7 @@ public class OrderHandler {
                     .phoneNumber(session.getPhoneNumber())
                     .build();
 
-            Order order = orderService.createOrderFromCart(chatId, orderData);
+            OrderResponseDto order = orderService.createOrderFromCartDto(chatId, orderData);
 
             cartService.clearCart(chatId);
             orderSessionService.clear(chatId);
@@ -452,7 +456,7 @@ public class OrderHandler {
     /**
      * Создание сообщения с подтверждением заказа
      */
-    private String createOrderConfirmationMessage(Order order) {
+    private String createOrderConfirmationMessage(OrderResponseDto order) {
 
         return "🎉 *Ваш заказ оформлен!*\n\n" +
                 "📋 *Номер заказа:* " + order.getOrderNumber() + "\n" +

@@ -25,7 +25,7 @@ public class OrderDto {
 
     private String status;
 
-    private Integer totalAmount;
+    private Long totalAmount;
 
     private String deliveryType;
 
@@ -53,7 +53,7 @@ public class OrderDto {
      * @param createdAt    дата создания
      * @param comment      комментарий к заказу
      */
-    public OrderDto(Long id, Order.OrderStatus status, Integer totalAmount, String userName, String userPhone, Order.DeliveryType deliveryType, LocalDateTime createdAt, String comment) {
+    public OrderDto(Long id, Order.OrderStatus status, Long totalAmount, String userName, String userPhone, Order.DeliveryType deliveryType, LocalDateTime createdAt, String comment) {
         this.id = id;
         this.status = status.toString();
         this.totalAmount = totalAmount;

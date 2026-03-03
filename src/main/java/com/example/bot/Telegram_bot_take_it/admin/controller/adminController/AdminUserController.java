@@ -2,6 +2,8 @@ package com.example.bot.Telegram_bot_take_it.admin.controller.adminController;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminUserDto;
 import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
+import com.example.bot.Telegram_bot_take_it.dto.request.CreateUserRequest;
+import com.example.bot.Telegram_bot_take_it.dto.request.UpdateUserRequest;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -100,17 +102,34 @@ public class AdminUserController {
     }
 
     /**
-     * Обновляет данные пользователя по ID.
+     * Обновляет данные пользователя по ID с использованием DTO и валидации.
      * <p>
-     * Принимает JSON-объект с обновляемыми полями (Map<String, Object>),
+     * Принимает UpdateUserRequest с валидированными обновляемыми полями,
      * передаёт их в userService.update(...), затем возвращает обновлённого пользователя в виде AdminUserDto.
      *
      * @param id  идентификатор пользователя
-     * @param req набор обновляемых полей (ключи/значения из тела запроса)
+     * @param request данные для обновления пользователя с валидацией
      * @return обновлённый пользователь в виде AdminUserDto
      */
     @PutMapping("/users/{id}")
-    public ResponseEntity<AdminUserDto> update(@PathVariable Long id, @RequestBody Map<String,Object> req) {
+    public ResponseEntity<AdminUserDto> update(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateUserRequest request
+    ) {
+        User updated = userService.update(id, request);
+        return ResponseEntity.ok(OrderMapper.toDtoUser(updated));
+    }
+
+    /**
+     * Обновляет данные пользователя по ID (legacy метод для обратной совместимости).
+     * @deprecated Используйте {@link #update(Long, UpdateUserRequest)} вместо этого
+     */
+    @Deprecated
+    @PutMapping("/users/{id}/legacy")
+    public ResponseEntity<AdminUserDto> updateLegacy(
+            @PathVariable Long id,
+            @RequestBody Map<String,Object> req
+    ) {
         User updated = userService.update(id, req);
         return ResponseEntity.ok(OrderMapper.toDtoUser(updated));
     }
@@ -128,17 +147,28 @@ public class AdminUserController {
     }
 
     /**
-     * Создаёт нового пользователя.
+     * Создаёт нового пользователя с использованием DTO и валидации.
      * <p>
-     * Принимает JSON-объект с данными пользователя (Map<String, Object>),
+     * Принимает CreateUserRequest с валидированными данными пользователя,
      * создаёт пользователя через userService.create(...),
      * и возвращает созданного пользователя в формате AdminUserDto.
      *
-     * @param req данные для создания пользователя (ключи/значения из тела запроса)
+     * @param request данные для создания пользователя с валидацией
      * @return созданный пользователь в виде AdminUserDto
      */
     @PostMapping("/users")
-    public ResponseEntity<AdminUserDto> create(@RequestBody Map<String, Object> req) {
+    public ResponseEntity<AdminUserDto> create(@Valid @RequestBody CreateUserRequest request) {
+        User created = userService.create(request);
+        return ResponseEntity.ok(OrderMapper.toDtoUser(created));
+    }
+
+    /**
+     * Создаёт нового пользователя (legacy метод для обратной совместимости).
+     * @deprecated Используйте {@link #create(CreateUserRequest)} вместо этого
+     */
+    @Deprecated
+    @PostMapping("/users/legacy")
+    public ResponseEntity<AdminUserDto> createLegacy(@RequestBody Map<String, Object> req) {
         User created = userService.create(req);
         return ResponseEntity.ok(OrderMapper.toDtoUser(created));
     }

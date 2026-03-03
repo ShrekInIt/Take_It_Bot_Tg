@@ -89,8 +89,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
 
     @Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.createdAt BETWEEN :start AND :end AND  o.status = 'COMPLETED' ")
-    Integer sumTotalAmountByDateOrderBetween(@Param("start") LocalDateTime start,
-                                             @Param("end") LocalDateTime end);
+    Long sumTotalAmountByDateOrderBetween(@Param("start") LocalDateTime start,
+                                          @Param("end") LocalDateTime end);
 
 
     @EntityGraph(attributePaths = {"user"})

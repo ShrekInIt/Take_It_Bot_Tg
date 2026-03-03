@@ -108,3 +108,13 @@ temp/
 
 # IDE specific
 .attach_pid*
+
+# Docker
+.docker/
+
+# Init DB data files (keep only README)
+init-db/*.sql
+!init-db/00_init.sql
+
+# Uploads (раскомментируйте если не хотите коммитить)
+# uploads/

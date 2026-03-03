@@ -29,10 +29,10 @@ public class ProductAddon {
     private Long additionalPrice = 0L;
 
     @Column(name = "price_for_small_volume")
-    private Integer priceForSmallVolume;
+    private Long priceForSmallVolume;
 
     @Column(name = "price_for_large_volume")
-    private Integer priceForLargeVolume;
+    private Long priceForLargeVolume;
 
     @Column(name = "small_volume_threshold")
     private Integer smallVolumeThreshold = 200;

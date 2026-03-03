@@ -2,8 +2,11 @@ package com.example.bot.Telegram_bot_take_it.admin.controller.adminController;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminProductDto;
 import com.example.bot.Telegram_bot_take_it.admin.utils.OrderMapper;
+import com.example.bot.Telegram_bot_take_it.dto.request.CreateProductRequest;
+import com.example.bot.Telegram_bot_take_it.dto.request.UpdateProductRequest;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
@@ -84,17 +87,29 @@ public class AdminProductController {
     }
 
     /**
-     * Создаёт новый товар.
+     * Создаёт новый товар с использованием DTO и валидации.
      * <p>
-     * Принимает Map с данными товара (поля зависят от реализации productService.create),
+     * Принимает CreateProductRequest с валидированными данными товара,
      * создаёт Product и возвращает созданный товар в формате AdminProductDto.
      *
-     * @param request данные для создания товара (ключи/значения из JSON тела запроса)
+     * @param request данные для создания товара с валидацией
      * @return созданный товар в формате AdminProductDto
-     * @throws BadRequestException если входные данные некорректны (валидация на стороне сервиса)
      */
     @PostMapping("/products")
     public ResponseEntity<AdminProductDto> createProduct(
+            @Valid @RequestBody CreateProductRequest request
+    ) {
+        Product product = productService.create(request);
+        return ResponseEntity.ok(OrderMapper.toDtoProduct(product));
+    }
+
+    /**
+     * Создаёт новый товар (legacy метод для обратной совместимости).
+     * @deprecated Используйте {@link #createProduct(CreateProductRequest)} вместо этого
+     */
+    @Deprecated
+    @PostMapping("/products/legacy")
+    public ResponseEntity<AdminProductDto> createProductLegacy(
             @RequestBody Map<String, Object> request
     ) throws BadRequestException {
         Product product = productService.create(request);
@@ -102,17 +117,31 @@ public class AdminProductController {
     }
 
     /**
-     * Обновляет существующий товар по ID.
+     * Обновляет существующий товар по ID с использованием DTO и валидации.
      * <p>
-     * Принимает Map с обновляемыми полями, передаёт их в сервис,
-     * и возвращает обновлённый товар в формате AdminProductDto.
+     * Принимает UpdateProductRequest с валидированными обновляемыми полями,
+     * передаёт их в сервис, и возвращает обновлённый товар в формате AdminProductDto.
      *
      * @param id      ID товара, который нужно обновить
-     * @param request данные для обновления товара (ключи/значения из JSON тела запроса)
+     * @param request данные для обновления товара с валидацией
      * @return обновлённый товар в формате AdminProductDto
      */
     @PutMapping("/products/{id}")
     public ResponseEntity<AdminProductDto> updateProduct(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateProductRequest request
+    ) {
+        Product updated = productService.update(id, request);
+        return ResponseEntity.ok(OrderMapper.toDtoProduct(updated));
+    }
+
+    /**
+     * Обновляет существующий товар по ID (legacy метод для обратной совместимости).
+     * @deprecated Используйте {@link #updateProduct(Long, UpdateProductRequest)} вместо этого
+     */
+    @Deprecated
+    @PutMapping("/products/{id}/legacy")
+    public ResponseEntity<AdminProductDto> updateProductLegacy(
             @PathVariable Long id,
             @RequestBody Map<String, Object> request
     ) {

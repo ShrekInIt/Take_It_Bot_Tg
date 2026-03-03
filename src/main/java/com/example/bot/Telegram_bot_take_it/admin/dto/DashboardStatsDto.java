@@ -31,5 +31,5 @@ public class DashboardStatsDto {
     private Integer ordersToday;
 
     /** Выручка за сегодня */
-    private Integer todayRevenue;
+    private Long todayRevenue;
 }

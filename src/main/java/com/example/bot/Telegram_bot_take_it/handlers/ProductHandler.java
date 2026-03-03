@@ -1,5 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
@@ -49,11 +50,12 @@ public class ProductHandler {
      * Показать детали товара с фото и кнопками
      */
     private void showProductDetails(Long chatId, Long productId, Long sourceCategoryId) {
-        productService.getProductById(productId).ifPresentOrElse(
+        productService.getProductByIdDto(productId).ifPresentOrElse(
                 product -> {
 
                     messageSender.setLastMessageType(chatId);
-                    String caption = MessageSender.getString(product.getAmount(), product, 1);
+                    long total = (product.getAmount() != null ? product.getAmount() : 0L);
+                    String caption = MessageSender.getString(total, product, 1);
 
                     if (keyboardService.needsAddons(product)) {
                         caption += "\n\n<i>К этому напитку можно добавить сиропы или альтернативное молоко</i>";

@@ -18,7 +18,7 @@ public class OrderRequest {
     private String phoneNumber;
     private String address;
     private String comments;
-    private Integer totalAmount;
+    private Long totalAmount;
     private String deliveryType;
     private String status;
     private LocalDateTime createdAt;

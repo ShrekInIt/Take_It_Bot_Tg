@@ -1,9 +1,8 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
-import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
-import com.example.bot.Telegram_bot_take_it.entity.CartItem;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
-import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
+import com.example.bot.Telegram_bot_take_it.dto.response.CartItemGroupResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.CartItemResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
@@ -27,7 +26,6 @@ public class CartHandler {
     private final ProductService productService;
     private final CartService cartService;
     private final MessageSender messageSender;
-    private final CartItemRepository cartItemRepository;
     private final TelegramMessageSender telegramMessageSender;
 
     /**
@@ -159,14 +157,14 @@ public class CartHandler {
 
             log.info("Товар ID: {}, количество: {}", productId, quantity);
 
-            Product product = productService.getProductById(productId)
+            ProductResponseDto product = productService.getProductByIdDto(productId)
                     .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
 
-            List<CartItem> addedItems = cartService.addProductToCart(chatId, productId, quantity);
+            List<CartItemResponseDto> addedItems = cartService.addProductToCartDto(chatId, productId, quantity);
 
             if (!addedItems.isEmpty()) {
 
-                String message = getString(addedItems, product, quantity);
+                String message = getString(product, quantity);
 
                 method(chatId, message);
 
@@ -186,8 +184,8 @@ public class CartHandler {
      * Получение сложной строки
      */
     @NotNull
-    private static String getString(List<CartItem> addedItems, Product product, int quantity) {
-        CartItem firstItem = addedItems.getFirst();
+    private static String getString(ProductResponseDto product, int quantity) {
+        long amount = product.getAmount() != null ? product.getAmount() : 0L;
 
         return String.format(
                 """
@@ -200,7 +198,7 @@ public class CartHandler {
                 """,
                 product.getName(),
                 quantity,
-                firstItem.calculateProductTotal()
+                amount * quantity
         );
     }
 
@@ -234,14 +232,16 @@ public class CartHandler {
             log.info("Товар ID: {}, количество: {}, добавка ID: {}, цена добавки: {}",
                     productId, quantity, addonProductId, addonPrice);
 
-            CartItem cartItem = cartService.addProductWithAddonToCart(
+            CartItemResponseDto cartItem = cartService.addProductWithAddonToCartDto(
                     chatId, productId, quantity, addonProductId, addonPrice);
 
             if (cartItem != null) {
-                Product product = cartItem.getProduct();
-                Product addonProduct = productService.getProductById(addonProductId).orElse(null);
+                ProductResponseDto product = cartItem.getProduct();
+                ProductResponseDto addonProduct = productService.getProductByIdDto(addonProductId).orElse(null);
 
                 String addonName = addonProduct != null ? addonProduct.getName() : "Добавка";
+                long total = (product.getAmount() != null ? product.getAmount() : 0L) * quantity
+                        + addonPrice * quantity;
 
                 String message = String.format(
                         """
@@ -257,7 +257,7 @@ public class CartHandler {
                         quantity,
                         addonName,
                         addonPrice,
-                        cartItem.calculateItemTotal()
+                        total
                 );
 
                 method(chatId, message);
@@ -284,10 +284,10 @@ public class CartHandler {
             int quantity = Integer.parseInt(parts[4]);
             long categoryId = Long.parseLong(parts[5]);
 
-            Product product = productService.getProductById(productId)
+            ProductResponseDto product = productService.getProductByIdDto(productId)
                     .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
 
-            List<CartItem> cartItems = cartService.findCartItemByProduct(chatId, product.getName());
+            List<CartItemResponseDto> cartItems = cartService.findCartItemByProductDto(chatId, product.getName());
 
             if (cartItems == null || cartItems.isEmpty()) {
                 messageSender.sendMessage(chatId, "🛒 Товар '" + product.getName() + "' не найден в вашей корзине");
@@ -301,7 +301,7 @@ public class CartHandler {
                 """;
 
             telegramMessageSender.sendEditMessage(chatId, messageId,messageText,
-                    keyboardService.createKeyboardAddAddonsInBasket(cartItems, productId, quantity,categoryId, "syrup"), true);
+                    keyboardService.createKeyboardAddAddonsInBasketDto(cartItems, productId, quantity,categoryId, "syrup"), true);
 
         } catch (Exception e) {
             log.error("Ошибка при показе товаров для добавления добавок: {}", e.getMessage(), e);
@@ -320,10 +320,10 @@ public class CartHandler {
             int quantity = Integer.parseInt(parts[4]);
             long categoryId = Long.parseLong(parts[5]);
 
-            Product product = productService.getProductById(productId)
+            ProductResponseDto product = productService.getProductByIdDto(productId)
                     .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
 
-            List<CartItem> cartItems = cartService.findCartItemByProduct(chatId, product.getName());
+            List<CartItemResponseDto> cartItems = cartService.findCartItemByProductDto(chatId, product.getName());
 
             if (cartItems == null || cartItems.isEmpty()) {
                 messageSender.sendMessage(chatId, "🛒 Товар '" + product.getName() + "' не найден в вашей корзине");
@@ -337,7 +337,7 @@ public class CartHandler {
                 """;
 
             telegramMessageSender.sendEditMessage(chatId, messageId, messageText,
-                    keyboardService.createKeyboardAddAddonsInBasket(cartItems, productId, quantity,categoryId, "milk"), true);
+                    keyboardService.createKeyboardAddAddonsInBasketDto(cartItems, productId, quantity,categoryId, "milk"), true);
 
         } catch (Exception e) {
             log.error("Ошибка при показе товаров для добавления добавок: {}", e.getMessage(), e);
@@ -374,18 +374,18 @@ public class CartHandler {
             String[] parts = data.split("_");
             Long firstCartItemId = Long.parseLong(parts[3]);
 
-            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+            CartItemGroupResponseDto group = cartService.getItemGroupByFirstItemIdDto(chatId, firstCartItemId);
 
             if (group == null || group.getItems().isEmpty()) {
                 messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
                 return;
             }
 
-            List<CartItem> groupItems = group.getItems();
-            Product product = group.getProduct();
+            List<CartItemResponseDto> groupItems = group.getItems();
+            ProductResponseDto product = group.getProduct();
             int totalInGroup = group.getTotalQuantity();
 
-            for (CartItem item : groupItems) {
+            for (CartItemResponseDto item : groupItems) {
                 cartService.removeCartItem(item.getId());
             }
 
@@ -410,15 +410,15 @@ public class CartHandler {
             Long firstCartItemId = Long.parseLong(parts[3]);
             int deleteQuantity = Integer.parseInt(parts[4]);
 
-            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+            CartItemGroupResponseDto group = cartService.getItemGroupByFirstItemIdDto(chatId, firstCartItemId);
 
             if (group == null || group.getItems().isEmpty()) {
                 messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
                 return;
             }
 
-            List<CartItem> groupItems = group.getItems();
-            Product product = group.getProduct();
+            List<CartItemResponseDto> groupItems = group.getItems();
+            ProductResponseDto product = group.getProduct();
             int totalInGroup = group.getTotalQuantity();
 
             if (deleteQuantity <= 0) {
@@ -435,19 +435,18 @@ public class CartHandler {
 
             if (group.isCoffee()) {
                 for (int i = 0; i < Math.min(deleteQuantity, groupItems.size()); i++) {
-                    CartItem item = groupItems.get(i);
+                    CartItemResponseDto item = groupItems.get(i);
                     cartService.removeCartItem(item.getId());
                     deletedCount++;
                 }
             } else {
-                CartItem item = groupItems.getFirst();
+                CartItemResponseDto item = groupItems.getFirst();
 
                 if (deleteQuantity >= item.getCountProduct()) {
                     cartService.removeCartItem(item.getId());
                     deletedCount = item.getCountProduct();
                 } else {
-                    item.setCountProduct(item.getCountProduct() - deleteQuantity);
-                    cartItemRepository.save(item);
+                    cartService.updateCartItemQuantity(item.getId(), item.getCountProduct() - deleteQuantity);
                     deletedCount = deleteQuantity;
                 }
             }
@@ -464,7 +463,7 @@ public class CartHandler {
     }
 
     @NotNull
-    private static String getString(int deletedCount, int totalInGroup, Product product) {
+    private static String getString(int deletedCount, int totalInGroup, ProductResponseDto product) {
         String message;
         if (deletedCount == totalInGroup) {
             message = String.format(
@@ -490,7 +489,7 @@ public class CartHandler {
             int currentDeleteQuantity = Integer.parseInt(parts[4]);
             String action = parts[5];
 
-            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+            CartItemGroupResponseDto group = cartService.getItemGroupByFirstItemIdDto(chatId, firstCartItemId);
             if (group == null || group.getItems().isEmpty()) {
                 messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
                 return;
@@ -521,14 +520,14 @@ public class CartHandler {
      */
     private void showDeleteProductKeyboard(Long chatId, Integer messageId, Long firstCartItemId, int deleteQuantity) {
         try {
-            CartItemGroupDTO group = cartService.getItemGroupByFirstItemId(chatId, firstCartItemId);
+            CartItemGroupResponseDto group = cartService.getItemGroupByFirstItemIdDto(chatId, firstCartItemId);
 
             if (group == null || group.getItems().isEmpty()) {
                 messageSender.sendMessage(chatId, "❌ Товар не найден в корзине");
                 return;
             }
 
-            Product product = group.getProduct();
+            ProductResponseDto product = group.getProduct();
             int currentQuantity = group.getTotalQuantity();
 
             deleteQuantity = Math.max(1, Math.min(deleteQuantity, currentQuantity));

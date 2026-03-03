@@ -12,11 +12,11 @@ import java.util.List;
 public class OrderItemDtoBot {
     private String productName;
     private Integer quantity;
-    private Integer pricePerItem;
-    private Integer totalPrice;
+    private Long pricePerItem;
+    private Long totalPrice;
     private List<String> addons;
 
-    public OrderItemDtoBot(String productName, int quantity, int pricePerItem, int totalPrice, List<String> addons) {
+    public OrderItemDtoBot(String productName, int quantity, long pricePerItem, long totalPrice, List<String> addons) {
         this.productName = productName;
         this.quantity = quantity;
         this.pricePerItem = pricePerItem;

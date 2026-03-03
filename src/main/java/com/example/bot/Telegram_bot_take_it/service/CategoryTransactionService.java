@@ -1,8 +1,9 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.CategoryData;
-import com.example.bot.Telegram_bot_take_it.entity.Category;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
+import com.example.bot.Telegram_bot_take_it.dto.response.CategoryResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
+import com.example.bot.Telegram_bot_take_it.mapper.ProductMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ public class CategoryTransactionService {
 
     private final CategoryService categoryService;
     private final ProductService productService;
+    private final ProductMapper productMapper;
 
     /**
      * Получает полные данные категории в рамках одной транзакции только для чтения
@@ -40,22 +42,24 @@ public class CategoryTransactionService {
      * @return {@link CategoryData} объект с данными категории, подкатегорий и товаров,
      *         или {@code null} если категория не найдена
      * @see CategoryData
-     * @see Category
-     * @see Product
+     * @see CategoryResponseDto
+     * @see ProductResponseDto
      */
     @Transactional(readOnly = true)
     public CategoryData getCategoryData(Long categoryId) {
-        Category category = categoryService.getCategoryWithParent(categoryId);
+        CategoryResponseDto category = categoryService.getCategoryWithParentDto(categoryId);
         if (category == null) {
             return null;
         }
 
-        List<Category> subcategories = categoryService.getActiveSubcategories(categoryId);
+        List<CategoryResponseDto> subcategories = categoryService.getActiveSubcategoriesDto(categoryId);
         boolean hasProducts = productService.hasAvailableProductsInCategory(categoryId);
 
-        List<Product> products = Collections.emptyList();
+        List<ProductResponseDto> products = Collections.emptyList();
         if (hasProducts) {
-            products = productService.getAvailableProductsWithStock(categoryId);
+            products = productService.getAvailableProductsWithStock(categoryId).stream()
+                    .map(productMapper::toResponseDto)
+                    .toList();
         }
 
         return new CategoryData(category, subcategories, hasProducts, products);

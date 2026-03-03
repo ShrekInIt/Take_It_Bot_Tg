@@ -2,6 +2,10 @@ package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.admin.service.FileStorageService;
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
+import com.example.bot.Telegram_bot_take_it.dto.response.CartItemResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.CategoryResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.OrderResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.entity.CartItem;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.Order;
@@ -13,8 +17,7 @@ import com.pengrad.telegrambot.model.request.KeyboardButton;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.LazyInitializationException;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +48,17 @@ public class KeyboardService {
     private final Map<String, byte[]> photoCache = new ConcurrentHashMap<>();
 
     /**
+     * Очистка кэша фотографий каждые 30 минут
+     */
+    @Scheduled(fixedRate = 1800000)
+    public void clearPhotoCache() {
+        if (!photoCache.isEmpty()) {
+            log.info("Очистка кэша фотографий. Размер до очистки: {}", photoCache.size());
+            photoCache.clear();
+        }
+    }
+
+    /**
      * Список названий кофе, для которых НЕ нужны добавки
      */
     private static final Set<String> COFFEE_WITHOUT_ADDONS = Set.of(
@@ -54,43 +68,25 @@ public class KeyboardService {
     /**
      * Проверить, нужны ли добавки для продукта
      */
-    @Transactional(readOnly = true)
-    public boolean needsAddons(Product product) {
-        if (product == null) {
+    public boolean needsAddons(ProductResponseDto product) {
+        if (product == null || product.getId() == null || product.getCategory() == null) {
             return false;
         }
 
-        Long categoryId = getProductCategoryIdSafely(product);
+        Long categoryId = product.getCategory().getId();
         boolean isCoffee = categoryService.isCoffeeCategoryById(categoryId);
 
         if (!isCoffee) {
             return false;
         }
 
-        String productName = product.getName().toLowerCase();
-
-        if (COFFEE_WITHOUT_ADDONS.stream()
-                .anyMatch(ex -> productName.contains(ex.toLowerCase()))) {
+        String productName = product.getName() != null ? product.getName().toLowerCase() : "";
+        if (COFFEE_WITHOUT_ADDONS.stream().anyMatch(ex -> productName.contains(ex.toLowerCase()))) {
             return false;
         }
 
         Set<Long> excludedIds = Set.of(4L, 9L);
         return !excludedIds.contains(product.getId());
-    }
-
-    /**
-     * Безопасный метод для получения categoryId из продукта
-     * Работает как с attached, так и с detached продуктами
-     */
-    private Long getProductCategoryIdSafely(Product product) {
-        try {
-            return product.getCategory().getId();
-        } catch (LazyInitializationException e) {
-            log.debug("Продукт detached, загружаем заново: {}", product.getId());
-            Product freshProduct = productService.getProductById(product.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Продукт не найден"));
-            return freshProduct.getCategory().getId();
-        }
     }
 
     /**
@@ -133,17 +129,13 @@ public class KeyboardService {
         return keyboard;
     }
 
-    /**
-     * Создать клавиатуру для товара (только кнопки!)
-     */
-    public InlineKeyboardMarkup createProductKeyboard(Product product, int quantity, Long sourceCategoryId) {
+    public InlineKeyboardMarkup createProductKeyboard(ProductResponseDto product, int quantity, Long sourceCategoryId) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         Long productId = product.getId();
         String callbackPrefix = (sourceCategoryId != null) ?
                 productId + "_" + quantity + "_" + sourceCategoryId :
                 productId + "_" + quantity + "_null";
-
 
         InlineKeyboardButton minusButton = new InlineKeyboardButton("➖")
                 .callbackData("quantity_minus_" + callbackPrefix);
@@ -216,6 +208,20 @@ public class KeyboardService {
      * Создание клавиатуры для пустой корзины
      */
     public InlineKeyboardMarkup createEmptyCartKeyboard() {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+
+        InlineKeyboardButton mainButton = new InlineKeyboardButton("🏠 На главную")
+                .callbackData("main_menu");
+
+        keyboard.addRow(mainButton);
+
+        return keyboard;
+    }
+
+    /**
+     * Создание простой кнопки "На главную"
+     */
+    public InlineKeyboardMarkup createButtonMainMenuBack() {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
         InlineKeyboardButton mainButton = new InlineKeyboardButton("🏠 На главную")
@@ -386,15 +392,13 @@ public class KeyboardService {
     }
 
     /**
-     * Создать клавиатуру с категориями для указанного родителя
-     * Кэширует результат для оптимизации
+     * Создать клавиатуру с категориями для указанного родителя (использует DTO)
      */
-    @Cacheable(value = "categoryKeyboards", key = "#parentId")
     @Transactional(readOnly = true)
     public InlineKeyboardMarkup getCategoryKeyboard(Long parentId) {
-        var categories = (parentId == null)
-                ? categoryService.getActiveRootCategories()
-                : categoryService.getActiveSubcategories(parentId);
+        List<CategoryResponseDto> categories = (parentId == null)
+                ? categoryService.getActiveRootCategoriesDto()
+                : categoryService.getActiveSubcategoriesDto(parentId);
 
         if (categories.isEmpty()) {
             return null;
@@ -402,14 +406,19 @@ public class KeyboardService {
 
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
 
+        // Добавляем иконку папки всем подкатегориям (parentId != null), не для корневых
+        boolean addFolderIcon = (parentId != null);
+
         for (int i = 0; i < categories.size(); i += 2) {
-            var cat1 = categories.get(i);
-            InlineKeyboardButton button1 = new InlineKeyboardButton(cat1.getName())
+            CategoryResponseDto cat1 = categories.get(i);
+            String name1 = addFolderIcon ? "📁 " + cat1.getName() : cat1.getName();
+            InlineKeyboardButton button1 = new InlineKeyboardButton(name1)
                     .callbackData("category_" + cat1.getId());
 
             if (i + 1 < categories.size()) {
-                var cat2 = categories.get(i + 1);
-                InlineKeyboardButton button2 = new InlineKeyboardButton(cat2.getName())
+                CategoryResponseDto cat2 = categories.get(i + 1);
+                String name2 = addFolderIcon ? "📁 " + cat2.getName() : cat2.getName();
+                InlineKeyboardButton button2 = new InlineKeyboardButton(name2)
                         .callbackData("category_" + cat2.getId());
                 keyboardMarkup.addRow(button1, button2);
             } else {
@@ -418,8 +427,21 @@ public class KeyboardService {
         }
 
         if (parentId != null) {
-            var currentCategory = categoryService.getCategoryWithParent(parentId);
-            addBackButton(keyboardMarkup, currentCategory);
+            CategoryResponseDto currentCategory = categoryService.getCategoryWithParentDto(parentId);
+            if (currentCategory != null) {
+                Long categoryParentId = currentCategory.getParent() != null
+                        ? currentCategory.getParent().getId()
+                        : null;
+                InlineKeyboardButton backButton;
+                if (categoryParentId != null) {
+                    backButton = new InlineKeyboardButton("↩️ Назад")
+                            .callbackData("category_" + categoryParentId);
+                } else {
+                    backButton = new InlineKeyboardButton("↩️ Главное меню")
+                            .callbackData("category_null");
+                }
+                keyboardMarkup.addRow(backButton);
+            }
         }
 
         return keyboardMarkup;
@@ -429,12 +451,10 @@ public class KeyboardService {
      * Метод добавляет кнопку "Назад" в Inline-клавиатуру в зависимости от текущей позиции в иерархии категорий
      * @param keyboardMarkup клавиатура для добавления кнопки
      * @param currentCategory текущая категория (уже загруженная с parent)
+     * @deprecated Используйте версию с CategoryResponseDto
      */
+    @Deprecated
     public static void addBackButton(InlineKeyboardMarkup keyboardMarkup, Category currentCategory) {
-        log.info("[BACK BUTTON] Current category: {}, Parent ID: {}",
-                currentCategory != null ? currentCategory.getName() : "null",
-                currentCategory != null ? currentCategory.getParentId() : "null");
-
         if (currentCategory == null) {
             return;
         }
@@ -453,10 +473,10 @@ public class KeyboardService {
     }
 
     /**
-     * Создать клавиатуру с товарами для указанной категории
+     * Создать клавиатуру с товарами для указанной категории (использует DTO)
      */
     public InlineKeyboardMarkup getProductsWithQuantityKeyboard(Long categoryId) {
-        var products = productService.getAvailableProductsWithStock(categoryId);
+        List<ProductResponseDto> products = productService.getAvailableProductsWithStockDto(categoryId);
 
         if (products.isEmpty()) {
             return null;
@@ -464,7 +484,7 @@ public class KeyboardService {
 
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        for (var product : products) {
+        for (ProductResponseDto product : products) {
             if (product.getCount() == null || product.getCount() <= 0) {
                 continue;
             }
@@ -479,23 +499,24 @@ public class KeyboardService {
             keyboard.addRow(button);
         }
 
-        var category = categoryService.getCategoryById(categoryId);
-        if (category != null && category.getParentId() != null) {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                    .callbackData("category_" + category.getParentId());
+        CategoryResponseDto category = categoryService.getCategoryWithParentDto(categoryId);
+        if (category != null) {
+            Long parentId = category.getParent() != null ? category.getParent().getId() : null;
+            InlineKeyboardButton backButton;
+            if (parentId != null) {
+                backButton = new InlineKeyboardButton("↩️ Назад")
+                        .callbackData("category_" + parentId);
+            } else {
+                backButton = new InlineKeyboardButton("↩️ Главное меню")
+                        .callbackData("category_null");
+            }
             keyboard.addRow(backButton);
         }
 
-        if (category != null && category.getParentId() == null) {
-            InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Главное меню")
-                    .callbackData("category_null");
-            keyboard.addRow(backButton);
-        }
-        System.out.println(category);
         return keyboard;
     }
 
-    /**А
+    /**
      * Создать основную Reply-клавиатуру приложения
      * Содержит основные команды: меню, корзина, заказы, настройки
      */
@@ -543,13 +564,11 @@ public class KeyboardService {
         return keyboard;
     }
 
-    /**
-     * Создать InlineKeyboardMarkup клавиатуру для сиропов и альт.молока
-     */
-    public InlineKeyboardMarkup createKeyboardSyrupAndMilk(Long cartItemId, long productId, int quantity,
-                                                           long categoryId, String addon, Product syrup, Product milk) {
+    public InlineKeyboardMarkup createKeyboardSyrupAndMilkDto(Long cartItemId, long productId, int quantity,
+                                                              long categoryId, String addon,
+                                                              ProductResponseDto syrup, ProductResponseDto milk) {
         InlineKeyboardMarkup keyboardMarkup;
-        if(addon.equals("syrup")) {
+        if (addon.equals("syrup")) {
             keyboardMarkup = new InlineKeyboardMarkup();
 
             InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
@@ -557,7 +576,6 @@ public class KeyboardService {
             addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
             keyboardMarkup.addRow(addSyrupButton);
-
 
             if (syrup != null) {
                 InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
@@ -570,15 +588,14 @@ public class KeyboardService {
             InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
                     .callbackData("cart_addon_syrup_" + productId + "_" + quantity + "_" + categoryId);
             keyboardMarkup.addRow(backButton);
-        }else {
+        } else {
             keyboardMarkup = new InlineKeyboardMarkup();
 
             InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
             addSyrupButton.setText("➕ Добавить альт. молоко");
-            addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
+            addSyrupButton.setCallbackData("addons_add_milk_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
             keyboardMarkup.addRow(addSyrupButton);
-
 
             if (milk != null) {
                 InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
@@ -620,11 +637,9 @@ public class KeyboardService {
         return keyboard;
     }
 
-    /**
-     * Создать InlineKeyboardMarkup клавиатуры доступных добавок
-     */
-    public InlineKeyboardMarkup createKeyboardForSelectedMilkOrSyrup(Long cartItemId, long productId, int quantity,
-                                                              long categoryId, String addon, Product mainProduct) {
+    public InlineKeyboardMarkup createKeyboardForSelectedMilkOrSyrupDto(Long cartItemId, long productId, int quantity,
+                                                                        long categoryId, String addon,
+                                                                        ProductResponseDto mainProduct) {
         InlineKeyboardMarkup keyboard;
 
         if (addon.equals("milk")) {
@@ -651,14 +666,14 @@ public class KeyboardService {
             keyboard.addRow(backButton);
         }else {
             keyboard = new InlineKeyboardMarkup();
-            List<Product> syrups = productService.getAvailableSyrups();
+            List<ProductResponseDto> syrups = productService.getAvailableSyrupsDto();
 
             if (syrups.isEmpty()) {
                 InlineKeyboardButton unavailableButton = new InlineKeyboardButton("⚠️ Сиропы временно недоступны")
                         .callbackData("noop");
                 keyboard.addRow(unavailableButton);
             } else {
-                for (Product syrup : syrups) {
+                for (ProductResponseDto syrup : syrups) {
                     long syrupPrice = syrupPriceService.calculateSyrupPriceForSize(syrup, mainProduct);
                     String buttonText = String.format("%s +%d₽",
                             syrup.getName(), syrupPrice);
@@ -680,8 +695,9 @@ public class KeyboardService {
     /**
      * Создать InlineKeyboardMarkup клавиатуру для действий с добавками
      */
-    public InlineKeyboardMarkup createKeyboardForMilkActionOrSyrupAction(Long cartItemId, long productId, int quantity,
-                                                            long categoryId, Product addonProduct, String addon){
+    public InlineKeyboardMarkup createKeyboardForMilkActionOrSyrupActionDto(Long cartItemId, long productId, int quantity,
+                                                                            long categoryId, ProductResponseDto addonProduct,
+                                                                            String addon) {
         InlineKeyboardMarkup keyboardMarkup;
         if (addon.equals("milk")) {
             keyboardMarkup = new InlineKeyboardMarkup();
@@ -708,14 +724,14 @@ public class KeyboardService {
 
             InlineKeyboardButton addSyrupButton = new InlineKeyboardButton();
             addSyrupButton.setText("➕ Добавить сироп");
-            addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
+            addSyrupButton.setCallbackData("addons_add_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
             keyboardMarkup.addRow(addSyrupButton);
 
             if (addonProduct != null) {
                 InlineKeyboardButton removeSyrupButton = new InlineKeyboardButton();
                 removeSyrupButton.setText("➖ Убрать сироп");
-                removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_"  + categoryId);
+                removeSyrupButton.setCallbackData("addons_remove_syrup_" + cartItemId + "_" + productId + "_" + quantity + "_" + categoryId);
 
                 keyboardMarkup.addRow(removeSyrupButton);
             }
@@ -760,38 +776,23 @@ public class KeyboardService {
     /**
      * Создать InlineKeyboardMarkup клавиатуру для продуктов и добавок
      */
-    public InlineKeyboardMarkup createKeyboardAddAddonsInBasket(List<CartItem> cartItems, long productId, int quantity, long categoryId, String addon){
-        InlineKeyboardMarkup keyboard;
+    public InlineKeyboardMarkup createKeyboardAddAddonsInBasketDto(List<CartItemResponseDto> cartItems,
+                                                                   long productId,
+                                                                   int quantity,
+                                                                   long categoryId,
+                                                                   String addon) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        if(addon.equals("syrup")) {
-            keyboard = new InlineKeyboardMarkup();
-            for (CartItem cartItem : cartItems) {
-                Product product = cartItem.getProduct();
+        for (CartItemResponseDto cartItem : cartItems) {
+            ProductResponseDto product = cartItem.getProduct();
+            if (needsAddons(product)) {
+                String buttonText = String.format("%s - Добавки %s",
+                        product.getName(),
+                        (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
 
-                if (needsAddons(product)) {
-                    String buttonText = String.format("%s - Добавки %s",
-                            product.getName(),
-                            (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
-
-                    InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("addons_syrup_" + cartItem.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
-                    keyboard.addRow(itemButton);
-                }
-            }
-        }else {
-            keyboard = new InlineKeyboardMarkup();
-            for (CartItem cartItem : cartItems) {
-                Product product = cartItem.getProduct();
-
-                if (needsAddons(product)) {
-                    String buttonText = String.format("%s - Добавки %s",
-                            product.getName(),
-                            (cartItemAddonService.hasAddons(cartItem.getId()) ? " ✅" : " ❌"));
-
-                    InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
-                            .callbackData("addons_milk_" + cartItem.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
-                    keyboard.addRow(itemButton);
-                }
+                InlineKeyboardButton itemButton = new InlineKeyboardButton(buttonText)
+                        .callbackData("addons_" + addon + "_" + cartItem.getId() + "_" + productId + "_" + quantity + "_" + categoryId);
+                keyboard.addRow(itemButton);
             }
         }
 
@@ -872,10 +873,10 @@ public class KeyboardService {
     /**
      * Создание клавиатуры для истории заказов
      */
-    public InlineKeyboardMarkup createOrderHistoryKeyboard(List<Order> orders) {
+    public InlineKeyboardMarkup createOrderHistoryKeyboardDto(List<OrderResponseDto> orders) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        for (Order value : orders) {
+        for (OrderResponseDto value : orders) {
             String buttonText = String.format(
                     "%s %s №%s • %s₽",
                     getStatusEmoji(value.getStatus()),
@@ -900,67 +901,51 @@ public class KeyboardService {
     }
 
     /**
-     * Создать InlineKeyboardMarkup клавиатуру для заказа
+     * Создание комбинированной клавиатуры для подкатегорий и товаров (DTO)
      */
-    public InlineKeyboardMarkup createKeyboardForOrders(Long orderId) {
+    public InlineKeyboardMarkup createCombinedKeyboardDto(CategoryResponseDto current,
+                                                          List<CategoryResponseDto> subcategories,
+                                                          List<ProductResponseDto> products) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад к истории")
-                .callbackData("order_history");
+        // Добавляем иконку папки всем подкатегориям (мы всегда внутри родительской категории)
+        for (CategoryResponseDto category : subcategories) {
+            String name = "📁 " + category.getName();
+            InlineKeyboardButton button = new InlineKeyboardButton(name)
+                    .callbackData("category_" + category.getId());
+            keyboard.addRow(button);
+        }
 
-        InlineKeyboardButton repeatButton = new InlineKeyboardButton("🔄 Повторить заказ")
-                .callbackData("repeat_order_" + orderId);
+        for (ProductResponseDto product : products) {
+            String priceText = product.getAmount() != null ? product.getAmount() + "₽" : "";
+            String buttonText = product.getName() + (priceText.isEmpty() ? "" : " - " + priceText);
+            InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
+                    .callbackData("product_" + product.getId() + "_" + current.getId());
+            keyboard.addRow(button);
+        }
 
-        keyboard.addRow(backButton, repeatButton);
-
-        return keyboard;
-    }
-
-    /**
-     * Создать InlineKeyboardMarkup кнопку назад в меню
-     */
-    public InlineKeyboardMarkup createButtonMainMenuBack(){
-        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+        Long parentId = current.getParent() != null ? current.getParent().getId() : null;
+        String backCallback = parentId != null ? "category_" + parentId : "category_null";
         InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ Назад")
-                .callbackData("main_menu");
+                .callbackData(backCallback);
         keyboard.addRow(backButton);
 
         return keyboard;
     }
 
     /**
-     * Создать комбинированную клавиатуру (подкатегории + товары)
-     * @Transactional для безопасного доступа к полям категории
+     * Создание клавиатуры для деталей заказа
      */
-    @Transactional(readOnly = true)
-    public InlineKeyboardMarkup createCombinedKeyboard(Long categoryId, List<Category> subcategories, List<com.example.bot.Telegram_bot_take_it.entity.Product> products) {
-        log.info("=== CREATE COMBINED KEYBOARD ===");
-        log.info("Category ID: {}", categoryId);
-        log.info("Number of subcategories passed: {}", subcategories.size());
-        log.info("Number of products passed: {}", products.size());
+    public InlineKeyboardMarkup createKeyboardForOrders(Long orderId) {
         InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
 
-        for (Category subcategory : subcategories) {
-            InlineKeyboardButton button = new InlineKeyboardButton("📁 " + subcategory.getName())
-                    .callbackData("category_" + subcategory.getId());
-            keyboard.addRow(button);
-        }
+        InlineKeyboardButton repeatButton = new InlineKeyboardButton("🔄 Повторить заказ")
+                .callbackData("repeat_order_" + orderId);
+        keyboard.addRow(repeatButton);
 
-        for (com.example.bot.Telegram_bot_take_it.entity.Product product : products) {
-            String buttonText = String.format("%s - %d₽",
-                    product.getName(),
-                    product.getAmount());
-
-            InlineKeyboardButton button = new InlineKeyboardButton(buttonText)
-                    .callbackData("product_" + product.getId() + "_" + categoryId);
-
-            keyboard.addRow(button);
-        }
-
-        Category category = categoryService.getCategoryWithParent(categoryId);
-        if (category != null) {
-            KeyboardService.addBackButton(keyboard, category);
-        }
+        InlineKeyboardButton backButton = new InlineKeyboardButton("↩️ К истории заказов")
+                .callbackData("order_history");
+        keyboard.addRow(backButton);
 
         return keyboard;
     }
@@ -978,6 +963,20 @@ public class KeyboardService {
             case COMPLETED -> "🎉";
             case CANCELLED -> "❌";
         };
+    }
+
+    /**
+     * Получить эмодзи для статуса заказа из строки
+     */
+    public String getStatusEmoji(String status) {
+        if (status == null || status.isBlank()) {
+            return "❔";
+        }
+        try {
+            return getStatusEmoji(Order.OrderStatus.valueOf(status.toUpperCase()));
+        } catch (IllegalArgumentException ex) {
+            return "❔";
+        }
     }
 }
 

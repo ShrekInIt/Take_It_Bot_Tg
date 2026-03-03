@@ -1,6 +1,10 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
+import com.example.bot.Telegram_bot_take_it.dto.request.CreateProductRequest;
+import com.example.bot.Telegram_bot_take_it.dto.request.UpdateProductRequest;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
+import com.example.bot.Telegram_bot_take_it.mapper.ProductMapper;
 import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +25,19 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryService categoryService;
+    private final ProductMapper productMapper;
 
     /**
      * Получить доступные продукты в категории с количеством > 0
      */
     public List<Product> getAvailableProductsWithStock(Long categoryId) {
         return productRepository.findByCategoryIdAndAvailableTrueAndCountGreaterThanZero(categoryId);
+    }
+
+    public List<ProductResponseDto> getAvailableProductsWithStockDto(Long categoryId) {
+        return getAvailableProductsWithStock(categoryId).stream()
+                .map(productMapper::toResponseDto)
+                .toList();
     }
 
     /**
@@ -44,6 +55,11 @@ public class ProductService {
         return productRepository.findById(productId);
     }
 
+    public Optional<ProductResponseDto> getProductByIdDto(Long productId) {
+        return getProductById(productId)
+                .map(productMapper::toResponseDto);
+    }
+
     /**
      * Получить доступные сиропы
      */
@@ -52,12 +68,24 @@ public class ProductService {
         return getAvailableProductsWithStock(syrupCategoryId);
     }
 
+    public List<ProductResponseDto> getAvailableSyrupsDto() {
+        return getAvailableSyrups().stream()
+                .map(productMapper::toResponseDto)
+                .toList();
+    }
+
     /**
      * Получить доступное альтернативное молоко
      */
     public List<Product> getAvailableMilks() {
         Long milkCategoryId = 21L;
         return getAvailableProductsWithStock(milkCategoryId);
+    }
+
+    public List<ProductResponseDto> getAvailableMilksDto() {
+        return getAvailableMilks().stream()
+                .map(productMapper::toResponseDto)
+                .toList();
     }
 
     /**
@@ -103,9 +131,20 @@ public class ProductService {
     }
 
     /**
-     * Создать продукт.
-     * request ожидает ключи: name, price, available, description, categoryId (опционально), count (опционально)
+     * Создать продукт с использованием DTO
      */
+    @Transactional
+    public Product create(CreateProductRequest request) {
+        log.info("Создание продукта: {}", request.getName());
+        Product product = productMapper.toEntity(request);
+        return productRepository.save(product);
+    }
+
+    /**
+     * Создать продукт (legacy метод для обратной совместимости)
+     * @deprecated Используйте {@link #create(CreateProductRequest)} вместо этого
+     */
+    @Deprecated
     @Transactional
     public Product create(Map<String, Object> request) throws BadRequestException {
         Object nameObj = request.get("name");
@@ -128,9 +167,23 @@ public class ProductService {
     }
 
     /**
-     * Обновить продукт по id.
-     * Request содержит только поля, которые нужно обновить.
+     * Обновить продукт с использованием DTO
      */
+    @Transactional
+    public Product update(Long id, UpdateProductRequest request) {
+        log.info("Обновление продукта с ID: {}", id);
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found with id = " + id));
+
+        productMapper.updateEntity(product, request);
+        return productRepository.save(product);
+    }
+
+    /**
+     * Обновить продукт (legacy метод для обратной совместимости)
+     * @deprecated Используйте {@link #update(Long, UpdateProductRequest)} вместо этого
+     */
+    @Deprecated
     @Transactional
     public Product update(Long id, Map<String, Object> request) {
         Product product = productRepository.findById(id)
@@ -160,12 +213,12 @@ public class ProductService {
 
         if (request.containsKey("amount")) {
             Object amountObj = request.get("amount");
-            Integer amount = null;
+            Long amount = null;
             if (amountObj instanceof Number) {
-                amount = ((Number) amountObj).intValue();
+                amount = ((Number) amountObj).longValue();
             } else if (amountObj != null) {
                 try {
-                    amount = Integer.parseInt(amountObj.toString());
+                    amount = Long.parseLong(amountObj.toString());
                 } catch (NumberFormatException e) {
                     log.warn("Не удалось распарсить amount: {}", amountObj);
                 }

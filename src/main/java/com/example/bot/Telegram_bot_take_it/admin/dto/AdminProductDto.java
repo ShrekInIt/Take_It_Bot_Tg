@@ -23,7 +23,7 @@ public class AdminProductDto {
     private String name;
 
     /** Цена/стоимость (по названию поля "amount" в проекте) */
-    private Integer amount;
+    private Long amount;
 
     /** Доступен ли товар для заказа */
     private Boolean available;

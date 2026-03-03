@@ -1,7 +1,11 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.admin.dto.AdminUserDto;
+import com.example.bot.Telegram_bot_take_it.dto.request.CreateUserRequest;
+import com.example.bot.Telegram_bot_take_it.dto.request.UpdateUserRequest;
+import com.example.bot.Telegram_bot_take_it.dto.response.UserResponseDto;
 import com.example.bot.Telegram_bot_take_it.entity.User;
+import com.example.bot.Telegram_bot_take_it.mapper.UserMapper;
 import com.example.bot.Telegram_bot_take_it.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +25,18 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     /**
      * Найти пользователя по chatId
      */
     public Optional<User> getUserByChatId(Long chatId) {
         return userRepository.findByChatId(chatId);
+    }
+
+    public Optional<UserResponseDto> getUserByChatIdDto(Long chatId) {
+        return getUserByChatId(chatId)
+                .map(userMapper::toResponseDto);
     }
 
     /**
@@ -106,6 +116,21 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Создать пользователя с использованием DTO
+     */
+    @Transactional
+    public User create(CreateUserRequest request) {
+        log.info("Создание пользователя: {}", request.getName());
+        User user = userMapper.toEntity(request);
+        return userRepository.save(user);
+    }
+
+    /**
+     * Создать пользователя (legacy метод для обратной совместимости)
+     * @deprecated Используйте {@link #create(CreateUserRequest)} вместо этого
+     */
+    @Deprecated
     @Transactional
     public User create(Map<String, Object> req) {
         String name = getString(req, "name");
@@ -124,6 +149,22 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    /**
+     * Обновить пользователя с использованием DTO
+     */
+    @Transactional
+    public User update(Long id, UpdateUserRequest request) {
+        log.info("Обновление пользователя с ID: {}", id);
+        User user = getById(id);
+        userMapper.updateEntity(user, request);
+        return userRepository.save(user);
+    }
+
+    /**
+     * Обновить пользователя (legacy метод для обратной совместимости)
+     * @deprecated Используйте {@link #update(Long, UpdateUserRequest)} вместо этого
+     */
+    @Deprecated
     @Transactional
     public User update(Long id, Map<String, Object> req) {
         User user = getById(id);

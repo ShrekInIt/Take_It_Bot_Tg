@@ -262,8 +262,8 @@ public class OrderMapper {
                 OrderItem firstItem = group.getFirst();
 
                 int totalQuantity = group.stream().mapToInt(OrderItem::getQuantity).sum();
-                int pricePerItem = firstItem.getPriceAtOrder();
-                int totalPrice = pricePerItem * totalQuantity;
+                long pricePerItem = firstItem.getPriceAtOrder() != null ? firstItem.getPriceAtOrder() : 0L;
+                long totalPrice = pricePerItem * totalQuantity;
 
                 List<String> addons = new ArrayList<>();
                 if (firstItem.getAddons() != null) {

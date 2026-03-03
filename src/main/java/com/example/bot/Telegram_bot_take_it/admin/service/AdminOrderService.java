@@ -79,11 +79,11 @@ public class AdminOrderService {
     /**
      * Возвращает доход за сегодня
      */
-    public Integer calculateTodayRevenue() {
+    public Long calculateTodayRevenue() {
         LocalDateTime start = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
         LocalDateTime end = start.plusDays(1);
-        Integer revenue = orderRepository.sumTotalAmountByDateOrderBetween(start, end);
-        return revenue != null ? revenue : 0;
+        Long revenue = orderRepository.sumTotalAmountByDateOrderBetween(start, end);
+        return revenue != null ? revenue : 0L;
     }
 
     /**
@@ -243,13 +243,13 @@ public class AdminOrderService {
 
         orderService.loadAddonsForOrder(order);
 
-        int total = order.getItems().stream()
-                .mapToInt(i -> {
-                    int itemSum = (i.getPriceAtOrder() == null ? 0 : i.getPriceAtOrder()) * (i.getQuantity() == null ? 1 : i.getQuantity());
-                    int addonsSum = 0;
+        long total = order.getItems().stream()
+                .mapToLong(i -> {
+                    long itemSum = (i.getPriceAtOrder() == null ? 0 : i.getPriceAtOrder()) * (i.getQuantity() == null ? 1 : i.getQuantity());
+                    long addonsSum = 0;
                     if (i.getAddons() != null) {
                         addonsSum = i.getAddons().stream()
-                                .mapToInt(a -> (a.getPriceAtOrder() == null ? 0 : a.getPriceAtOrder()) * (a.getQuantity() == null ? 1 : a.getQuantity()))
+                                .mapToLong(a -> (a.getPriceAtOrder() == null ? 0 : a.getPriceAtOrder()) * (a.getQuantity() == null ? 1 : a.getQuantity()))
                                 .sum();
                     }
                     return itemSum + addonsSum;

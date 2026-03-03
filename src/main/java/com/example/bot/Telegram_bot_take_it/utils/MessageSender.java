@@ -1,5 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
@@ -143,6 +144,23 @@ public class MessageSender {
                 product1.getSize() != null ? product1.getSize() : "Стандартный",
                 quantity,
                 product
+        );
+    }
+
+    @NotNull
+    public static String getString(long totalPrice, ProductResponseDto product, int quantity) {
+        String description = product.getDescription() != null ? "\n" + product.getDescription() + "\n" : "";
+        String size = product.getSize() != null ? product.getSize() : "Стандартный";
+        long amount = product.getAmount() != null ? product.getAmount() : 0L;
+
+        return String.format(
+                "<b>%s</b>\n%s\n\n<b>Цена:</b> %d₽\n<b>Размер:</b> %s\n<b>Количество:</b> %d шт.\n<b>Итого:</b> <b>%d₽</b>",
+                product.getName(),
+                description,
+                amount,
+                size,
+                quantity,
+                totalPrice
         );
     }
 }

@@ -53,7 +53,7 @@ public class OrderServiceTest {
         Product product = mock(Product.class);
         when(product.getName()).thenReturn("Cake");
         when(product.getCount()).thenReturn(10);
-        when(product.getAmount()).thenReturn(250);
+        when(product.getAmount()).thenReturn(250L);
         CartItem cartItem = mock(CartItem.class);
         when(cartItem.getProduct()).thenReturn(product);
         when(cartItem.getCountProduct()).thenReturn(2);
@@ -92,7 +92,7 @@ public class OrderServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getUser()).isEqualTo(user);
-        assertThat(result.getTotalAmount()).isEqualTo(500);
+        assertThat(result.getTotalAmount()).isEqualTo(500L);
         assertThat(result.getDeliveryType()).isEqualTo(Order.DeliveryType.PICKUP);
     }
 

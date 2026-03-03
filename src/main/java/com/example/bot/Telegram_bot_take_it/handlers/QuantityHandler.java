@@ -1,6 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
-import com.example.bot.Telegram_bot_take_it.entity.Product;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.service.ProductService;
 import com.example.bot.Telegram_bot_take_it.utils.MessageSender;
@@ -43,19 +43,20 @@ public class QuantityHandler {
 
             log.info("Действие: {}, Товар ID: {}, Текущее кол-во: {}", action, productId, currentQuantity);
 
-            var productOpt = productService.getProductById(productId);
+            var productOpt = productService.getProductByIdDto(productId);
             if (productOpt.isEmpty()) {
                 log.error("Товар с ID {} не найден", productId);
                 messageSender.answerCallback(callbackId, "❌ Товар не найден");
                 return;
             }
 
-            Product product = productOpt.get();
+            ProductResponseDto product = productOpt.get();
             int newQuantity = currentQuantity;
 
             if ("plus".equals(action)) {
-                if (product.getCount() != null && currentQuantity >= product.getCount()) {
-                    String message = "⛔ В наличии только " + product.getCount() + " шт.";
+                Integer count = product.getCount();
+                if (count != null && currentQuantity >= count) {
+                    String message = "⛔ В наличии только " + count + " шт.";
                     messageSender.sendMessage(chatId, message);
                     log.warn(message);
                     messageSender.answerCallback(callbackId, message);
@@ -89,8 +90,9 @@ public class QuantityHandler {
     private void updateProductMessageWithSource(Long chatId, Integer messageId, Long productId,
                                                 int quantity, Long sourceCategoryId) {
         try {
-            productService.getProductById(productId).ifPresent(product -> {
-                String caption = MessageSender.getString(product.getAmount() * quantity, product, quantity);
+            productService.getProductByIdDto(productId).ifPresent(product -> {
+                long total = (product.getAmount() != null ? product.getAmount() : 0L) * quantity;
+                String caption = MessageSender.getString(total, product, quantity);
 
                 if (keyboardService.needsAddons(product)) {
                     caption += "\n\n<i>К этому напитку можно добавить сиропы или альтернативное молоко</i>";

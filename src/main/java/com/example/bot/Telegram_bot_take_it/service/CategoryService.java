@@ -1,7 +1,9 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
+import com.example.bot.Telegram_bot_take_it.dto.response.CategoryResponseDto;
 import com.example.bot.Telegram_bot_take_it.entity.Category;
 import com.example.bot.Telegram_bot_take_it.entity.CategoryType;
+import com.example.bot.Telegram_bot_take_it.mapper.CategoryMapper;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CategoryTypeRepository;
 import com.example.bot.Telegram_bot_take_it.repository.ProductRepository;
@@ -23,28 +25,51 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final CategoryTypeRepository categoryTypeRepository;
+    private final CategoryMapper categoryMapper;
+
+    // ==================== DTO МЕТОДЫ (основные для handlers) ====================
 
     /**
-     * Получить категорию по ID с загрузкой необходимых полей
-     * @Transactional гарантирует, что сессия будет открыта
+     * Получить категорию с родителем в виде DTO
      */
     @Transactional(readOnly = true)
-    public Category getCategoryById(Long categoryId) {
-        return categoryRepository.findById(categoryId).orElse(null);
+    public CategoryResponseDto getCategoryWithParentDto(Long categoryId) {
+        Category category = categoryRepository.findByIdWithParent(categoryId).orElse(null);
+        if (category == null) return null;
+        boolean hasSubcategories = !getActiveSubcategoriesInternal(categoryId).isEmpty();
+        return categoryMapper.toResponseDto(category, hasSubcategories);
     }
 
     /**
-     * Получить категорию с загрузкой parent (для безопасного доступа)
+     * Получить активные подкатегории в виде DTO с информацией о наличии подкатегорий
      */
     @Transactional(readOnly = true)
-    public Category getCategoryWithParent(Long categoryId) {
-        return categoryRepository.findByIdWithParent(categoryId).orElse(null);
+    public List<CategoryResponseDto> getActiveSubcategoriesDto(Long parentId) {
+        return getActiveSubcategoriesInternal(parentId).stream()
+                .map(category -> {
+                    boolean hasSubcategories = !getActiveSubcategoriesInternal(category.getId()).isEmpty();
+                    return categoryMapper.toResponseDto(category, hasSubcategories);
+                })
+                .toList();
     }
 
     /**
-     * Получить текстовое описание для категории
+     * Получить активные корневые категории в виде DTO с информацией о наличии подкатегорий
      */
-    public String getCategoryDescription(Category category, boolean hasSubcategories, boolean hasProducts) {
+    @Transactional(readOnly = true)
+    public List<CategoryResponseDto> getActiveRootCategoriesDto() {
+        return getActiveRootCategoriesInternal().stream()
+                .map(category -> {
+                    boolean hasSubcategories = !getActiveSubcategoriesInternal(category.getId()).isEmpty();
+                    return categoryMapper.toResponseDto(category, hasSubcategories);
+                })
+                .toList();
+    }
+
+    /**
+     * Получить описание категории для отображения
+     */
+    public String getCategoryDescription(CategoryResponseDto category, boolean hasSubcategories, boolean hasProducts) {
         if (category == null) return "❌ Категория не найдена";
 
         if (hasSubcategories && hasProducts) {
@@ -59,16 +84,6 @@ public class CategoryService {
     }
 
     /**
-     * Получить активные подкатегории
-     */
-    @Transactional(readOnly = true)
-    public List<Category> getActiveSubcategories(Long parentId) {
-        List<Category> subs = categoryRepository.findByParentIdAndActiveTrueOrderBySortOrder(parentId);
-        subs.removeIf(cat -> "Добавки".equals(cat.getName()));
-        return subs;
-    }
-
-    /**
      * Проверить, является ли категорией кофе (по id категории)
      */
     @Transactional(readOnly = true)
@@ -79,20 +94,28 @@ public class CategoryService {
                 .orElse(false);
     }
 
+    // ==================== ВНУТРЕННИЕ МЕТОДЫ (private) ====================
+
     /**
-     * Получить активные корневые категории
+     * Внутренний метод для получения подкатегорий (возвращает entity)
      */
-    @Transactional(readOnly = true)
-    public List<Category> getActiveRootCategories() {
+    private List<Category> getActiveSubcategoriesInternal(Long parentId) {
+        List<Category> subs = categoryRepository.findByParentIdAndActiveTrueOrderBySortOrder(parentId);
+        subs.removeIf(cat -> "Добавки".equals(cat.getName()));
+        return subs;
+    }
+
+    /**
+     * Внутренний метод для получения корневых категорий (возвращает entity)
+     */
+    private List<Category> getActiveRootCategoriesInternal() {
         return categoryRepository.findByParentIdIsNullAndActiveTrueOrderBySortOrder();
     }
 
+    // ==================== МЕТОДЫ ДЛЯ АДМИНКИ ====================
+
     public List<Category> findAll() {
         return categoryRepository.findAllWithRelations();
-    }
-
-    public Category save(Category category) {
-        return categoryRepository.save(category);
     }
 
     public Optional<Category> findById(Long categoryId) {
@@ -185,17 +208,15 @@ public class CategoryService {
         return categoryRepository.findByNameContainingIgnoreCase(name);
     }
 
-
     @Transactional
     public void delete(Long id) {
         Category category = getById(id);
-
         Category fallback = getOrCreateUncategorized();
-
         productRepository.moveProductsToAnotherCategory(category.getId(), fallback);
-
         categoryRepository.delete(category);
     }
+
+    // ==================== ВСПОМОГАТЕЛЬНЫЕ PRIVATE МЕТОДЫ ====================
 
     private Category getOrCreateUncategorized() {
         return categoryRepository.findByNameIgnoreCase("Uncategorized")

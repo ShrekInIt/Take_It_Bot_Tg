@@ -2,8 +2,9 @@ package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroup;
 import com.example.bot.Telegram_bot_take_it.dto.CartItemGroupDTO;
-import com.example.bot.Telegram_bot_take_it.dto.OrderItemGroupDTO;
+import com.example.bot.Telegram_bot_take_it.dto.response.*;
 import com.example.bot.Telegram_bot_take_it.entity.*;
+import com.example.bot.Telegram_bot_take_it.mapper.CartItemMapper;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CartItemRepository;
 import com.example.bot.Telegram_bot_take_it.repository.CartRepository;
@@ -29,6 +30,7 @@ public class CartService {
     private final SyrupPriceService syrupPriceService;
     private final CategoryService categoryService;
     private final CartItemAddonRepository cartItemAddonRepository;
+    private final CartItemMapper cartItemMapper;
 
     /**
      * Получить корзину пользователя
@@ -163,6 +165,11 @@ public class CartService {
 
         Cart cart = getCartByUser(user);
         return cartItemRepository.findByCartWithProductAndAddons(cart);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CartItemResponseDto> getCartItemsDto(Long chatId) {
+        return cartItemMapper.toResponseDtos(getCartItems(chatId));
     }
 
     /**
@@ -314,29 +321,39 @@ public class CartService {
     }
 
     /**
-     * Повторить заказ - добавить все товары из заказа в корзину
+     * Повторить заказ - добавить все товары из заказа в корзину (DTO)
      */
     @Transactional
-    public void repeatOrder(Long chatId, Order order) {
+    public void repeatOrder(Long chatId, OrderResponseDto orderDto) {
         try {
+            if (orderDto == null || orderDto.getItems() == null || orderDto.getItems().isEmpty()) {
+                throw new IllegalArgumentException("Заказ не содержит товаров");
+            }
+
             clearCart(chatId);
 
-            Map<String, OrderItemGroupDTO> groupedItems = new HashMap<>();
+            Map<String, OrderItemDtoGroup> groupedItems = new HashMap<>();
 
-            for (OrderItem orderItem : order.getItems()) {
+            for (OrderItemResponseDto orderItem : orderDto.getItems()) {
                 String groupKey = generateGroupKey(orderItem);
 
-                if (groupedItems.containsKey(groupKey)) {
-                    OrderItemGroupDTO group = groupedItems.get(groupKey);
-                    group.addOrderItem(orderItem);
+                OrderItemDtoGroup group = groupedItems.get(groupKey);
+                if (group == null) {
+                    groupedItems.put(groupKey, new OrderItemDtoGroup(orderItem));
                 } else {
-                    groupedItems.put(groupKey, new OrderItemGroupDTO(orderItem));
+                    group.add(orderItem);
                 }
             }
 
-            for (OrderItemGroupDTO group : groupedItems.values()) {
-                OrderItem firstItem = group.getOrderItems().getFirst();
-                Product product = firstItem.getProduct();
+            for (OrderItemDtoGroup group : groupedItems.values()) {
+                OrderItemResponseDto firstItem = group.getFirstItem();
+                Long productId = firstItem.getProductId();
+                if (productId == null) {
+                    throw new IllegalArgumentException("Товар не найден");
+                }
+
+                Product product = productService.getProductById(productId)
+                        .orElseThrow(() -> new IllegalArgumentException("Товар не найден"));
 
                 if (!product.getAvailable() || product.getCount() < group.getTotalQuantity()) {
                     throw new IllegalArgumentException(
@@ -346,43 +363,76 @@ public class CartService {
 
                 List<CartItem> cartItems = addProductToCart(chatId, product.getId(), group.getTotalQuantity());
 
-                if (!firstItem.getAddons().isEmpty() && !cartItems.isEmpty()) {
+                if (firstItem.getAddons() != null && !firstItem.getAddons().isEmpty() && !cartItems.isEmpty()) {
                     for (CartItem cartItem : cartItems) {
-                        for (OrderItemAddon orderItemAddon : firstItem.getAddons()) {
-                            Product addonProduct = orderItemAddon.getAddonProduct();
+                        for (OrderItemAddonResponseDto addonDto : firstItem.getAddons()) {
+                            Long addonProductId = addonDto.getAddonProductId();
+                            if (addonProductId == null) {
+                                continue;
+                            }
+
+                            Product addonProduct = productService.getProductById(addonProductId)
+                                    .orElse(null);
 
                             if (addonProduct != null && addonProduct.getAvailable()) {
                                 cartItemAddonService.addAddonToCartItem(
                                         cartItem,
                                         addonProduct,
-                                        orderItemAddon.getQuantity(),
-                                        orderItemAddon.getPriceAtOrder()
+                                        addonDto.getQuantity(),
+                                        addonDto.getPriceAtOrder()
                                 );
                             }
                         }
                     }
                 }
             }
-            log.info("Заказ повторен: orderId={}, chatId={}, товаров: {}",
-                    order.getId(), chatId, groupedItems.size());
+
+            log.info("Заказ повторен (DTO): orderId={}, chatId={}, товаров: {}",
+                    orderDto.getId(), chatId, groupedItems.size());
 
         } catch (Exception e) {
-            log.error("Ошибка при повторении заказа: {}", e.getMessage(), e);
+            log.error("Ошибка при повторении заказа (DTO): {}", e.getMessage(), e);
             throw e;
         }
     }
 
+    private static class OrderItemDtoGroup {
+        private final OrderItemResponseDto firstItem;
+        private int totalQuantity;
+
+        private OrderItemDtoGroup(OrderItemResponseDto firstItem) {
+            this.firstItem = firstItem;
+            this.totalQuantity = safeQuantity(firstItem);
+        }
+
+        private void add(OrderItemResponseDto item) {
+            this.totalQuantity += safeQuantity(item);
+        }
+
+        private OrderItemResponseDto getFirstItem() {
+            return firstItem;
+        }
+
+        private int getTotalQuantity() {
+            return totalQuantity;
+        }
+
+        private static int safeQuantity(OrderItemResponseDto item) {
+            return item != null && item.getQuantity() != null ? item.getQuantity() : 0;
+        }
+    }
+
     /**
-     * Генерация ключа для группировки OrderItem
+     * Генерация ключа для группировки OrderItem (DTO)
      */
-    private String generateGroupKey(OrderItem orderItem) {
+    private String generateGroupKey(OrderItemResponseDto orderItem) {
         StringBuilder key = new StringBuilder();
-        key.append(orderItem.getProduct().getId());
+        key.append(orderItem.getProductId());
 
         if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
             String addonsKey = orderItem.getAddons().stream()
-                    .map(addon -> addon.getAddonProduct() != null ?
-                            String.valueOf(addon.getAddonProduct().getId()) : "")
+                    .map(addon -> addon.getAddonProductId() != null ?
+                            String.valueOf(addon.getAddonProductId()) : "")
                     .filter(s -> !s.isEmpty())
                     .sorted()
                     .collect(Collectors.joining(","));
@@ -524,5 +574,40 @@ public class CartService {
         List<CartItem> items = cartItemRepository.findByCartWithProductAndAddons(cart);
         long total = cart.calculateTotalAmount();
         return new CartSnapshot(cart, items, total);
+    }
+
+    @Transactional(readOnly = true)
+    public CartItemGroupResponseDto getItemGroupByFirstItemIdDto(Long chatId, Long firstCartItemId) {
+        CartItemGroupDTO group = getItemGroupByFirstItemId(chatId, firstCartItemId);
+        if (group == null) {
+            return null;
+        }
+
+        return cartItemMapper.toGroupResponseDto(group.getProduct(), group.getItems());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CartItemResponseDto> findCartItemByProductDto(Long chatId, String name) {
+        List<CartItem> items = findCartItemByProduct(chatId, name);
+        return cartItemMapper.toResponseDtos(items);
+    }
+
+    @Transactional
+    public List<CartItemResponseDto> addProductToCartDto(Long chatId, Long productId, Integer quantity) {
+        return cartItemMapper.toResponseDtos(addProductToCart(chatId, productId, quantity));
+    }
+
+    @Transactional
+    public CartItemResponseDto addProductWithAddonToCartDto(Long chatId, Long productId, Integer quantity,
+                                                            Long addonProductId, Long addonPrice) {
+        return cartItemMapper.toResponseDto(addProductWithAddonToCart(chatId, productId, quantity, addonProductId, addonPrice));
+    }
+
+    @Transactional
+    public void updateCartItemQuantity(Long cartItemId, int newQuantity) {
+        CartItem item = cartItemRepository.findById(cartItemId)
+                .orElseThrow(() -> new IllegalArgumentException("Товар в корзине не найден"));
+        item.setCountProduct(newQuantity);
+        cartItemRepository.save(item);
     }
 }

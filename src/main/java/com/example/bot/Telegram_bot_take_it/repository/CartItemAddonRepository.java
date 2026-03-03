@@ -46,9 +46,9 @@ public interface CartItemAddonRepository extends JpaRepository<CartItemAddon, Lo
     /**
      * Найти все продукты-добавки определенной категории для cart_item
      */
-    @Query("SELECT cia.addonProduct FROM CartItemAddon cia " +
+    @Query("SELECT p FROM CartItemAddon cia " +
             "JOIN cia.addonProduct p " +
-            "JOIN p.category c " +
+            "JOIN FETCH p.category c " +
             "WHERE cia.cartItem.id = :cartItemId AND c.id = :categoryId")
     List<Product> findAddonProductsByCartItemIdAndCategoryId(@Param("cartItemId") Long cartItemId,
                                                              @Param("categoryId") Long categoryId);

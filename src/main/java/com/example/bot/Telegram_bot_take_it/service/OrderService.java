@@ -1,7 +1,9 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.OrderData;
+import com.example.bot.Telegram_bot_take_it.dto.response.OrderResponseDto;
 import com.example.bot.Telegram_bot_take_it.entity.*;
+import com.example.bot.Telegram_bot_take_it.mapper.OrderResponseMapper;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemAddonRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderItemRepository;
 import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
@@ -32,6 +34,7 @@ public class OrderService {
     private final CartService cartService;
     private final ProductService productService;
     private final OrderUserNotifier orderUserNotifier;
+    private final OrderResponseMapper orderResponseMapper;
 
     /**
      * Получить все заказы пользователя с загруженными items
@@ -205,6 +208,14 @@ public class OrderService {
         }
     }
 
+    /**
+     * Создание заказа из корзины в DTO-формате.
+     */
+    @Transactional
+    public OrderResponseDto createOrderFromCartDto(Long chatId, OrderData orderData) {
+        return orderResponseMapper.toDto(createOrderFromCart(chatId, orderData));
+    }
+
     @NotNull
     private static List<CartItem> getCartItems(CartSnapshot snap) {
         List<CartItem> cartItems = snap.items();
@@ -287,5 +298,51 @@ public class OrderService {
     private boolean shouldNotifyUser(Order.OrderStatus newStatus) {
         return (newStatus == Order.OrderStatus.CONFIRMED ||
                 newStatus == Order.OrderStatus.COMPLETED);
+    }
+
+    /**
+     * Получить все заказы пользователя в DTO-формате.
+     */
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getUserOrdersDto(Long chatId) {
+        return getUserOrders(chatId).stream()
+                .map(orderResponseMapper::toDto)
+                .toList();
+    }
+
+    /**
+     * Получить детали заказа по ID в DTO-формате.
+     */
+    @Transactional(readOnly = true)
+    public Optional<OrderResponseDto> getOrderByIdAndUserDto(Long orderId, Long chatId) {
+        return getOrderByIdAndUser(orderId, chatId)
+                .map(orderResponseMapper::toDto);
+    }
+
+    /**
+     * Скрыть все завершенные заказы пользователя.
+     */
+    @Transactional
+    public int hideCompletedOrders(Long chatId) {
+        try {
+            User user = userService.getUserByChatId(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
+
+            List<Order> orders = orderRepository.findByUserWithItems(user);
+            List<Order> completedOrders = orders.stream()
+                    .filter(order -> order.getStatus() == Order.OrderStatus.COMPLETED)
+                    .toList();
+
+            for (Order order : completedOrders) {
+                order.setVisible(false);
+                orderRepository.save(order);
+            }
+
+            return completedOrders.size();
+
+        } catch (Exception e) {
+            log.error("Ошибка при скрытии завершенных заказов: {}", e.getMessage(), e);
+            return 0;
+        }
     }
 }

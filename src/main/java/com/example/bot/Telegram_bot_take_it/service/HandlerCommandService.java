@@ -1,6 +1,8 @@
 package com.example.bot.Telegram_bot_take_it.service;
 
 import com.example.bot.Telegram_bot_take_it.dto.TelegramUserDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.UserResponseDto;
+import com.example.bot.Telegram_bot_take_it.mapper.UserMapper;
 import com.example.bot.Telegram_bot_take_it.entity.User;
 import com.example.bot.Telegram_bot_take_it.handlers.OrderHistoryHandler;
 import com.example.bot.Telegram_bot_take_it.utils.Messages;
@@ -21,6 +23,7 @@ public class HandlerCommandService {
     private final CartService cartService;
     private final OrderHistoryHandler orderHistoryHandler;
     private final TelegramUserRegistrar telegramUserRegistrar;
+    private final UserMapper userMapper;
 
     /**
      * Обработка команды /start
@@ -34,8 +37,9 @@ public class HandlerCommandService {
             User user = telegramUserRegistrar.registerOrUpdate(telegramUser, chatId);
 
             if (user != null) {
-                log.info("Пользователь создан/обновлен: id={}, name={}", user.getId(), user.getName());
-                sendWelcomeMessage(chatId, user);
+                UserResponseDto userDto = userMapper.toResponseDto(user);
+                log.info("Пользователь создан/обновлен: id={}, name={}", userDto.getId(), userDto.getName());
+                sendWelcomeMessage(chatId, userDto);
             } else {
                 log.error("Не удалось создать/обновить пользователя");
                 messageSender.sendMessage(chatId, "❌ Ошибка регистрации. Попробуйте еще раз.");
@@ -122,7 +126,7 @@ public class HandlerCommandService {
     /**
      * Отправляет приветственное сообщение пользователю с клавиатурой главного меню
      */
-    private void sendWelcomeMessage(Long chatId, User user) {
+    private void sendWelcomeMessage(Long chatId, UserResponseDto user) {
         if (user == null) {
             messageSender.sendMessage(chatId, "❌ Ошибка регистрации. Попробуйте еще раз.");
             return;

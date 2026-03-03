@@ -1,8 +1,8 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
 import com.example.bot.Telegram_bot_take_it.dto.CategoryData;
-import com.example.bot.Telegram_bot_take_it.entity.Category;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
+import com.example.bot.Telegram_bot_take_it.dto.response.CategoryResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
 import com.example.bot.Telegram_bot_take_it.service.CategoryService;
 import com.example.bot.Telegram_bot_take_it.service.CategoryTransactionService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
@@ -72,14 +72,14 @@ public class CategoryHandler {
             return;
         }
 
-        Category category = data.getCategory();
-        List<Category> subcategories = data.getSubcategories();
+        CategoryResponseDto category = data.getCategory();
+        List<CategoryResponseDto> subcategories = data.getSubcategories();
         boolean hasProducts = data.isHasProducts();
-        List<Product> products = data.getProducts();
+        List<ProductResponseDto> products = data.getProducts();
 
-        log.info("Found category: name={}, active={}", category.getName(), category.isActive());
+        log.info("Found category: name={}, active={}", category.getName(), category.getActive());
 
-        if (!category.isActive()) {
+        if (!Boolean.TRUE.equals(category.getActive())) {
             messageSender.sendMessage(chatId, "📭 Эта категория временно недоступна");
             return;
         }
@@ -93,8 +93,8 @@ public class CategoryHandler {
 
         if (hasSubcategories && hasProducts) {
             log.info("Path: Has both subcategories and products");
-            InlineKeyboardMarkup keyboard = keyboardService.createCombinedKeyboard(
-                    categoryId, subcategories, products);
+            InlineKeyboardMarkup keyboard = keyboardService.createCombinedKeyboardDto(
+                    category, subcategories, products);
             String messageText = categoryService.getCategoryDescription(category, true, true);
 
             messageSender.smartUpdateMessage(chatId, messageId, messageText, keyboard, fromProduct);

@@ -1,8 +1,9 @@
 package com.example.bot.Telegram_bot_take_it.handlers;
 
+import com.example.bot.Telegram_bot_take_it.dto.response.OrderItemAddonResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.OrderItemResponseDto;
+import com.example.bot.Telegram_bot_take_it.dto.response.OrderResponseDto;
 import com.example.bot.Telegram_bot_take_it.entity.Order;
-import com.example.bot.Telegram_bot_take_it.entity.OrderItem;
-import com.example.bot.Telegram_bot_take_it.repository.OrderRepository;
 import com.example.bot.Telegram_bot_take_it.service.CartService;
 import com.example.bot.Telegram_bot_take_it.service.KeyboardService;
 import com.example.bot.Telegram_bot_take_it.service.OrderService;
@@ -28,7 +29,6 @@ public class OrderHistoryHandler {
     private final OrderService orderService;
     private final MessageSender messageSender;
     private final CartService cartService;
-    private final OrderRepository orderRepository;
     private final TelegramMessageSender telegramMessageSender;
     private final KeyboardService keyboardService;
 
@@ -39,7 +39,7 @@ public class OrderHistoryHandler {
      */
     public void handleOrderHistory(Long chatId) {
         try {
-            List<Order> orders = orderService.getUserOrders(chatId);
+            List<OrderResponseDto> orders = orderService.getUserOrdersDto(chatId);
 
             if (orders.isEmpty()) {
                 messageSender.sendMessage(chatId, "📭 У вас еще нет заказов.");
@@ -47,7 +47,8 @@ public class OrderHistoryHandler {
             }
 
             String message = createOrderHistoryMessage();
-            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message, keyboardService.createOrderHistoryKeyboard(orders), true);
+            telegramMessageSender.sendMessageWithInlineKeyboard(chatId, message,
+                    keyboardService.createOrderHistoryKeyboardDto(orders), true);
 
         } catch (Exception e) {
             log.error("Ошибка при получении истории заказов: {}", e.getMessage(), e);
@@ -60,7 +61,7 @@ public class OrderHistoryHandler {
      */
     public void handleOrderHistory(Long chatId, Integer messageId) {
         try {
-            List<Order> orders = orderService.getUserOrders(chatId);
+            List<OrderResponseDto> orders = orderService.getUserOrdersDto(chatId);
 
             if (orders.isEmpty()) {
                 messageSender.sendMessage(chatId, "📭 У вас еще нет заказов.");
@@ -68,7 +69,8 @@ public class OrderHistoryHandler {
             }
 
             String message = createOrderHistoryMessage();
-            telegramMessageSender.sendEditMessage(chatId, messageId, message, keyboardService.createOrderHistoryKeyboard(orders), true);
+            telegramMessageSender.sendEditMessage(chatId, messageId, message,
+                    keyboardService.createOrderHistoryKeyboardDto(orders), true);
 
         } catch (Exception e) {
             log.error("Ошибка при получении истории заказов: {}", e.getMessage(), e);
@@ -84,7 +86,7 @@ public class OrderHistoryHandler {
             String orderIdStr = data.replace("repeat_order_", "");
             Long orderId = Long.parseLong(orderIdStr);
 
-            Order order = orderService.getOrderByIdAndUser(orderId, chatId)
+            OrderResponseDto order = orderService.getOrderByIdAndUserDto(orderId, chatId)
                     .orElseThrow(() -> new IllegalArgumentException("Заказ не найден или не принадлежит вам"));
 
             cartService.repeatOrder(chatId, order);
@@ -102,7 +104,7 @@ public class OrderHistoryHandler {
                             Перейдите в корзину для оформления заказа.""",
                     order.getOrderNumber(),
                     order.getCreatedAt().format(DATE_FORMATTER),
-                    order.getItems().size()
+                    order.getItems() != null ? order.getItems().size() : 0
             );
 
             telegramMessageSender.sendEditMessage(chatId, messageId,message,
@@ -127,15 +129,15 @@ public class OrderHistoryHandler {
      */
     public void clearHistoryHandler(Long chatId, Integer messageId) {
         try {
-            List<Order> orders = orderService.getUserOrders(chatId);
+            List<OrderResponseDto> orders = orderService.getUserOrdersDto(chatId);
 
             if (orders.isEmpty()) {
                 messageSender.sendMessage(chatId, "📭 У вас нет заказов для скрытия.");
                 return;
             }
 
-            List<Order> completedOrders = orders.stream()
-                    .filter(order -> order.getStatus() == Order.OrderStatus.COMPLETED)
+            List<OrderResponseDto> completedOrders = orders.stream()
+                    .filter(order -> "COMPLETED".equalsIgnoreCase(order.getStatus()))
                     .toList();
 
             if (completedOrders.isEmpty()) {
@@ -143,14 +145,9 @@ public class OrderHistoryHandler {
                 return;
             }
 
-            for (Order order : completedOrders) {
-                order.setVisible(false);
-                orderRepository.save(order);
-            }
+            int hiddenCount = orderService.hideCompletedOrders(chatId);
 
-            int hiddenCount = completedOrders.size();
-
-            List<Order> updatedOrders = orderService.getUserOrders(chatId);
+            List<OrderResponseDto> updatedOrders = orderService.getUserOrdersDto(chatId);
 
             String message;
             InlineKeyboardMarkup keyboard;
@@ -168,7 +165,7 @@ public class OrderHistoryHandler {
 
             } else {
                 message = createOrderHistoryMessage();
-                keyboard = keyboardService.createOrderHistoryKeyboard(updatedOrders);
+                keyboard = keyboardService.createOrderHistoryKeyboardDto(updatedOrders);
             }
 
             telegramMessageSender.sendEditMessage(chatId, messageId, message,
@@ -193,7 +190,7 @@ public class OrderHistoryHandler {
             String orderIdStr = data.replace("order_details_", "");
             Long orderId = Long.parseLong(orderIdStr);
 
-            Order order = orderService.getOrderByIdAndUser(orderId, chatId)
+            OrderResponseDto order = orderService.getOrderByIdAndUserDto(orderId, chatId)
                     .orElseThrow(() -> new IllegalArgumentException("Заказ не найден или не принадлежит вам"));
 
             String detailsMessage = createOrderDetailsMessage(order);
@@ -213,16 +210,26 @@ public class OrderHistoryHandler {
     /**
      * Создание детального сообщения о заказе (с группировкой одинаковых позиций)
      */
-    private String createOrderDetailsMessage(Order order) {
+    private String createOrderDetailsMessage(OrderResponseDto order) {
         StringBuilder message = new StringBuilder();
 
         message.append("📋 *Детали заказа*\n\n");
         message.append("📦 *Номер заказа:* `").append(order.getOrderNumber()).append("`\n");
-        message.append("📅 *Дата создания:* ").append(order.getCreatedAt().format(DATE_FORMATTER)).append("\n");
+        message.append("📅 *Дата создания:* ")
+                .append(order.getCreatedAt().format(DATE_FORMATTER))
+                .append("\n");
         message.append("💰 *Сумма заказа:* ").append(order.getTotalAmount()).append("₽\n");
-        message.append("📊 *Статус:* ").append(keyboardService.getStatusEmoji(order.getStatus())).append(" ")
-                .append(order.getStatus().getDescription()).append("\n");
-        message.append("🚚 *Способ получения:* ").append(order.getDeliveryType().getDescription()).append("\n");
+
+        String status = order.getStatus();
+        message.append("📊 *Статус:* ")
+                .append(keyboardService.getStatusEmoji(status))
+                .append(" ")
+                .append(getStatusDescription(status))
+                .append("\n");
+
+        message.append("🚚 *Способ получения:* ")
+                .append(getDeliveryDescription(order.getDeliveryType()))
+                .append("\n");
 
         if (order.getPhoneNumber() != null) {
             message.append("📱 *Телефон:* ").append(order.getPhoneNumber()).append("\n");
@@ -239,15 +246,17 @@ public class OrderHistoryHandler {
         message.append("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
         message.append("🛒 *Состав заказа:*\n\n");
 
-        Map<String, List<OrderItem>> groupedItems = groupOrderItems(order.getItems());
+        Map<String, List<OrderItemResponseDto>> groupedItems = groupOrderItems(order.getItems());
 
         int itemNumber = 1;
-        for (Map.Entry<String, List<OrderItem>> entry : groupedItems.entrySet()) {
-            List<OrderItem> group = entry.getValue();
-            OrderItem firstItem = group.getFirst();
+        for (Map.Entry<String, List<OrderItemResponseDto>> entry : groupedItems.entrySet()) {
+            List<OrderItemResponseDto> group = entry.getValue();
+            OrderItemResponseDto firstItem = group.getFirst();
 
-            int totalQuantity = group.stream().mapToInt(OrderItem::getQuantity).sum();
-            long pricePerItem = firstItem.getPriceAtOrder();
+            int totalQuantity = group.stream()
+                    .mapToInt(item -> item.getQuantity() != null ? item.getQuantity() : 0)
+                    .sum();
+            long pricePerItem = firstItem.getPriceAtOrder() != null ? firstItem.getPriceAtOrder() : 0;
             long groupTotalPrice = pricePerItem * totalQuantity;
 
             long addonsPrice = 0;
@@ -263,11 +272,7 @@ public class OrderHistoryHandler {
             if (firstItem.getAddons() != null && !firstItem.getAddons().isEmpty()) {
                 message.append("   • Добавки: ");
                 String addonsStr = firstItem.getAddons().stream()
-                        .map(addon -> {
-                            String addonName = addon.getAddonProductName() != null ?
-                                    addon.getAddonProductName() : "Добавка";
-                            return addonName + (addon.getQuantity() > 1 ? " x" + addon.getQuantity() : "");
-                        })
+                        .map(this::formatAddon)
                         .collect(Collectors.joining(", "));
                 message.append(addonsStr).append("\n");
             }
@@ -290,13 +295,46 @@ public class OrderHistoryHandler {
         return message.toString();
     }
 
+    private String formatAddon(OrderItemAddonResponseDto addon) {
+        String addonName = addon.getAddonProductName() != null ? addon.getAddonProductName() : "Добавка";
+        return addonName + (addon.getQuantity() != null && addon.getQuantity() > 1 ? " x" + addon.getQuantity() : "");
+    }
+
+    private String getStatusDescription(String status) {
+        if (status == null) {
+            return "Неизвестно";
+        }
+
+        try {
+            return Order.OrderStatus.valueOf(status.toUpperCase()).getDescription();
+        } catch (IllegalArgumentException e) {
+            return status;
+        }
+    }
+
+    private String getDeliveryDescription(String deliveryType) {
+        if (deliveryType == null) {
+            return "Не указано";
+        }
+
+        try {
+            return Order.DeliveryType.valueOf(deliveryType.toUpperCase()).getDescription();
+        } catch (IllegalArgumentException e) {
+            return deliveryType;
+        }
+    }
+
     /**
      * Группировка OrderItem по продукту и добавкам
      */
-    private Map<String, List<OrderItem>> groupOrderItems(List<OrderItem> orderItems) {
-        Map<String, List<OrderItem>> groupedMap = new LinkedHashMap<>();
+    private Map<String, List<OrderItemResponseDto>> groupOrderItems(List<OrderItemResponseDto> orderItems) {
+        Map<String, List<OrderItemResponseDto>> groupedMap = new LinkedHashMap<>();
 
-        for (OrderItem item : orderItems) {
+        if (orderItems == null) {
+            return groupedMap;
+        }
+
+        for (OrderItemResponseDto item : orderItems) {
             String key = generateGroupKey(item);
 
             groupedMap.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
@@ -309,18 +347,15 @@ public class OrderHistoryHandler {
      * Генерация ключа для группировки OrderItem
      * Формат: productId_addonId1,addonId2,addonId3
      */
-    private String generateGroupKey(OrderItem orderItem) {
+    private String generateGroupKey(OrderItemResponseDto orderItem) {
         StringBuilder keyBuilder = new StringBuilder();
-        keyBuilder.append(orderItem.getProduct().getId());
+        keyBuilder.append(orderItem.getProductId());
 
         if (orderItem.getAddons() != null && !orderItem.getAddons().isEmpty()) {
             String addonsKey = orderItem.getAddons().stream()
-                    .map(addon -> {
-                        if (addon.getAddonProduct() != null) {
-                            return String.valueOf(addon.getAddonProduct().getId());
-                        }
-                        return "";
-                    })
+                    .map(addon -> addon.getAddonProductId() != null
+                            ? String.valueOf(addon.getAddonProductId())
+                            : "")
                     .filter(s -> !s.isEmpty())
                     .sorted()
                     .collect(Collectors.joining(","));
