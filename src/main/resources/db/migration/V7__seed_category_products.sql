@@ -1,9 +1,3 @@
--- Seed additional category types.
--- Existing records are preserved.
-
--- V__insert_latte_raf_products.sql
-
--- 1. Категории
 INSERT INTO category (name, description, parent_id, is_active, sort_order, category_type_id)
 VALUES
     ('Латте', 'Кофейные напитки: латте', NULL, true, 10, NULL),
@@ -24,7 +18,6 @@ WHERE c.name = 'Раф'
     SELECT 1 FROM category WHERE name = 'Раф авторский'
 );
 
--- 2. Продукты: Латте
 INSERT INTO product (name, amount, size, count, available, photo, description, category_id)
 SELECT
     'Латте',
@@ -43,7 +36,6 @@ WHERE c.name = 'Латте'
       AND p.size = '300мл'
 );
 
--- 3. Продукты: Раф
 INSERT INTO product (name, amount, size, count, available, photo, description, category_id)
 SELECT
     t.name,
@@ -132,7 +124,6 @@ WHERE NOT EXISTS (
       AND p.size = t.size
 );
 
--- 4. Продукты: Раф авторский
 INSERT INTO product (name, amount, size, count, available, photo, description, category_id)
 SELECT
     t.name,

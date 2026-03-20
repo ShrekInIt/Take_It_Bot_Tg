@@ -1,6 +1,3 @@
--- Seed super admin for existing and fresh environments.
--- Login: artem
--- Password: Artem1945
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 INSERT INTO admin_user (username, password_hash, role, is_active, created_at)

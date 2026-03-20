@@ -1,5 +1,3 @@
--- Seed additional category types.
--- Existing records are preserved.
 INSERT INTO category_type (code, name, description, sort_order)
 VALUES
     ('dessert', 'Десерты', 'Тип категории для десертов', 20),

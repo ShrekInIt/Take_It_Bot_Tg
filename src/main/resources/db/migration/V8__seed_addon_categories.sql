@@ -1,4 +1,4 @@
--- 1) Категории для добавок (важны именно id 20 и 21)
+
 INSERT INTO category (id, name, description, parent_id, is_active, sort_order, category_type_id)
 VALUES
     (20, 'Сиропы', 'Добавки: сиропы', NULL, TRUE, 10, (SELECT id FROM category_type WHERE code = 'addons')),
@@ -11,10 +11,8 @@ VALUES
                             sort_order = EXCLUDED.sort_order,
                             category_type_id = EXCLUDED.category_type_id;
 
--- 2) Выравниваем sequence после явной вставки id
 SELECT setval(pg_get_serial_sequence('category', 'id'), (SELECT MAX(id) FROM category));
 
--- 3) Примеры товаров-добавок (иначе кнопки покажут "временно недоступны")
 INSERT INTO product (name, amount, size, count, available, photo, description, category_id)
 SELECT 'Сироп ванильный', 35, NULL, 100, TRUE, NULL, 'Добавка к кофе', 20
     WHERE NOT EXISTS (
