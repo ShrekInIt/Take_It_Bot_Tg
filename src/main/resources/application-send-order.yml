@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: sendOrderBot
+  config:
+    import: optional:file:.env[.properties]
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+server:
+  port: ${SERVER_PORT:8081}
+
+telegram:
+  bot:
+    token: ${TELEGRAM_BOT_TOKEN:}
+    channel:
+      id: ${TELEGRAM_BOT_CHANNEL_ID:0}
+
+main:
+  application:
+    base-url: ${MAIN_APPLICATION_BASE_URL:http://localhost:8080}
+
+confectionery:
+  bot:
+    # URL and API key for integration with external confectionery app.
+    url: ${CONFECTIONERY_BOT_URL:http://localhost:8081}
+    api-key: ${CONFECTIONERY_BOT_API_KEY:}
+

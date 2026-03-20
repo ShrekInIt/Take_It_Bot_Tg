@@ -2,8 +2,11 @@ package com.example.bot.Telegram_bot_take_it.admin.controller.utilsController;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.nio.file.Paths;
 
 /**
  * Конфигурационный класс Spring MVC для раздачи статических ресурсов.
@@ -37,16 +40,20 @@ public class StaticResourceController implements WebMvcConfigurer {
      * @param registry реестр, в который добавляются правила раздачи статических ресурсов
      */
     @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
+        String uploadsLocation = Paths.get(uploadDir)
+                .toAbsolutePath()
+                .normalize()
+                .toUri()
+                .toString();
+        if (!uploadsLocation.endsWith("/")) {
+            uploadsLocation = uploadsLocation + "/";
+        }
+
         registry.addResourceHandler("/js/**")
                 .addResourceLocations("classpath:/static/js/", "classpath:/js/");
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadDir + "/")
+                .addResourceLocations(uploadsLocation)
                 .setCachePeriod(3600);
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:C:/Users/artyo/OneDrive/Рабочий стол/Take_it/бот/uploads/");
-        registry
-                .addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadDir + "/");
     }
 }

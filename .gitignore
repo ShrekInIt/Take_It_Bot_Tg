@@ -30,6 +30,10 @@ application-*.yml
 application-*.yaml
 application-*.properties
 
+# Keep shared env-based defaults for this project
+!src/main/resources/application.yml
+!src/main/resources/application-docker.yml
+
 # Local configuration files
 config/application.yml
 config/application.yaml

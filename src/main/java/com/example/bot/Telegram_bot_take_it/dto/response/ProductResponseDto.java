@@ -23,7 +23,6 @@ public class ProductResponseDto {
     private String photo;
     private String description;
 
-    // Вложенная информация о категории
     private CategoryInfo category;
 
     @Data

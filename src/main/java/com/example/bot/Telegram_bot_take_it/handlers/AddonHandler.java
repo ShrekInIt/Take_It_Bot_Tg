@@ -103,7 +103,7 @@ public class AddonHandler {
 
         } catch (Exception e) {
             log.error("Ошибка выбора добавок: {}", e.getMessage(), e);
-            messageSender.sendMessage(chatId, "❌ Ошибка при выборе добавок");
+            messageSender.sendMessage(chatId, "❌ Сначала добавьте в корзину кофе");
         }
     }
 
@@ -151,7 +151,7 @@ public class AddonHandler {
 
         } catch (Exception e) {
             log.error("Ошибка выбора добавок: {}", e.getMessage(), e);
-            messageSender.sendMessage(chatId, "❌ Ошибка при выборе добавок");
+            messageSender.sendMessage(chatId, "❌ Сначала добавьте в корзину кофе");
         }
     }
 
