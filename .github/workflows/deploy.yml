@@ -16,7 +16,7 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.SERVER_PORT }}" "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
 
@@ -25,12 +25,12 @@ jobs:
           ssh -p "${{ secrets.SERVER_PORT }}" "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
             set -e
 
-            cd /opt/takeit/Take_It_Bot_Tg
+            cd /opt/takeit/repos/Take_It_Bot_Tg
             git pull origin master
 
-            cd /opt/takeit/Send_Order_Take_It_Bot
+            cd /opt/takeit/repos/Send_Order_Take_It_Bot
             git pull origin main
 
             cd /opt/takeit/compose
-            docker compose up -d --build
+            docker compose --env-file /opt/takeit/configs/compose.env up -d --build
           EOF
