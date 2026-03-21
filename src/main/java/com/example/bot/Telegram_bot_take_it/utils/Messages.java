@@ -39,7 +39,6 @@ public class Messages {
             
             сделать заказ\s
             📞+7 993 099 0947
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             """;
 
     public static final String MENU = "🍽️ Меню";
