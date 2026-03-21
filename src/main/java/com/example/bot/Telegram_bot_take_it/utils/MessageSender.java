@@ -1,7 +1,6 @@
 package com.example.bot.Telegram_bot_take_it.utils;
 
 import com.example.bot.Telegram_bot_take_it.dto.response.ProductResponseDto;
-import com.example.bot.Telegram_bot_take_it.entity.Product;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
 import com.pengrad.telegrambot.request.AnswerCallbackQuery;
@@ -129,22 +128,6 @@ public class MessageSender {
         } catch (Exception e) {
             log.error("Error answering callback: {}", e.getMessage());
         }
-    }
-
-    /**
-     * Возвращение сложной строки для описания продукта
-     */
-    @NotNull
-    public static String getString(long product, Product product1, int quantity) {
-        return String.format(
-                "<b>%s</b>\n%s\n\n<b>Цена:</b> %d₽\n<b>Размер:</b> %s\n<b>Количество:</b> %d шт.\n<b>Итого:</b> <b>%d₽</b>",
-                product1.getName(),
-                product1.getDescription() != null ? "\n" + product1.getDescription() + "\n" : "",
-                product1.getAmount(),
-                product1.getSize() != null ? product1.getSize() : "Стандартный",
-                quantity,
-                product
-        );
     }
 
     @NotNull

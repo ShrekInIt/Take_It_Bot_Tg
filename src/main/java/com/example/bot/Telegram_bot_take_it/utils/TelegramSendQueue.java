@@ -54,7 +54,9 @@ public class TelegramSendQueue {
         int cur = cnt.incrementAndGet();
         if (cur > MAX_PENDING_PER_CHAT) {
             cnt.decrementAndGet();
-            if (cnt.get() == 0) inQueue.remove(chatId, cnt);
+            if (cnt.get() == 0) {
+                inQueue.remove(chatId, cnt);
+            }
             result.completeExceptionally(new RejectedExecutionException(
                     "Too many pending telegram requests for chatId=" + chatId
             ));
@@ -68,23 +70,45 @@ public class TelegramSendQueue {
 
             CompletableFuture<Void> next = prev.handle((v, ex) -> null)
                     .thenRunAsync(() -> {
+                        String reqType = req.getClass().getSimpleName();
+                        int queuedBefore = Math.max(cnt.get() - 1, 0);
+                        long start = System.currentTimeMillis();
+
                         try {
+                            log.info("TG SEND START chatId={}, reqType={}, queuedBefore={}",
+                                    chatId, reqType, queuedBefore);
+
                             T resp = bot.execute(req);
+
+                            long elapsed = System.currentTimeMillis() - start;
+
                             if (!resp.isOk()) {
-                                log.warn("Telegram error {}: {}", resp.errorCode(), resp.description());
+                                log.warn("TG SEND END chatId={}, reqType={}, ms={}, ok=false, code={}, desc={}",
+                                        chatId, reqType, elapsed, resp.errorCode(), resp.description());
+                            } else {
+                                log.info("TG SEND END chatId={}, reqType={}, ms={}, ok=true",
+                                        chatId, reqType, elapsed);
                             }
+
                             result.complete(resp);
                         } catch (Throwable e) {
+                            long elapsed = System.currentTimeMillis() - start;
+                            log.error("TG SEND FAIL chatId={}, reqType={}, ms={}, error={}",
+                                    chatId, reqType, elapsed, e, e);
                             result.completeExceptionally(e);
                         } finally {
                             int left = cnt.decrementAndGet();
-                            if (left == 0) inQueue.remove(id, cnt);
+                            if (left == 0) {
+                                inQueue.remove(id, cnt);
+                            }
                         }
                     }, ioPool);
 
             next.whenComplete((v, ex) -> {
                 CompletableFuture<Void> curTail = tails.get(id);
-                if (curTail == next) tails.remove(id, next);
+                if (curTail == next) {
+                    tails.remove(id, next);
+                }
             });
 
             return next;

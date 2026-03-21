@@ -16,19 +16,6 @@ public class SyrupPriceService {
                         product.getName().toLowerCase().contains("сироп"));
     }
 
-    public boolean isSyrup(ProductResponseDto product) {
-        if (product == null) {
-            return false;
-        }
-
-        String productName = product.getName() != null ? product.getName().toLowerCase() : "";
-        String categoryName = product.getCategory() != null && product.getCategory().getName() != null
-                ? product.getCategory().getName().toLowerCase()
-                : "";
-
-        return categoryName.contains("сироп") || productName.contains("сироп");
-    }
-
     /**
      * Рассчитывает цену сиропа на основе объема основного напитка
      */
@@ -51,48 +38,6 @@ public class SyrupPriceService {
                 return basePrice;
             }
         }
-        return basePrice;
-    }
-
-    public Long calculateSyrupPriceForSize(ProductResponseDto syrupProduct, Product mainProduct) {
-        if (syrupProduct == null) {
-            return 0L;
-        }
-
-        long basePrice = syrupProduct.getAmount() != null ? syrupProduct.getAmount() : 0L;
-        if (mainProduct == null || mainProduct.getSize() == null) {
-            return basePrice;
-        }
-
-        try {
-            String sizeStr = mainProduct.getSize().replaceAll("[^0-9]", "");
-            if (!sizeStr.isEmpty()) {
-                int volume = Integer.parseInt(sizeStr);
-                return volume > 200 ? 50L : 35L;
-            }
-        } catch (NumberFormatException e) {
-            return basePrice;
-        }
-
-        return basePrice;
-    }
-
-    public Long calculateSyrupPriceForSize(Product syrupProduct, ProductResponseDto mainProduct) {
-        long basePrice = syrupProduct.getAmount() != null ? syrupProduct.getAmount() : 0L;
-        if (mainProduct == null || mainProduct.getSize() == null) {
-            return basePrice;
-        }
-
-        try {
-            String sizeStr = mainProduct.getSize().replaceAll("[^0-9]", "");
-            if (!sizeStr.isEmpty()) {
-                int volume = Integer.parseInt(sizeStr);
-                return volume > 200 ? 50L : 35L;
-            }
-        } catch (NumberFormatException e) {
-            return basePrice;
-        }
-
         return basePrice;
     }
 

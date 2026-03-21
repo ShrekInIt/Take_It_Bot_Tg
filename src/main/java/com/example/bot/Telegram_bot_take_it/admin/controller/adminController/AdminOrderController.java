@@ -121,7 +121,7 @@ public class AdminOrderController {
      */
     @PutMapping("/orders/{id}")
     public ResponseEntity<OrderDto> updateOrder(
-            @PathVariable("id") Long id,
+            @PathVariable Long id,
             @RequestBody Map<String, String> updates) {
 
         String status = updates.get("status");

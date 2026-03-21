@@ -82,12 +82,6 @@ public class ProductService {
         return getAvailableProductsWithStock(milkCategoryId);
     }
 
-    public List<ProductResponseDto> getAvailableMilksDto() {
-        return getAvailableMilks().stream()
-                .map(productMapper::toResponseDto)
-                .toList();
-    }
-
     /**
      * Проверить, является ли товар кофе
      */
