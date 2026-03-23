@@ -19,7 +19,6 @@ jobs:
           set -euo pipefail
 
           : "${{ secrets.SERVER_SSH_KEY }}"
-          : "${{ secrets.SERVER_KNOWN_HOSTS }}"
           : "${{ secrets.SERVER_HOST }}"
           : "${{ secrets.SERVER_PORT }}"
           : "${{ secrets.SERVER_USER }}"
@@ -42,11 +41,16 @@ jobs:
             -o BatchMode=yes \
             -p "${{ secrets.SERVER_PORT }}" \
             "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
-            "echo OK && hostname && whoami" `
+            "echo OK && hostname && whoami"
 
       - name: Deploy on server
+        shell: bash
         run: |
-          ssh -p "${{ secrets.SERVER_PORT }}" "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=yes \
+            -o BatchMode=yes \
+            -p "${{ secrets.SERVER_PORT }}" \
+            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
             set -e
 
             cd /opt/takeit/repos/Take_It_Bot_Tg
