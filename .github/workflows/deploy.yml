@@ -19,6 +19,7 @@ jobs:
           set -euo pipefail
 
           : "${{ secrets.SERVER_SSH_KEY }}"
+          : "${{ secrets.SERVER_KNOWN_HOSTS }}"
           : "${{ secrets.SERVER_HOST }}"
           : "${{ secrets.SERVER_PORT }}"
           : "${{ secrets.SERVER_USER }}"
@@ -29,7 +30,7 @@ jobs:
           printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-          ssh-keyscan -T 10 -p "${{ secrets.SERVER_PORT }}" "${{ secrets.SERVER_HOST }}" > ~/.ssh/known_hosts
+          printf '%s\n' "${{ secrets.SERVER_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: SSH smoke test
