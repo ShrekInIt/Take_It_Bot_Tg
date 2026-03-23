@@ -24,6 +24,6 @@ main:
 confectionery:
   bot:
     # URL and API key for integration with external confectionery app.
-    url: ${CONFECTIONERY_BOT_URL:http://localhost:8081}
+    url: ${CONFECTIONERY_BOT_URL:http://send-order-bot:8081}
     api-key: ${CONFECTIONERY_BOT_API_KEY:}
 
