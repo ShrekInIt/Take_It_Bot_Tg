@@ -6,7 +6,7 @@ server:
     session:
       cookie:
         http-only: true
-        secure: true
+        secure: false
         same-site: lax
       timeout: 30m
 
