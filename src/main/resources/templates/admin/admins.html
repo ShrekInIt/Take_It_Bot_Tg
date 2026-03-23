@@ -1,12 +1,12 @@
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 admin-page-header">
         <h1 class="h3">Администраторы</h1>
         <button class="btn btn-primary" onclick="showCreateAdminUserModal()">
             <i class="bi bi-plus"></i> Добавить администратора
         </button>
     </div>
 
-    <div class="mb-3 d-flex gap-2 align-items-end">
+    <div class="mb-3 d-flex gap-2 align-items-end admin-filter-bar">
         <div class="flex-grow-1">
             <label for="adminSearchInput" class="visually-hidden">
                 Поиск по логину администратора
@@ -30,6 +30,7 @@
 
     <div class="card">
         <div class="card-body">
+            <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
                 <tr>
@@ -45,6 +46,7 @@
                 <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </div>
