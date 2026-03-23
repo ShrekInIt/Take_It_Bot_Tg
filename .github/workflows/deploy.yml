@@ -20,9 +20,6 @@ jobs:
 
           : "${{ secrets.SERVER_SSH_KEY }}"
           : "${{ secrets.SERVER_KNOWN_HOSTS }}"
-          : "${{ secrets.SERVER_HOST }}"
-          : "${{ secrets.SERVER_PORT }}"
-          : "${{ secrets.SERVER_USER }}"
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -33,14 +30,22 @@ jobs:
           printf '%s\n' "${{ secrets.SERVER_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
+      - name: Debug TCP access
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Testing 77.91.84.170:22"
+          timeout 15 bash -c 'cat < /dev/null > /dev/tcp/77.91.84.170/22' && echo OPEN || echo CLOSED
+
       - name: SSH smoke test
         shell: bash
         run: |
           set -euo pipefail
-          ssh -o StrictHostKeyChecking=yes \
+          ssh -vvv \
+            -o StrictHostKeyChecking=yes \
             -o BatchMode=yes \
-            -p "${{ secrets.SERVER_PORT }}" \
-            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
+            -p 22 \
+            root@77.91.84.170 \
             "echo OK && hostname && whoami"
 
       - name: Deploy on server
@@ -49,8 +54,8 @@ jobs:
           set -euo pipefail
           ssh -o StrictHostKeyChecking=yes \
             -o BatchMode=yes \
-            -p "${{ secrets.SERVER_PORT }}" \
-            "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
+            -p 22 \
+            root@77.91.84.170 << 'EOF'
             set -e
 
             cd /opt/takeit/repos/Take_It_Bot_Tg
