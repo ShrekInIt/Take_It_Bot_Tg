@@ -1,6 +1,5 @@
 server:
   port: ${SERVER_PORT:8080}
-  address: 127.0.0.1
   forward-headers-strategy: framework
 
   servlet:
@@ -52,7 +51,7 @@ bot:
 
 confectionery:
   bot:
-    url: ${CONFECTIONERY_BOT_URL:http://localhost:8081}
+    url: ${CONFECTIONERY_BOT_URL:http://send-order-bot:8081}
     api-key: ${CONFECTIONERY_BOT_API_KEY}
 
 management:
