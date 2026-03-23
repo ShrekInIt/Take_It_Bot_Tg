@@ -243,12 +243,7 @@ function showLoginMessage() {
     `;
 }
 
-// Выход
-function logout() {
-    if (confirm('Вы уверены, что хотите выйти?')) {
-        window.location.href = '/admin/logout';
-    }
-}
+
 
 // Загрузка контента
 async function loadContent(url) {

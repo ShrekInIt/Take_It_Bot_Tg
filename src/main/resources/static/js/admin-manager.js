@@ -68,6 +68,15 @@ class NavigationManager {
     }
 }
 
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+        return parts.pop().split(';').shift();
+    }
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const hash = window.location.hash;
 
@@ -78,10 +87,30 @@ document.addEventListener('DOMContentLoaded', () => {
     else showDashboard();
 });
 
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
     if (e.target.closest('#logoutBtn')) {
-        if (confirm('Вы уверены, что хотите выйти?')) {
-            window.location.href = '/admin/logout';
+        if (!confirm('Вы уверены, что хотите выйти?')) {
+            return;
+        }
+
+        try {
+            const csrfToken = getCookie('XSRF-TOKEN');
+
+            const response = await fetch('/admin/logout', {
+                method: 'POST',
+                headers: {
+                    'X-XSRF-TOKEN': csrfToken
+                }
+            });
+
+            if (response.redirected) {
+                window.location.href = response.url;
+            } else {
+                window.location.href = '/admin/login?logout=true';
+            }
+        } catch (error) {
+            console.error('Ошибка при выходе:', error);
+            alert('Не удалось выйти из системы');
         }
     }
 });

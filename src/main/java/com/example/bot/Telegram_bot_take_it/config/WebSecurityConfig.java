@@ -2,13 +2,17 @@ package com.example.bot.Telegram_bot_take_it.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
+import org.springframework.security.config.annotation.web.configurers.SessionManagementConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+
 
 /**
  * Конфигурация Spring Security для админ-панели и API.
@@ -60,7 +64,11 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf
+                                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        // Если есть webhook или межсервисный endpoint без браузера, его можно исключить точечно:
+                        // .ignoringRequestMatchers("/internal/**", "/telegram/webhook/**")
+                )
 
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(
@@ -74,7 +82,7 @@ public class WebSecurityConfig {
                                 "/admin/static/**"
                         ).permitAll()
 
-                        .requestMatchers("/api/admin/auth/check", "/api/admin/current-user").permitAll()
+                        .requestMatchers("/api/admin/auth/check", "/api/admin/current-user").authenticated()
 
                         .requestMatchers("/api/admin/products/**", "/api/admin/categories/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
@@ -92,13 +100,27 @@ public class WebSecurityConfig {
                         .loginPage("/admin/login")
                         .loginProcessingUrl("/admin/login")
                         .defaultSuccessUrl("/admin", true)
+                        .failureUrl("/admin/login?error=true")
                         .permitAll()
                 )
 
                 .logout(logout -> logout
                         .logoutUrl("/admin/logout")
                         .logoutSuccessUrl("/admin/login?logout=true")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
                         .permitAll()
+                )
+
+                .sessionManagement(session -> session
+                        .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::migrateSession)
+                        .maximumSessions(1)
+                        .maxSessionsPreventsLogin(false)
+                )
+
+                .headers(headers -> headers
+                        .httpStrictTransportSecurity(Customizer.withDefaults())
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                 )
 
                 .exceptionHandling(ex -> ex

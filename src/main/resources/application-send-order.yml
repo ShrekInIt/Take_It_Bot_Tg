@@ -19,7 +19,7 @@ telegram:
 
 main:
   application:
-    base-url: ${MAIN_APPLICATION_BASE_URL:http://localhost:8080}
+    base-url: ${MAIN_APPLICATION_BASE_URL:http://127.0.0.1:8080}
 
 confectionery:
   bot:
