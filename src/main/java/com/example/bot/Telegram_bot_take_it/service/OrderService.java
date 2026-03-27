@@ -12,6 +12,7 @@ import com.example.bot.Telegram_bot_take_it.utils.OrderCreatedEvent;
 import com.example.bot.Telegram_bot_take_it.utils.interfaces.OrderUserNotifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.aspectj.weaver.ast.Or;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -208,9 +209,6 @@ public class OrderService {
         }
     }
 
-    /**
-     * Создание заказа из корзины в DTO-формате.
-     */
     @Transactional
     public OrderResponseDto createOrderFromCartDto(Long chatId, OrderData orderData) {
         return orderResponseMapper.toDto(createOrderFromCart(chatId, orderData));
@@ -297,7 +295,13 @@ public class OrderService {
      */
     private boolean shouldNotifyUser(Order.OrderStatus newStatus) {
         return (newStatus == Order.OrderStatus.CONFIRMED ||
-                newStatus == Order.OrderStatus.COMPLETED);
+                newStatus == Order.OrderStatus.COMPLETED ||
+                newStatus == Order.OrderStatus.READY ||
+                newStatus == Order.OrderStatus.CANCELLED ||
+                newStatus == Order.OrderStatus.DELIVERING ||
+                newStatus == Order.OrderStatus.PENDING ||
+                newStatus == Order.OrderStatus.PREPARING
+        );
     }
 
     /**

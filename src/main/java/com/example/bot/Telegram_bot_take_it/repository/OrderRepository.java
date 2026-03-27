@@ -72,9 +72,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 """)
     Optional<OrderDto> findByIdWithDetails(@Param("id") Long id);
 
-    /**
-     * Загружаем заказ вместе с items, product, addons, user — чтобы не столкнуться с LazyInitializationException.
-     */
     @NotNull
     @EntityGraph(attributePaths = {
             "items",
