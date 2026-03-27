@@ -12,7 +12,6 @@ import com.example.bot.Telegram_bot_take_it.utils.OrderCreatedEvent;
 import com.example.bot.Telegram_bot_take_it.utils.interfaces.OrderUserNotifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.aspectj.weaver.ast.Or;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
