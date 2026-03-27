@@ -326,7 +326,7 @@ class OrderManager {
         const statusOptions = [
             { value: 'PENDING', label: 'Ожидает' },
             { value: 'CONFIRMED', label: 'Подтвержден' },
-            { value: 'PROCESSING', label: 'В обработке' },
+            { value: 'PROCESSING', label: 'Готовится' },
             { value: 'COMPLETED', label: 'Завершен' },
             { value: 'CANCELLED', label: 'Отменен' }
         ];

@@ -288,9 +288,9 @@ public class AdminOrderService {
                 Long chatId = orderService.getChatIdByOrderId(orderId);
                 telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ подтверждён!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.");
             }
-            if(Objects.equals(statusEnum.getDescription(), "В обработке") && !order.getStatus().equals(statusEnum)) {
+            if(Objects.equals(statusEnum.getDescription(), "Готовится") && !order.getStatus().equals(statusEnum)) {
                 Long chatId = orderService.getChatIdByOrderId(orderId);
-                telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ в обработке!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.");
+                telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ готовится!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.");
             }
             if(Objects.equals(statusEnum.getDescription(), "Отменен") && !order.getStatus().equals(statusEnum)) {
                 Long chatId = orderService.getChatIdByOrderId(orderId);
