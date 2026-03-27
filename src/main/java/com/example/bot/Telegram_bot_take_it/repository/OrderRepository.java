@@ -94,4 +94,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Integer countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
+    @EntityGraph(attributePaths = {
+            "items",
+            "items.product"
+    })
+    List<Order> findTop10ByUserAndVisibleTrueOrderByCreatedAtDesc(User user);
 }

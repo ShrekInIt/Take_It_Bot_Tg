@@ -44,7 +44,7 @@ public class OrderService {
         try {
             User user = userService.getUserByChatId(chatId)
                     .orElseThrow(() -> new IllegalArgumentException("Пользователь не найден"));
-            List<Order> orders = orderRepository.findByUserWithItems(user);
+            List<Order> orders = orderRepository.findTop10ByUserAndVisibleTrueOrderByCreatedAtDesc(user);
 
             for (Order order : orders) {
                 loadAddonsForOrder(order);
