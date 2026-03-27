@@ -288,6 +288,18 @@ public class AdminOrderService {
                 Long chatId = orderService.getChatIdByOrderId(orderId);
                 telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ подтверждён!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.");
             }
+            if(Objects.equals(statusEnum.getDescription(), "В обработке") && !order.getStatus().equals(statusEnum)) {
+                Long chatId = orderService.getChatIdByOrderId(orderId);
+                telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ в обработке!*\n\nНаши кондитеры уже начали готовить ваш заказ. Обычно приготовление занимает 20-30 минут.");
+            }
+            if(Objects.equals(statusEnum.getDescription(), "Отменен") && !order.getStatus().equals(statusEnum)) {
+                Long chatId = orderService.getChatIdByOrderId(orderId);
+                telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ отменен!*\n\nК сожалению, мы не можем приготовить ваш заказ.");
+            }
+            if(Objects.equals(statusEnum.getDescription(), "Ожидает") && !order.getStatus().equals(statusEnum)) {
+                Long chatId = orderService.getChatIdByOrderId(orderId);
+                telegramMessageSender.sendMessageHtml(chatId, "*Ваш заказ ожидает вас!*\n\nВаш заказ готов.");
+            }
             if(Objects.equals(statusEnum.getDescription(), "Завершен") && !order.getStatus().equals(statusEnum)){
                 Long chatId = orderService.getChatIdByOrderId(orderId);
                 telegramMessageSender.sendMessageHtml(chatId, "*Заказ завершён!*\n\nСпасибо за заказ! Надеемся, вам понравилось! 😊");
