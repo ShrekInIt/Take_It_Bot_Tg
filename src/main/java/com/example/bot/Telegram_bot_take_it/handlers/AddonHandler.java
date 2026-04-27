@@ -86,6 +86,11 @@ public class AddonHandler {
 
             productService.getProductByIdDto(productId).ifPresent(
                     product -> {
+                        if (!keyboardService.needsAddons(product)) {
+                            messageSender.sendMessage(chatId, "❌ Для этого товара добавки отключены");
+                            return;
+                        }
+
                         String messageText = String.format(
                                 """
                                 🍯 *Выбор добавок для:* %s
@@ -134,6 +139,11 @@ public class AddonHandler {
 
             productService.getProductByIdDto(productId).ifPresent(
                     product -> {
+                        if (!keyboardService.needsAddons(product)) {
+                            messageSender.sendMessage(chatId, "❌ Для этого товара добавки отключены");
+                            return;
+                        }
+
                         String messageText = String.format(
                                 """
                                 🍯 *Выбор добавок для:* %s

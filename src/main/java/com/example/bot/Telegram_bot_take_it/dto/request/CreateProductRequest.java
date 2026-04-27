@@ -34,6 +34,8 @@ public class CreateProductRequest {
 
     private Boolean available;
 
+    private Boolean canHaveAddons;
+
     @Size(max = 1000, message = "Описание не может быть больше 1000 символов")
     private String description;
 

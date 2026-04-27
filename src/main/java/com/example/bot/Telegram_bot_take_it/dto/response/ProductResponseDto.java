@@ -20,6 +20,7 @@ public class ProductResponseDto {
     private String size;
     private Integer count;
     private Boolean available;
+    private Boolean canHaveAddons;
     private String photo;
     private String description;
 

@@ -9,6 +9,7 @@
  *  category?:{name?:string},
  *  categoryId?:number|null,
  *  available?:boolean,
+ *  canHaveAddons?:boolean,
  *  photo?:string,
  *  description?:string,
  *  size?:string,
@@ -59,20 +60,20 @@ class ProductManager {
     static async loadProducts() {
         const tbody = document.getElementById('productsTableBody');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Загрузка...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">Загрузка...</td></tr>';
 
         try {
             const res = await axios.get(this.API_BASE());
             const products = res.data;
             tbody.innerHTML = '';
             if (!products || products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Нет продуктов</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">Нет продуктов</td></tr>';
                 return;
             }
             products.forEach(p => tbody.appendChild(this.createProductRowElement(p)));
         } catch (err) {
             console.error(err);
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Ошибка загрузки</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Ошибка загрузки</td></tr>';
             ToastManager.showToast('Ошибка загрузки продуктов', 'danger');
         }
     }
@@ -88,6 +89,7 @@ class ProductManager {
             <td>${amount} ₽</td>
             <td>${ProductManager.escapeHtml(category)}</td>
             <td><span class="badge ${product.available ? 'bg-success' : 'bg-danger'}">${product.available ? 'В наличии' : 'Нет в наличии'}</span></td>
+            <td><span class="badge ${product.canHaveAddons ? 'bg-info' : 'bg-secondary'}">${product.canHaveAddons ? 'Да' : 'Нет'}</span></td>
             <td>
                 <button class="btn btn-sm btn-outline-primary js-edit-product" data-id="${product.id}" title="Редактировать"><i class="bi bi-pencil"></i></button>
                 <button class="btn btn-sm btn-outline-danger ms-1 js-delete-product" data-id="${product.id}" title="Удалить"><i class="bi bi-trash"></i></button>
@@ -124,7 +126,7 @@ class ProductManager {
         }
 
         if (mode === 'create') {
-            product = { name:'', amount:0, size:'', count:0, categoryId:null, available:false, photo:'', description:'' };
+            product = { name:'', amount:0, size:'', count:0, categoryId:null, available:false, canHaveAddons:false, photo:'', description:'' };
         }
 
         let categories = [];
@@ -169,6 +171,9 @@ class ProductManager {
                         </div>
                         <div class="mb-3 form-check">
                             ${mode==='view'?`<p>В наличии: ${product.available?'Да':'Нет'}</p>`:`<input id="productAvailable" type="checkbox" class="form-check-input" ${product.available?'checked':''}><label class="form-check-label ms-2">В наличии</label>`}
+                        </div>
+                        <div class="mb-3 form-check">
+                            ${mode==='view'?`<p>Можно добавки: ${product.canHaveAddons?'Да':'Нет'}</p>`:`<input id="productCanHaveAddons" type="checkbox" class="form-check-input" ${product.canHaveAddons?'checked':''}><label class="form-check-label ms-2">Можно добавлять сиропы/молоко</label>`}
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Фото (URL)</label>
@@ -366,6 +371,7 @@ class ProductManager {
             count: Number(document.getElementById('productCount')?.value)||0,
             categoryId: (document.getElementById('productCategory')?.value ? Number(document.getElementById('productCategory')?.value) : null),
             available: !!document.getElementById('productAvailable')?.checked,
+            canHaveAddons: !!document.getElementById('productCanHaveAddons')?.checked,
             photo: document.getElementById('productPhoto')?.value||null,
             description: document.getElementById('productDescription')?.value||null
         };
@@ -390,6 +396,7 @@ class ProductManager {
             count: Number(document.getElementById('productCount')?.value)||0,
             categoryId: (document.getElementById('productCategory')?.value ? Number(document.getElementById('productCategory')?.value) : null),
             available: !!document.getElementById('productAvailable')?.checked,
+            canHaveAddons: !!document.getElementById('productCanHaveAddons')?.checked,
             photo: document.getElementById('productPhoto')?.value||null,
             description: document.getElementById('productDescription')?.value||null
         };
@@ -418,7 +425,7 @@ class ProductManager {
             const tbody = document.getElementById('productsTableBody');
             if(!tbody) return;
             tbody.innerHTML='';
-            if(!res.data || res.data.length===0){ tbody.innerHTML='<tr><td colspan="6" class="text-center">Нет продуктов</td></tr>'; return; }
+            if(!res.data || res.data.length===0){ tbody.innerHTML='<tr><td colspan="7" class="text-center">Нет продуктов</td></tr>'; return; }
             res.data.forEach(p=>tbody.appendChild(this.createProductRowElement(p)));
         }catch(err){ console.error(err); ToastManager.showToast('Ошибка поиска продуктов','danger'); }
     }

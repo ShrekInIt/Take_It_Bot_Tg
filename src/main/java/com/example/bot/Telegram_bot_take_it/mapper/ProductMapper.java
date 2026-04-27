@@ -44,6 +44,7 @@ public class ProductMapper {
                 .size(product.getSize())
                 .count(product.getCount())
                 .available(product.getAvailable())
+                .canHaveAddons(Boolean.TRUE.equals(product.getCanHaveAddons()))
                 .photo(product.getPhoto())
                 .description(product.getDescription())
                 .category(categoryInfo)
@@ -64,6 +65,7 @@ public class ProductMapper {
         product.setSize(request.getSize());
         product.setCount(request.getCount() != null ? request.getCount() : 0);
         product.setAvailable(request.getAvailable() != null ? request.getAvailable() : true);
+        product.setCanHaveAddons(request.getCanHaveAddons() != null ? request.getCanHaveAddons() : false);
         product.setDescription(request.getDescription());
         product.setPhoto(request.getPhoto());
 
@@ -106,6 +108,10 @@ public class ProductMapper {
 
         if (request.getAvailable() != null) {
             product.setAvailable(request.getAvailable());
+        }
+
+        if (request.getCanHaveAddons() != null) {
+            product.setCanHaveAddons(request.getCanHaveAddons());
         }
 
         if (request.getDescription() != null) {

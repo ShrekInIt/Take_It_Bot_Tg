@@ -230,6 +230,15 @@ public class ProductService {
             else if (avail != null) product.setAvailable(Boolean.parseBoolean(avail.toString()));
         }
 
+        if (request.containsKey("canHaveAddons")) {
+            Object canHaveAddons = request.get("canHaveAddons");
+            if (canHaveAddons instanceof Boolean) {
+                product.setCanHaveAddons((Boolean) canHaveAddons);
+            } else if (canHaveAddons != null) {
+                product.setCanHaveAddons(Boolean.parseBoolean(canHaveAddons.toString()));
+            }
+        }
+
         if (request.containsKey("description")) {
             product.setDescription((String) request.get("description"));
         }

@@ -204,6 +204,7 @@ public class OrderMapper {
                 .name(p.getName())
                 .amount(p.getAmount())
                 .available(p.getAvailable())
+                .canHaveAddons(Boolean.TRUE.equals(p.getCanHaveAddons()))
                 .description(p.getDescription())
                 .photo(p.getPhoto())
                 .size(p.getSize())

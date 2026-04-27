@@ -28,6 +28,9 @@ public class AdminProductDto {
     /** Доступен ли товар для заказа */
     private Boolean available;
 
+    /** Можно ли добавлять к товару сиропы/добавки */
+    private Boolean canHaveAddons;
+
     /** Описание товара */
     private String description;
 

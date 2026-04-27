@@ -59,34 +59,13 @@ public class KeyboardService {
     }
 
     /**
-     * Список названий кофе, для которых НЕ нужны добавки
-     */
-    private static final Set<String> COFFEE_WITHOUT_ADDONS = Set.of(
-            "Эспрессо", "Американо"
-    );
-
-    /**
      * Проверить, нужны ли добавки для продукта
      */
     public boolean needsAddons(ProductResponseDto product) {
-        if (product == null || product.getId() == null || product.getCategory() == null) {
+        if (product == null || product.getId() == null) {
             return false;
         }
-
-        Long categoryId = product.getCategory().getId();
-        boolean isCoffee = categoryService.isCoffeeCategoryById(categoryId);
-
-        if (!isCoffee) {
-            return false;
-        }
-
-        String productName = product.getName() != null ? product.getName().toLowerCase() : "";
-        if (COFFEE_WITHOUT_ADDONS.stream().anyMatch(ex -> productName.contains(ex.toLowerCase()))) {
-            return false;
-        }
-
-        Set<Long> excludedIds = Set.of(4L, 9L);
-        return !excludedIds.contains(product.getId());
+        return Boolean.TRUE.equals(product.getCanHaveAddons());
     }
 
     /**
